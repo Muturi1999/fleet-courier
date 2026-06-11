@@ -1,0 +1,214 @@
+export type UserRole = "admin" | "client";
+
+export type AuthUser = {
+  username: string;
+  role: UserRole;
+  displayName: string;
+};
+
+export type ScheduleEntry = {
+  id: string;
+  plate: string;
+  cls: string;
+  dest: string;
+  runType: "Morning" | "Afternoon";
+  rate: number;
+  days: number;
+  cost: number;
+  vat: number;
+  total: number;
+  month: string;
+  serviceDate?: string;
+  status: "saved" | "draft";
+};
+
+export type Vehicle = {
+  id: string;
+  plate: string;
+  cls: string;
+  runType: string;
+  runs: number;
+  days: number;
+  total: number;
+  dests: string[];
+  status: "active" | "inactive" | "suspended";
+  client: string;
+};
+
+export type InvoiceStatus = "draft" | "sent" | "approved" | "paid" | "pending" | "rejected";
+
+export type Invoice = {
+  id: string;
+  invoiceNo: string;
+  plate: string;
+  cls: string;
+  route: string;
+  days: number;
+  net: number;
+  vat: number;
+  total: number;
+  status: InvoiceStatus;
+  serviceDate?: string;
+  period?: string;
+  deliveryNoteNo?: string;
+  clientNote?: string;
+};
+
+export type Rate = {
+  id: string;
+  route: string;
+  cls: string;
+  rate: number;
+  effectiveFrom: string;
+  status: "active" | "inactive";
+  category: "nairobi" | "upcountry";
+};
+
+export type LocalDelivery = {
+  id: string;
+  reg: string;
+  m: number;
+  a: number;
+  total: number;
+  serviceDate?: string;
+  period?: string;
+};
+
+export type SafariFlag = "" | "VERIFY" | "DAY";
+
+export type SafariEntry = {
+  id: string;
+  reg: string;
+  total: number;
+  flag: SafariFlag;
+  dest: string;
+  serviceDate?: string;
+  period?: string;
+};
+
+export type WorkTicketStatus = "draft" | "sent" | "approved" | "rejected" | "invoiced";
+
+export type ConsolidatedInvoiceStatus = "draft" | "pending_approval" | "approved" | "paid";
+
+export type WorkTicketJourneyLeg = {
+  id: string;
+  details: string;
+  openingMileage: number;
+  timeOut: string;
+  officerAuthorising: string;
+  fuelDrawn: string;
+  timeIn: string;
+  closingMileage: number;
+  serviceType: string;
+};
+
+export type WorkTicketRateType = "fixed" | "per_km";
+
+export type WorkTicket = {
+  id: string;
+  serialNo: string;
+  branch: string;
+  tripDate: string;
+  plate: string;
+  make: string;
+  driverName: string;
+  route: string;
+  rateType: WorkTicketRateType;
+  agreedRate: number;
+  gatePassRef?: string;
+  headerNotes?: string;
+  legs: WorkTicketJourneyLeg[];
+  privateKm: number;
+  officialKm: number;
+  net: number;
+  vat: number;
+  total: number;
+  attachmentName?: string;
+  status: WorkTicketStatus;
+  clientNote?: string;
+  consolidatedInvoiceId?: string;
+};
+
+export type SoaLineItem = {
+  workTicketId: string;
+  tripDate: string;
+  serialNo: string;
+  plate: string;
+  route: string;
+  driverName: string;
+  gatePassRef: string;
+  amount: number;
+};
+
+export type ConsolidatedInvoice = {
+  id: string;
+  invoiceNo: string;
+  refNo: string;
+  periodStart: string;
+  periodEnd: string;
+  invoiceDate: string;
+  description: string;
+  paymentTermsDays: number;
+  paymentWindowFrom?: string;
+  paymentWindowTo?: string;
+  totalTrips: number;
+  net: number;
+  vat: number;
+  total: number;
+  status: ConsolidatedInvoiceStatus;
+  workTicketIds: string[];
+  clientNote?: string;
+  approvedAt?: string;
+  paidAt?: string;
+};
+
+export type RouteRecord = {
+  id: string;
+  name: string;
+  rate7: number;
+  rate15: number;
+  category: "nairobi" | "upcountry";
+  trips: number;
+  total: number;
+  status: "active" | "inactive";
+};
+
+export type FleetData = {
+  schedules: ScheduleEntry[];
+  vehicles: Vehicle[];
+  invoices: Invoice[];
+  rates: Rate[];
+  localDeliveries: LocalDelivery[];
+  safari: SafariEntry[];
+  routes: RouteRecord[];
+  workTickets: WorkTicket[];
+  consolidatedInvoices: ConsolidatedInvoice[];
+  notifications: WorkflowNotification[];
+};
+
+export type NotificationAudience = "admin" | "client";
+
+export type WorkflowEventType =
+  | "invoice_sent"
+  | "invoice_approved"
+  | "invoice_rejected"
+  | "invoice_paid"
+  | "soa_sent"
+  | "soa_approved"
+  | "work_ticket_sent"
+  | "work_ticket_approved"
+  | "consolidated_sent"
+  | "consolidated_approved"
+  | "consolidated_paid";
+
+export type WorkflowNotification = {
+  id: string;
+  audience: NotificationAudience;
+  type: WorkflowEventType;
+  title: string;
+  message: string;
+  refId?: string;
+  read: boolean;
+  createdAt: string;
+  actor: "admin" | "client" | "system";
+};

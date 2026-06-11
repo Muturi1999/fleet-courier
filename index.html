@@ -1,0 +1,2936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fleet Courier Management System — Fleet Travel Ltd</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #0B1C3B;
+    --navy-mid: #132344;
+    --navy-light: #1E3260;
+    --accent: #E8A020;
+    --accent-light: #FFF4DC;
+    --accent-dark: #C07800;
+    --teal: #1D9E75;
+    --teal-light: #E1F5EE;
+    --red: #D85A30;
+    --red-light: #FAECE7;
+    --blue: #378ADD;
+    --blue-light: #E6F1FB;
+    --gray-50: #F7F8FA;
+    --gray-100: #EDEEF2;
+    --gray-200: #D8DAE2;
+    --gray-400: #8A8FA8;
+    --gray-600: #4A4F6A;
+    --gray-800: #1E2340;
+    --white: #FFFFFF;
+    --sidebar-w: 240px;
+    --header-h: 64px;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --shadow-sm: 0 1px 3px rgba(11,28,59,0.08);
+    --shadow-md: 0 4px 16px rgba(11,28,59,0.10);
+    --font: 'DM Sans', sans-serif;
+    --mono: 'DM Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--gray-50);
+    color: var(--gray-800);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ─── SIDEBAR ─── */
+  .sidebar {
+    width: var(--sidebar-w);
+    background: var(--navy);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 100;
+    overflow-y: auto;
+  }
+
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+  .sidebar-logo {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .logo-mark {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 34px;
+    height: 34px;
+    background: var(--accent);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--navy);
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .logo-text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .logo-text span:first-child {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+  }
+
+  .logo-text span:last-child {
+    font-size: 10px;
+    color: rgba(255,255,255,0.45);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .sidebar-contract {
+    margin: 12px 14px;
+    background: rgba(255,255,255,0.05);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+
+  .sidebar-contract p:first-child {
+    font-size: 10px;
+    color: rgba(255,255,255,0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 2px;
+  }
+
+  .sidebar-contract p:last-child {
+    font-size: 12px;
+    color: rgba(255,255,255,0.7);
+    font-weight: 500;
+  }
+
+  .sidebar-section {
+    padding: 14px 14px 4px;
+  }
+
+  .sidebar-section-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.28);
+    padding: 0 6px;
+    margin-bottom: 4px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: rgba(255,255,255,0.55);
+    font-size: 13.5px;
+    font-weight: 400;
+    transition: all 0.15s;
+    position: relative;
+    text-decoration: none;
+    margin-bottom: 1px;
+  }
+
+  .nav-item:hover {
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.85);
+  }
+
+  .nav-item.active {
+    background: rgba(232,160,32,0.15);
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 3px;
+    background: var(--accent);
+    border-radius: 0 3px 3px 0;
+  }
+
+  .nav-item i {
+    font-size: 17px;
+    flex-shrink: 0;
+    width: 20px;
+    text-align: center;
+  }
+
+  .nav-badge {
+    margin-left: auto;
+    background: var(--accent);
+    color: var(--navy);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 20px;
+    min-width: 18px;
+    text-align: center;
+  }
+
+  .sidebar-bottom {
+    margin-top: auto;
+    padding: 14px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+  }
+
+  .sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .sidebar-user:hover { background: rgba(255,255,255,0.06); }
+
+  .user-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--navy);
+    flex-shrink: 0;
+  }
+
+  .user-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .user-info p:first-child {
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.8);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .user-info p:last-child {
+    font-size: 10px;
+    color: rgba(255,255,255,0.35);
+  }
+
+  /* ─── MAIN ─── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .topbar {
+    height: var(--header-h);
+    background: var(--white);
+    border-bottom: 1px solid var(--gray-100);
+    display: flex;
+    align-items: center;
+    padding: 0 28px;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+
+  .topbar-title {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .topbar-title h1 {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--gray-800);
+  }
+
+  .topbar-title p {
+    font-size: 12px;
+    color: var(--gray-400);
+    margin-top: 1px;
+  }
+
+  .topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--font);
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+
+  .btn-primary {
+    background: var(--navy);
+    color: #fff;
+  }
+
+  .btn-primary:hover { background: var(--navy-light); }
+
+  .btn-secondary {
+    background: var(--white);
+    color: var(--gray-600);
+    border: 1px solid var(--gray-200);
+  }
+
+  .btn-secondary:hover { background: var(--gray-50); }
+
+  .btn-accent {
+    background: var(--accent);
+    color: var(--navy);
+    font-weight: 600;
+  }
+
+  .btn-accent:hover { background: var(--accent-dark); color: #fff; }
+
+  .btn-sm {
+    padding: 5px 11px;
+    font-size: 12px;
+  }
+
+  .topbar-notif {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    background: var(--gray-50);
+    border: 1px solid var(--gray-100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--gray-600);
+    position: relative;
+    font-size: 17px;
+    transition: background 0.15s;
+  }
+
+  .topbar-notif:hover { background: var(--gray-100); }
+
+  .notif-dot {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    width: 7px;
+    height: 7px;
+    background: var(--red);
+    border-radius: 50%;
+    border: 2px solid var(--white);
+  }
+
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px;
+  }
+
+  /* ─── PAGES ─── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ─── METRIC CARDS ─── */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  .metric-card {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-100);
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .metric-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+  }
+
+  .metric-card.c-amber::after { background: var(--accent); }
+  .metric-card.c-teal::after { background: var(--teal); }
+  .metric-card.c-navy::after { background: var(--navy); }
+  .metric-card.c-red::after { background: var(--red); }
+
+  .metric-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gray-400);
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  .metric-value {
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--gray-800);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .metric-sub {
+    font-size: 12px;
+    color: var(--gray-400);
+  }
+
+  .metric-icon {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  .metric-icon.amber { background: var(--accent-light); color: var(--accent-dark); }
+  .metric-icon.teal { background: var(--teal-light); color: var(--teal); }
+  .metric-icon.navy { background: #E8EDF5; color: var(--navy); }
+  .metric-icon.red { background: var(--red-light); color: var(--red); }
+
+  /* ─── SECTIONS ─── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .section-header h2 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--gray-800);
+  }
+
+  .section-header p {
+    font-size: 12px;
+    color: var(--gray-400);
+    margin-top: 1px;
+  }
+
+  /* ─── CARD ─── */
+  .card {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-100);
+    padding: 20px;
+  }
+
+  .card-sm { padding: 14px 16px; }
+
+  /* ─── TABLE ─── */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-100);
+    background: var(--white);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead th {
+    background: var(--gray-50);
+    color: var(--gray-400);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--gray-100);
+    white-space: nowrap;
+  }
+
+  tbody td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--gray-50);
+    color: var(--gray-800);
+    vertical-align: middle;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  tbody tr:hover td { background: var(--gray-50); }
+
+  .mono { font-family: var(--mono); font-size: 12px; }
+
+  /* ─── BADGES ─── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .badge::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .badge-paid { background: #DCFCE7; color: #15803D; }
+  .badge-paid::before { background: #15803D; }
+  .badge-approved { background: var(--teal-light); color: var(--teal); }
+  .badge-approved::before { background: var(--teal); }
+  .badge-sent { background: var(--blue-light); color: #185FA5; }
+  .badge-sent::before { background: #185FA5; }
+  .badge-pending { background: var(--accent-light); color: var(--accent-dark); }
+  .badge-pending::before { background: var(--accent-dark); }
+  .badge-draft { background: var(--gray-100); color: var(--gray-400); }
+  .badge-draft::before { background: var(--gray-400); }
+  .badge-active { background: var(--teal-light); color: var(--teal); }
+  .badge-inactive { background: var(--gray-100); color: var(--gray-400); }
+
+  /* ─── WORKFLOW ─── */
+  .workflow {
+    display: flex;
+    gap: 0;
+    margin-bottom: 24px;
+  }
+
+  .workflow-step {
+    flex: 1;
+    padding: 14px 16px;
+    background: var(--white);
+    border: 1px solid var(--gray-100);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .workflow-step:first-child { border-radius: var(--radius-md) 0 0 var(--radius-md); }
+  .workflow-step:last-child { border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+  .workflow-step + .workflow-step { border-left: none; }
+
+  .workflow-step.done { background: var(--teal-light); border-color: #9FE1CB; }
+  .workflow-step.active { background: var(--accent-light); border-color: #FAC775; }
+  .workflow-step.pending-step { background: var(--gray-50); border-color: var(--gray-100); }
+
+  .ws-num {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--teal);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .workflow-step.active .ws-num { color: var(--accent-dark); }
+  .workflow-step.pending-step .ws-num { color: var(--gray-400); }
+
+  .ws-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-800);
+  }
+
+  .ws-sub {
+    font-size: 11px;
+    color: var(--gray-400);
+  }
+
+  .ws-icon {
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+
+  .ws-icon.done { color: var(--teal); }
+  .ws-icon.active { color: var(--accent); }
+  .ws-icon.pending-step { color: var(--gray-200); }
+
+  /* ─── TWO COL ─── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .three-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  /* ─── FORM ─── */
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .form-group.full { grid-column: 1 / -1; }
+
+  label.field-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--gray-600);
+  }
+
+  input[type="text"], input[type="number"], input[type="date"], select, textarea {
+    font-family: var(--font);
+    font-size: 13px;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    color: var(--gray-800);
+    background: var(--white);
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--navy);
+    box-shadow: 0 0 0 3px rgba(11,28,59,0.08);
+  }
+
+  textarea { resize: vertical; min-height: 70px; }
+
+  /* ─── INVOICE PREVIEW ─── */
+  .invoice-preview {
+    background: var(--navy);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    color: rgba(255,255,255,0.7);
+    font-size: 13px;
+  }
+
+  .invoice-preview .row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+
+  .invoice-preview .row:last-child { border-bottom: none; }
+  .invoice-preview .total-row { color: var(--accent); font-weight: 600; font-size: 15px; }
+
+  /* ─── PROGRESS BAR ─── */
+  .progress-wrap {
+    background: var(--gray-100);
+    border-radius: 20px;
+    height: 6px;
+    overflow: hidden;
+  }
+
+  .progress-bar {
+    height: 100%;
+    border-radius: 20px;
+    background: var(--teal);
+  }
+
+  /* ─── REVENUE BARS ─── */
+  .rev-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 4px;
+  }
+
+  .rev-bar-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .rev-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--gray-600);
+  }
+
+  .rev-bar-track {
+    background: var(--gray-100);
+    border-radius: 4px;
+    height: 8px;
+    overflow: hidden;
+  }
+
+  .rev-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+  }
+
+  /* ─── ACTIVITY ─── */
+  .activity-list { display: flex; flex-direction: column; gap: 0; }
+
+  .activity-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--gray-50);
+  }
+
+  .activity-item:last-child { border-bottom: none; }
+
+  .activity-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--teal);
+    flex-shrink: 0;
+    margin-top: 5px;
+  }
+
+  .activity-dot.amber { background: var(--accent); }
+  .activity-dot.blue { background: var(--blue); }
+
+  .activity-text {
+    font-size: 13px;
+    color: var(--gray-800);
+    flex: 1;
+  }
+
+  .activity-time {
+    font-size: 11px;
+    color: var(--gray-400);
+    white-space: nowrap;
+    font-family: var(--mono);
+  }
+
+  /* ─── FILTER BAR ─── */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .filter-tab {
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--gray-200);
+    background: var(--white);
+    color: var(--gray-600);
+    transition: all 0.15s;
+  }
+
+  .filter-tab.active {
+    background: var(--navy);
+    color: #fff;
+    border-color: var(--navy);
+  }
+
+  .filter-tab:hover:not(.active) { background: var(--gray-50); }
+
+  .filter-search {
+    margin-left: auto;
+    position: relative;
+  }
+
+  .filter-search i {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--gray-400);
+    font-size: 15px;
+  }
+
+  .filter-search input {
+    padding-left: 32px;
+    width: 220px;
+    font-size: 13px;
+  }
+
+  /* ─── SOA ─── */
+  .soa-history {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .soa-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--gray-50);
+  }
+
+  .soa-item:last-child { border-bottom: none; }
+
+  .soa-ref {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--gray-400);
+    width: 90px;
+  }
+
+  .soa-month { font-size: 13px; font-weight: 500; color: var(--gray-800); flex: 1; }
+  .soa-amount { font-size: 13px; color: var(--gray-800); font-family: var(--mono); width: 110px; text-align: right; }
+
+  /* ─── RATE CARD ─── */
+  .rate-category {
+    background: var(--navy);
+    color: rgba(255,255,255,0.5);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 6px 14px;
+  }
+
+  /* ─── VEHICLE CARD ─── */
+  .vehicle-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .vehicle-card {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-100);
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .vehicle-card:hover {
+    border-color: var(--navy-light);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .vehicle-card.active-card {
+    border-color: var(--navy);
+    box-shadow: 0 0 0 2px rgba(11,28,59,0.1);
+  }
+
+  .vc-reg {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--gray-800);
+    margin-bottom: 4px;
+  }
+
+  .vc-class {
+    font-size: 11px;
+    color: var(--gray-400);
+    margin-bottom: 10px;
+  }
+
+  .vc-stats {
+    display: flex;
+    gap: 12px;
+  }
+
+  .vc-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .vc-stat span:first-child {
+    font-size: 10px;
+    color: var(--gray-400);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .vc-stat span:last-child {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gray-800);
+  }
+
+  /* ─── MODAL ─── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(11,28,59,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    width: 520px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-md);
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .modal-header h2 {
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .modal-close {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    background: var(--gray-50);
+    border: 1px solid var(--gray-100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    color: var(--gray-400);
+    transition: all 0.15s;
+  }
+
+  .modal-close:hover { background: var(--gray-100); color: var(--gray-800); }
+
+  /* ─── CHIP RADIO ─── */
+  .chip-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--gray-200);
+    background: var(--white);
+    color: var(--gray-600);
+    transition: all 0.15s;
+  }
+
+  .chip.selected {
+    background: var(--navy);
+    color: #fff;
+    border-color: var(--navy);
+  }
+
+  /* ─── SCROLLBAR ─── */
+  .content::-webkit-scrollbar { width: 6px; }
+  .content::-webkit-scrollbar-track { background: transparent; }
+  .content::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 3px; }
+
+  /* ─── TOAST ─── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--navy);
+    color: #fff;
+    padding: 12px 18px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: var(--shadow-md);
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .toast.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  .toast i { font-size: 18px; color: var(--accent); }
+
+  /* ─── ETIMS ─── */
+  .etims-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #DCFCE7;
+    color: #15803D;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.02em;
+  }
+
+  .separator {
+    border: none;
+    border-top: 1px solid var(--gray-100);
+    margin: 20px 0;
+  }
+
+  /* ─── VEHICLE ACTION BUTTONS ─── */
+  .veh-action-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--gray-200);
+    background: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 15px;
+    color: var(--gray-600);
+    transition: all 0.15s;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .veh-action-btn:hover {
+    background: var(--gray-50);
+    border-color: var(--gray-400);
+  }
+
+  /* ─── EMPTY ─── */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--gray-400);
+  }
+
+  .empty-state i { font-size: 36px; margin-bottom: 10px; display: block; }
+  .empty-state p { font-size: 13px; }
+
+  .badge-flag { background: #FEE2E2; color: #991B1B; }
+  .badge-flag::before { content: ''; width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; background: #991B1B; }
+  .badge-morning { background: #FEF9C3; color: #854D0E; }
+  .badge-morning::before { content: ''; width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; background: #854D0E; }
+  .badge-afternoon { background: var(--blue-light); color: #185FA5; }
+  .badge-afternoon::before { content: ''; width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; background: #185FA5; }
+  .badge-both { background: #F3E8FF; color: #7E22CE; }
+  .badge-both::before { content: ''; width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; background: #7E22CE; }
+  tr.row-flagged td { background: #FFFBEB !important; }
+  tr.row-flagged:hover td { background: #FEF9C3 !important; }
+  .dest-pill { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 12px; font-size: 10px; font-weight: 600; background: var(--blue-light); color: #185FA5; margin: 2px 2px 2px 0; }
+  .dest-pill.day { background: #F3E8FF; color: #7E22CE; }
+  .search-bar-wrap { background: var(--white); border: 1px solid var(--gray-100); border-radius: var(--radius-lg); padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .totals-bar { margin-top: 12px; padding: 12px 16px; background: var(--white); border: 1px solid var(--gray-100); border-radius: var(--radius-md); display: flex; align-items: center; gap: 20px; font-size: 13px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ SIDEBAR ═══════════ -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <div class="logo-icon"><i class="ti ti-truck-delivery"></i></div>
+      <div class="logo-text">
+        <span>Fleet Courier</span>
+        <span>Management System</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-contract">
+    <p>Active Contract</p>
+    <p>G4S Kenya — March 2026</p>
+  </div>
+
+  <div class="sidebar-section">
+    <p class="sidebar-section-label">Main</p>
+    <div class="nav-item active" onclick="navigate('dashboard', this)">
+      <i class="ti ti-layout-dashboard"></i> Dashboard
+    </div>
+    <div class="nav-item" onclick="navigate('schedule', this)">
+      <i class="ti ti-calendar-event"></i> Schedule entry
+    </div>
+    <div class="nav-item" onclick="navigate('invoices', this)">
+      <i class="ti ti-file-invoice"></i> Invoices
+      <span class="nav-badge">71</span>
+    </div>
+    <div class="nav-item" onclick="navigate('soa', this)">
+      <i class="ti ti-file-description"></i> Statements (SOA)
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <p class="sidebar-section-label">Fleet</p>
+    <div class="nav-item" onclick="navigate('vehicles', this)">
+      <i class="ti ti-truck"></i> Vehicles
+    </div>
+    <div class="nav-item" onclick="navigate('rates', this)">
+      <i class="ti ti-coin"></i> Rate card
+    </div>
+    <div class="nav-item" onclick="navigate('routes', this)">
+      <i class="ti ti-map-2"></i> Routes &amp; destinations
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <p class="sidebar-section-label">April 2026 Logbook</p>
+    <div class="nav-item" onclick="navigate('localdeliveries', this)">
+      <i class="ti ti-map-2"></i> Local deliveries
+      <span class="nav-badge">50</span>
+    </div>
+    <div class="nav-item" onclick="navigate('safari', this)">
+      <i class="ti ti-road"></i> Safari / upcountry
+      <span class="nav-badge">40</span>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <p class="sidebar-section-label">Client</p>
+    <div class="nav-item" onclick="navigate('portal', this)">
+      <i class="ti ti-building"></i> G4S portal
+      <span class="nav-badge">12</span>
+    </div>
+    <div class="nav-item" onclick="navigate('reports', this)">
+      <i class="ti ti-chart-bar"></i> Reports
+    </div>
+  </div>
+
+  <div class="sidebar-bottom">
+    <div class="sidebar-user">
+      <div class="user-avatar">FA</div>
+      <div class="user-info">
+        <p>Fleet Admin</p>
+        <p>Fleet Travel Ltd</p>
+      </div>
+      <i class="ti ti-dots-vertical" style="font-size:15px; color:rgba(255,255,255,0.3)"></i>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════ MAIN ═══════════ -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title">
+      <h1 id="page-title">Dashboard</h1>
+      <p id="page-sub">Fleet Travel Ltd — G4S Kenya Contract · March 2026</p>
+    </div>
+    <div class="topbar-actions">
+      <span class="etims-badge"><i class="ti ti-shield-check" style="font-size:11px"></i> eTIMS Active</span>
+      <div class="topbar-notif"><i class="ti ti-bell"></i><div class="notif-dot"></div></div>
+      <button class="btn btn-accent" id="primary-action" onclick="openModal('add-schedule')">
+        <i class="ti ti-plus"></i> Add schedule entry
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ════ DASHBOARD ════ -->
+    <div class="page active" id="page-dashboard">
+      <div class="metrics-grid">
+        <div class="metric-card c-teal">
+          <div class="metric-icon teal"><i class="ti ti-currency-dollar"></i></div>
+          <div class="metric-label">Total invoiced (Mar 2026)</div>
+          <div class="metric-value">17.62M</div>
+          <div class="metric-sub">KES incl. 16% VAT · 291 lines</div>
+        </div>
+        <div class="metric-card c-navy">
+          <div class="metric-icon navy"><i class="ti ti-file-invoice"></i></div>
+          <div class="metric-label">Invoice lines</div>
+          <div class="metric-value">291</div>
+          <div class="metric-sub">88 vehicles · March 2026</div>
+        </div>
+        <div class="metric-card c-amber">
+          <div class="metric-icon amber"><i class="ti ti-truck"></i></div>
+          <div class="metric-label">Active fleet</div>
+          <div class="metric-value">88</div>
+          <div class="metric-sub">7T · 15T · Canter · Van</div>
+        </div>
+        <div class="metric-card c-red">
+          <div class="metric-icon red"><i class="ti ti-clock"></i></div>
+          <div class="metric-label">Pending G4S approval</div>
+          <div class="metric-value">12</div>
+          <div class="metric-sub">Awaiting sign-off · #18920–18931</div>
+        </div>
+      </div>
+
+      <div class="section-header"><div><h2>Monthly workflow — March 2026</h2></div></div>
+      <div class="workflow" style="margin-bottom:24px">
+        <div class="workflow-step done"><i class="ti ti-check ws-icon done"></i><div class="ws-num">Step 1</div><div class="ws-title">Schedule entry</div><div class="ws-sub">291 lines logged</div></div>
+        <div class="workflow-step done"><i class="ti ti-check ws-icon done"></i><div class="ws-num">Step 2</div><div class="ws-title">Invoices generated</div><div class="ws-sub">291 / 291 lines</div></div>
+        <div class="workflow-step done"><i class="ti ti-check ws-icon done"></i><div class="ws-num">Step 3</div><div class="ws-title">KRA eTIMS submitted</div><div class="ws-sub">All compliant · #18670–18960</div></div>
+        <div class="workflow-step done"><i class="ti ti-check ws-icon done"></i><div class="ws-num">Step 4</div><div class="ws-title">SOA sent to G4S</div><div class="ws-sub">Ref: 101/03/26</div></div>
+        <div class="workflow-step active"><i class="ti ti-clock ws-icon active"></i><div class="ws-num" style="color:var(--accent-dark)">Step 5</div><div class="ws-title">G4S approval</div><div class="ws-sub">12 invoices pending</div></div>
+        <div class="workflow-step pending-step"><i class="ti ti-circle-dashed ws-icon pending-step"></i><div class="ws-num">Step 6</div><div class="ws-title">Payment received</div><div class="ws-sub">Expected: 30 Mar 2026</div></div>
+      </div>
+
+      <div class="two-col">
+        <div>
+          <div class="card" style="margin-bottom:14px">
+            <div class="section-header"><h2>Revenue by route type · March 2026</h2></div>
+            <div class="rev-bar-wrap">
+              <div class="rev-bar-item"><div class="rev-bar-label"><span>Nairobi Morning (7T)</span><span style="font-family:var(--mono);font-weight:500">KES 5.58M</span></div><div class="rev-bar-track"><div class="rev-bar-fill" style="width:100%;background:var(--navy)"></div></div></div>
+              <div class="rev-bar-item"><div class="rev-bar-label"><span>Nairobi Afternoon (7T)</span><span style="font-family:var(--mono);font-weight:500">KES 3.23M</span></div><div class="rev-bar-track"><div class="rev-bar-fill" style="width:58%;background:var(--accent)"></div></div></div>
+              <div class="rev-bar-item"><div class="rev-bar-label"><span>Upcountry routes</span><span style="font-family:var(--mono);font-weight:500">KES 7.62M</span></div><div class="rev-bar-track"><div class="rev-bar-fill" style="width:68%;background:var(--teal)"></div></div></div>
+              <div class="rev-bar-item"><div class="rev-bar-label"><span>Canter / Van routes</span><span style="font-family:var(--mono);font-weight:500">KES 1.20M</span></div><div class="rev-bar-track"><div class="rev-bar-fill" style="width:21%;background:var(--blue)"></div></div></div>
+            </div>
+            <hr class="separator">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div style="background:var(--gray-50);border-radius:var(--radius-sm);padding:10px 12px">
+                <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);margin-bottom:4px">Net (excl. VAT)</div>
+                <div style="font-size:15px;font-weight:600;font-family:var(--mono)">KES 15,193,500</div>
+              </div>
+              <div style="background:var(--accent-light);border-radius:var(--radius-sm);padding:10px 12px">
+                <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent-dark);margin-bottom:4px">VAT @ 16%</div>
+                <div style="font-size:15px;font-weight:600;font-family:var(--mono);color:var(--accent-dark)">KES 2,430,960</div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-header"><h2>Top destinations by revenue · March 2026</h2></div>
+            <div id="dest-bars"></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="card">
+            <div class="section-header"><div><h2>Statement of Account</h2><p>G4S Courier Services · Actual data</p></div></div>
+            <div class="soa-item"><span class="soa-ref">101/01/26</span><span class="soa-month">January 2026</span><span class="soa-amount">KES 15,800,000</span><span class="badge badge-paid">Settled</span></div>
+            <div class="soa-item"><span class="soa-ref">101/02/26</span><span class="soa-month">February 2026</span><span class="soa-amount">KES 17,151,054</span><span class="badge badge-paid">Settled</span></div>
+            <div class="soa-item" style="background:var(--accent-light);margin:0 -20px;padding:10px 20px"><span class="soa-ref" style="color:var(--accent-dark)">101/03/26</span><span class="soa-month" style="font-weight:600">March 2026</span><span class="soa-amount" style="font-weight:600">KES 17,624,460</span><span class="badge badge-pending">Pending</span></div>
+          </div>
+          <div class="card">
+            <div class="section-header"><h2>Recent activity</h2></div>
+            <div class="activity-item"><div class="activity-dot blue"></div><div class="activity-text">Invoice #18960 sent to G4S (KDC 183M — Mombasa)</div><div class="activity-time">Today, 09:14</div></div>
+            <div class="activity-item"><div class="activity-dot"></div><div class="activity-text">eTIMS confirmed — 291 invoices (#18670–18960)</div><div class="activity-time">Today, 08:52</div></div>
+            <div class="activity-item"><div class="activity-dot amber"></div><div class="activity-text">SOA 101/03/26 generated — KES 17,624,460</div><div class="activity-time">Yesterday, 16:30</div></div>
+            <div class="activity-item"><div class="activity-dot amber"></div><div class="activity-text">KDR 566W — Bomet 25 days logged: KES 580,000</div><div class="activity-time">Yesterday, 12:10</div></div>
+            <div class="activity-item"><div class="activity-dot"></div><div class="activity-text">Feb 2026 SOA settled — KES 17,151,054 received</div><div class="activity-time">1 Mar 2026</div></div>
+            <div class="activity-item"><div class="activity-dot amber"></div><div class="activity-text">KBN 641F — Namanga branch 24 days: KES 278,400</div><div class="activity-time">28 Feb 2026</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-header"><h2>Top vehicles by revenue · March 2026</h2><button class="btn btn-secondary btn-sm" onclick="navigate('vehicles',document.querySelector('.nav-item:nth-child(5)'))"><i class="ti ti-external-link"></i> All vehicles</button></div>
+      <div class="table-wrap">
+        <table><thead><tr>
+          <th>Plate</th><th>Class</th><th>Runs</th><th>Days worked</th><th>Top destinations</th><th>Net (KES)</th><th>VAT</th><th>Total (KES)</th><th></th>
+        </tr></thead>
+        <tbody id="dash-veh-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- ════ SCHEDULE ════ -->
+    <div class="page" id="page-schedule">
+
+      <!-- Stat cards row -->
+      <div class="metrics-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+        <div class="metric-card c-navy">
+          <div class="metric-icon navy"><i class="ti ti-list-check"></i></div>
+          <div class="metric-label">Entries logged</div>
+          <div class="metric-value">143</div>
+          <div class="metric-sub">82% of fleet covered</div>
+        </div>
+        <div class="metric-card c-teal">
+          <div class="metric-icon teal"><i class="ti ti-calendar-stats"></i></div>
+          <div class="metric-label">Total days worked</div>
+          <div class="metric-value">891</div>
+          <div class="metric-sub">Across 54 vehicles</div>
+        </div>
+        <div class="metric-card c-amber">
+          <div class="metric-icon amber"><i class="ti ti-chart-line"></i></div>
+          <div class="metric-label">Est. invoice total</div>
+          <div class="metric-value">3.69M</div>
+          <div class="metric-sub">Excl. VAT · KES</div>
+        </div>
+        <div class="metric-card c-red">
+          <div class="metric-icon red"><i class="ti ti-clock-exclamation"></i></div>
+          <div class="metric-label">Vehicles pending</div>
+          <div class="metric-value">9</div>
+          <div class="metric-sub">No entries yet</div>
+        </div>
+      </div>
+
+      <!-- Filter / search bar -->
+      <div style="background:var(--white);border:1px solid var(--gray-100);border-radius:var(--radius-lg);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <!-- Search by plate -->
+        <div style="position:relative;flex:1;min-width:160px;max-width:220px">
+          <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--gray-400);font-size:15px;pointer-events:none"></i>
+          <input type="text" placeholder="Vehicle plate…" style="padding-left:32px;width:100%" oninput="filterScheduleEntries(this.value,'plate')">
+        </div>
+        <!-- Route filter -->
+        <div style="position:relative;min-width:180px">
+          <i class="ti ti-map-pin" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--gray-400);font-size:15px;pointer-events:none"></i>
+          <select style="padding-left:32px" onchange="filterScheduleEntries(this.value,'route')">
+            <option value="">All routes</option>
+            <option value="Nairobi Morning">Nairobi Morning</option>
+            <option value="Nairobi Afternoon">Nairobi Afternoon</option>
+            <option value="Mombasa">Mombasa</option>
+            <option value="Kisumu">Kisumu</option>
+            <option value="Nakuru">Nakuru</option>
+            <option value="Eldoret">Eldoret</option>
+          </select>
+        </div>
+        <!-- Days filter -->
+        <div style="position:relative;min-width:130px">
+          <i class="ti ti-calendar-week" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--gray-400);font-size:15px;pointer-events:none"></i>
+          <select style="padding-left:32px" onchange="filterScheduleEntries(this.value,'days')">
+            <option value="">All days</option>
+            <option value="1-10">1–10 days</option>
+            <option value="11-15">11–15 days</option>
+            <option value="16-20">16–20 days</option>
+            <option value="21+">21+ days</option>
+          </select>
+        </div>
+        <!-- Month/year calendar picker -->
+        <div style="position:relative;min-width:160px">
+          <i class="ti ti-calendar-month" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--gray-400);font-size:15px;pointer-events:none"></i>
+          <input type="month" value="2026-06" style="padding-left:32px;min-width:160px" onchange="filterScheduleEntries(this.value,'month')">
+        </div>
+        <!-- Spacer -->
+        <div style="flex:1"></div>
+        <!-- Export -->
+        <button class="btn btn-secondary btn-sm" onclick="toast('Exported to CSV')"><i class="ti ti-download"></i> Export</button>
+        <!-- Add schedule -->
+        <button class="btn btn-accent btn-sm" onclick="openModal('add-schedule')">
+          <i class="ti ti-plus"></i> Add schedule entry
+        </button>
+      </div>
+
+      <!-- Full-width entries table -->
+      <div class="table-wrap">
+        <table id="schedule-table">
+          <thead>
+            <tr>
+              <th>Vehicle</th>
+              <th>Class</th>
+              <th>Route</th>
+              <th>Run type</th>
+              <th style="text-align:center">Days</th>
+              <th>Month</th>
+              <th>Net (KES)</th>
+              <th>VAT (KES)</th>
+              <th>Total (KES)</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="schedule-tbody"></tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- ════ INVOICES ════ -->
+    <div class="page" id="page-invoices">
+      <div class="metrics-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+        <div class="metric-card c-teal">
+          <div class="metric-label">Total invoiced</div>
+          <div class="metric-value" style="font-size:20px">KES 4,281,282</div>
+          <div class="metric-sub">incl. VAT</div>
+        </div>
+        <div class="metric-card c-teal">
+          <div class="metric-label">Paid</div>
+          <div class="metric-value" style="font-size:20px">KES 1,024,400</div>
+          <div class="metric-sub">18 invoices</div>
+        </div>
+        <div class="metric-card c-amber">
+          <div class="metric-label">Approved — awaiting payment</div>
+          <div class="metric-value" style="font-size:20px">KES 847,260</div>
+          <div class="metric-sub">14 invoices</div>
+        </div>
+        <div class="metric-card c-red">
+          <div class="metric-label">Pending / draft</div>
+          <div class="metric-value" style="font-size:20px">KES 810,882</div>
+          <div class="metric-sub">18 invoices</div>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <div class="filter-tab active" onclick="filterInvoices('all',this)">All (71)</div>
+        <div class="filter-tab" onclick="filterInvoices('draft',this)">Draft (6)</div>
+        <div class="filter-tab" onclick="filterInvoices('sent',this)">Sent (21)</div>
+        <div class="filter-tab" onclick="filterInvoices('approved',this)">Approved (14)</div>
+        <div class="filter-tab" onclick="filterInvoices('paid',this)">Paid (18)</div>
+        <div class="filter-tab" onclick="filterInvoices('pending',this)">Pending (12)</div>
+        <div class="filter-search">
+          <i class="ti ti-search"></i>
+          <input type="text" placeholder="Search plate or invoice…" oninput="searchInvoices(this.value)">
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="toast('Invoices exported to Excel')"><i class="ti ti-download"></i> Export</button>
+        <button class="btn btn-accent btn-sm" onclick="toast('SOA generation started for June 2026')"><i class="ti ti-file-text"></i> Generate SOA</button>
+      </div>
+
+      <div class="table-wrap">
+        <table id="invoice-table">
+          <thead>
+            <tr>
+              <th>Invoice #</th><th>Vehicle</th><th>Class</th><th>Route</th><th>Days</th><th>Net (KES)</th><th>VAT (KES)</th><th>Total (KES)</th><th>Status</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="invoice-tbody">
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ════ SOA ════ -->
+    <div class="page" id="page-soa">
+      <div class="two-col" style="margin-bottom:0">
+        <div>
+          <div class="card" style="margin-bottom:14px">
+            <div class="section-header">
+              <div><h2>Current SOA · March 2026</h2><p>Ref: 101/03/26 · G4S Courier Services</p></div>
+              <span class="badge badge-pending">Pending G4S approval</span>
+            </div>
+            <hr class="separator" style="margin:12px 0">
+            <div style="display:flex;flex-direction:column;gap:9px;font-size:13px">
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--gray-400)">Reference</span><span class="mono" style="font-weight:500">101/03/26</span></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--gray-400)">Client</span><span style="font-weight:500">G4S Courier Services</span></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--gray-400)">Address</span><span style="font-size:11px;color:var(--gray-600)">P.O. BOX 30242, Outer Ring Rd, Nairobi</span></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--gray-400)">Invoice lines</span><span style="font-weight:500">291 line items · 88 vehicles</span></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--gray-400)">Invoice range</span><span class="mono">#18670 – #18960</span></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--gray-400)">Statement date</span><span style="font-weight:500">4 March 2026</span></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--gray-400)">Due date</span><span style="font-weight:500">30 March 2026</span></div>
+              <hr class="separator" style="margin:4px 0">
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--gray-400)">Net (excl. VAT)</span><span class="mono">KES 15,193,500</span></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--gray-400)">VAT @ 16%</span><span class="mono">KES 2,430,960</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:600"><span>Grand total</span><span class="mono" style="color:var(--navy)">KES 17,624,460</span></div>
+            </div>
+            <div style="display:flex;gap:9px;margin-top:15px">
+              <button class="btn btn-secondary btn-sm" style="flex:1" onclick="toast('PDF exported')"><i class="ti ti-file-type-pdf"></i> PDF</button>
+              <button class="btn btn-secondary btn-sm" style="flex:1" onclick="toast('Excel exported')"><i class="ti ti-file-spreadsheet"></i> Excel</button>
+              <button class="btn btn-accent btn-sm" style="flex:2" onclick="toast('Reminder sent to G4S contact')"><i class="ti ti-send"></i> Send reminder</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-header"><h2>KRA eTIMS status</h2></div>
+            <div style="display:flex;align-items:center;gap:12px;padding:6px 0">
+              <div style="width:40px;height:40px;border-radius:50%;background:#DCFCE7;display:flex;align-items:center;justify-content:center;font-size:20px;color:#15803D;flex-shrink:0"><i class="ti ti-shield-check"></i></div>
+              <div><div style="font-size:13px;font-weight:600;color:#15803D">291 invoices submitted to KRA</div><div style="font-size:11px;color:var(--gray-400);margin-top:2px">All March invoices compliant · CU numbers assigned</div></div>
+            </div>
+            <hr class="separator">
+            <div style="font-size:12px;display:flex;justify-content:space-between;color:var(--gray-600)"><span>Submitted</span><span class="mono">04 Mar 2026 · 08:52 AM</span></div>
+            <div style="font-size:12px;display:flex;justify-content:space-between;color:var(--gray-600);margin-top:6px"><span>API status</span><span class="badge badge-paid">Connected</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="card" style="margin-bottom:13px">
+            <div class="section-header"><h2>SOA history</h2></div>
+            <div class="soa-item"><span class="soa-ref">101/01/26</span><span class="soa-month">January 2026</span><span class="soa-amount">KES 15,800,000</span><span class="badge badge-paid">Settled</span><button class="btn btn-secondary btn-sm" style="margin-left:6px" onclick="toast('SOA downloaded')"><i class="ti ti-download"></i></button></div>
+            <div class="soa-item"><span class="soa-ref">101/02/26</span><span class="soa-month">February 2026</span><span class="soa-amount">KES 17,151,054</span><span class="badge badge-paid">Settled</span><button class="btn btn-secondary btn-sm" style="margin-left:6px" onclick="toast('SOA downloaded')"><i class="ti ti-download"></i></button></div>
+            <div class="soa-item" style="background:var(--accent-light);margin:0 -20px;padding:10px 20px"><span class="soa-ref" style="color:var(--accent-dark)">101/03/26</span><span class="soa-month" style="font-weight:600">March 2026</span><span class="soa-amount" style="font-weight:600">KES 17,624,460</span><span class="badge badge-pending">Pending</span><button class="btn btn-secondary btn-sm" style="margin-left:6px" onclick="toast('SOA downloaded')"><i class="ti ti-download"></i></button></div>
+          </div>
+          <div class="card">
+            <div class="section-header">
+              <div><h2>Feb 2026 SOA — #18351 to #18669</h2><p>135 invoice lines · KES 17,151,054 · Settled</p></div>
+              <span class="badge badge-paid">Settled</span>
+            </div>
+            <div class="table-wrap" style="max-height:340px;overflow-y:auto;border:none;border-radius:0;margin:-1px">
+              <table>
+                <thead><tr><th>Invoice #</th><th>Vehicle plate</th><th>Amount (KES)</th></tr></thead>
+                <tbody id="feb-soa-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ VEHICLES ════ -->
+    <div class="page" id="page-vehicles">
+
+      <!-- Stat cards -->
+      <div class="metrics-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+        <div class="metric-card c-navy">
+          <div class="metric-icon navy"><i class="ti ti-truck"></i></div>
+          <div class="metric-label">Total vehicles</div>
+          <div class="metric-value">57</div>
+          <div class="metric-sub">All classes</div>
+        </div>
+        <div class="metric-card c-teal">
+          <div class="metric-icon teal"><i class="ti ti-circle-check"></i></div>
+          <div class="metric-label">Active</div>
+          <div class="metric-value">54</div>
+          <div class="metric-sub">On contract</div>
+        </div>
+        <div class="metric-card c-red">
+          <div class="metric-icon red"><i class="ti ti-circle-x"></i></div>
+          <div class="metric-label">Inactive / suspended</div>
+          <div class="metric-value">3</div>
+          <div class="metric-sub">No runs this month</div>
+        </div>
+        <div class="metric-card c-amber">
+          <div class="metric-icon amber"><i class="ti ti-calendar-stats"></i></div>
+          <div class="metric-label">Total trips (June)</div>
+          <div class="metric-value">891</div>
+          <div class="metric-sub">Days across fleet</div>
+        </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="filter-bar">
+        <div class="filter-tab active" onclick="filterVehicles('all',this)">All (57)</div>
+        <div class="filter-tab" onclick="filterVehicles('active',this)">Active (54)</div>
+        <div class="filter-tab" onclick="filterVehicles('inactive',this)">Inactive (3)</div>
+        <div class="filter-tab" onclick="filterVehicles('suspended',this)">Suspended</div>
+        <div class="filter-tab" onclick="filterVehicles('7t',this)">7T trucks</div>
+        <div class="filter-tab" onclick="filterVehicles('15t',this)">15T trucks</div>
+        <div class="filter-tab" onclick="filterVehicles('canter',this)">Canter / Van</div>
+        <div class="filter-search">
+          <i class="ti ti-search"></i>
+          <input type="text" placeholder="Search plate..." oninput="searchVehicles(this.value)">
+        </div>
+        <button class="btn btn-accent btn-sm" onclick="openModal('add-vehicle')"><i class="ti ti-plus"></i> Add vehicle</button>
+      </div>
+
+      <!-- Full-width table -->
+      <div class="table-wrap">
+        <table id="vehicle-table">
+          <thead>
+            <tr>
+              <th style="width:36px"><input type="checkbox" id="veh-check-all" onchange="toggleAllVehicles(this)" style="width:15px;height:15px;cursor:pointer"></th>
+              <th>Plate number</th>
+              <th>Class</th>
+              <th>Run type</th>
+              <th style="text-align:center">Trips / Runs</th>
+              <th style="text-align:center">Days (June)</th>
+              <th>Contract client</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="vehicle-tbody"></tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- ════ RATES ════ -->
+    <div class="page" id="page-rates">
+      <div class="two-col">
+        <div>
+          <div class="section-header">
+            <div><h2>Rate card</h2><p>All rates exclusive of 16% VAT</p></div>
+            <button class="btn btn-accent btn-sm" onclick="openModal('add-rate')"><i class="ti ti-plus"></i> Add rate</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Route / Service</th><th>Vehicle class</th><th>Rate (KES/day)</th><th>Effective from</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+                <tr style="background:var(--gray-50)"><td colspan="5" style="padding:6px 14px"><span style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--gray-400);font-weight:600">Nairobi Routes</span></td></tr>
+                <tr><td>Nairobi Morning (full day)</td><td><span class="badge badge-draft">7T</span></td><td class="mono" style="font-weight:500">8,500</td><td class="mono" style="color:var(--gray-400)">01 Jan 2026</td><td><span class="badge badge-active">Active</span></td></tr>
+                <tr><td>Nairobi Afternoon (half day)</td><td><span class="badge badge-draft">7T</span></td><td class="mono" style="font-weight:500">7,000</td><td class="mono" style="color:var(--gray-400)">01 Jan 2026</td><td><span class="badge badge-active">Active</span></td></tr>
+                <tr><td>Nairobi Morning (full day)</td><td><span class="badge badge-sent">15T</span></td><td class="mono" style="font-weight:500">9,000</td><td class="mono" style="color:var(--gray-400)">01 Jan 2026</td><td><span class="badge badge-active">Active</span></td></tr>
+                <tr><td>Nairobi Afternoon (half day)</td><td><span class="badge badge-sent">15T</span></td><td class="mono" style="font-weight:500">8,000</td><td class="mono" style="color:var(--gray-400)">01 Jan 2026</td><td><span class="badge badge-active">Active</span></td></tr>
+                <tr><td>Canter Nairobi</td><td><span class="badge badge-pending">Canter</span></td><td class="mono" style="font-weight:500">5,800</td><td class="mono" style="color:var(--gray-400)">01 Jan 2026</td><td><span class="badge badge-active">Active</span></td></tr>
+                <tr><td>Van Nairobi</td><td><span class="badge badge-approved">Van</span></td><td class="mono" style="font-weight:500">5,300</td><td class="mono" style="color:var(--gray-400)">01 Jan 2026</td><td><span class="badge badge-active">Active</span></td></tr>
+                <tr style="background:var(--gray-50)"><td colspan="5" style="padding:6px 14px"><span style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--gray-400);font-weight:600">Upcountry Routes</span></td></tr>
+                <tr><td>Nakuru</td><td><span class="badge badge-draft">7T</span></td><td class="mono" style="font-weight:500">14,000</td><td class="mono" style="color:var(--gray-400)">01 Jan 2026</td><td><span class="badge badge-active">Active</span></td></tr>
+                <tr><td>Nakuru</td><td><span class="badge badge-sent">15T</span></td><td class="mono" style="font-weight:500">15,000</td><td class="mono" style="color:var(--gray-400)">01 Jan 2026</td><td><span class="badge badge-active">Active</span></td></tr>
+                <tr><td>Mombasa</td><td><span class="badge badge-draft">7T</span></td><td class="mono" style="font-weight:500">26,000</td><td class="mono" style="color:var(--gray-400)">01 Jan 2026</td><td><span class="badge badge-active">Active</span></td></tr>
+                <tr><td>Kisumu</td><td><span class="badge badge-draft">7T</span></td><td class="mono" style="font-weight:500">22,000</td><td class="mono" style="color:var(--gray-400)">01 Jan 2026</td><td><span class="badge badge-active">Active</span></td></tr>
+                <tr><td>Kisumu</td><td><span class="badge badge-sent">15T</span></td><td class="mono" style="font-weight:500">25,000</td><td class="mono" style="color:var(--gray-400)">01 Jan 2026</td><td><span class="badge badge-active">Active</span></td></tr>
+                <tr><td>Eldoret</td><td><span class="badge badge-draft">7T</span></td><td class="mono" style="font-weight:500">22,000</td><td class="mono" style="color:var(--gray-400)">01 Jan 2026</td><td><span class="badge badge-active">Active</span></td></tr>
+                <tr><td>Eldoret</td><td><span class="badge badge-sent">15T</span></td><td class="mono" style="font-weight:500">25,000</td><td class="mono" style="color:var(--gray-400)">01 Jan 2026</td><td><span class="badge badge-active">Active</span></td></tr>
+                <tr><td>Meru</td><td><span class="badge badge-draft">7T</span></td><td class="mono" style="font-weight:500">22,000</td><td class="mono" style="color:var(--gray-400)">01 Jan 2026</td><td><span class="badge badge-active">Active</span></td></tr>
+                <tr><td>Meru</td><td><span class="badge badge-sent">15T</span></td><td class="mono" style="font-weight:500">30,000</td><td class="mono" style="color:var(--gray-400)">01 Jan 2026</td><td><span class="badge badge-active">Active</span></td></tr>
+                <tr><td>Nairobi–Kisumu combo</td><td><span class="badge badge-draft">7T</span></td><td class="mono" style="font-weight:500">23,000</td><td class="mono" style="color:var(--gray-400)">01 Jan 2026</td><td><span class="badge badge-active">Active</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div>
+          <div class="card" style="margin-bottom:14px">
+            <div class="section-header"><h2>VAT calculation preview</h2></div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="form-row" style="margin-bottom:0">
+                <div class="form-group">
+                  <label class="field-label">Rate (KES)</label>
+                  <input type="number" id="calc-rate" value="8500" oninput="calcVAT()">
+                </div>
+                <div class="form-group">
+                  <label class="field-label">Days</label>
+                  <input type="number" id="calc-days" value="20" oninput="calcVAT()">
+                </div>
+              </div>
+              <div class="invoice-preview">
+                <div class="row"><span>Cost</span><span style="color:#fff;font-family:var(--mono)" id="calc-cost">KES 170,000</span></div>
+                <div class="row"><span>VAT (16%)</span><span style="color:#fff;font-family:var(--mono)" id="calc-vat">KES 27,200</span></div>
+                <div class="row total-row"><span>Total</span><span id="calc-total">KES 197,200</span></div>
+              </div>
+              <div style="font-size:11px;color:var(--gray-400);text-align:center">Formula: cost = rate × days · vat = cost × 0.16 · total = cost + vat</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-header"><h2>Rate card summary</h2></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div style="background:var(--gray-50);border-radius:var(--radius-sm);padding:12px">
+                <div style="font-size:11px;color:var(--gray-400);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Total routes</div>
+                <div style="font-size:22px;font-weight:600">45+</div>
+              </div>
+              <div style="background:var(--gray-50);border-radius:var(--radius-sm);padding:12px">
+                <div style="font-size:11px;color:var(--gray-400);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">VAT rate</div>
+                <div style="font-size:22px;font-weight:600">16%</div>
+              </div>
+              <div style="background:var(--teal-light);border-radius:var(--radius-sm);padding:12px">
+                <div style="font-size:11px;color:var(--teal);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Lowest rate</div>
+                <div style="font-size:22px;font-weight:600;color:var(--teal)">5,300</div>
+                <div style="font-size:11px;color:var(--teal)">Van Nairobi</div>
+              </div>
+              <div style="background:var(--accent-light);border-radius:var(--radius-sm);padding:12px">
+                <div style="font-size:11px;color:var(--accent-dark);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Highest rate</div>
+                <div style="font-size:22px;font-weight:600;color:var(--accent-dark)">30,000</div>
+                <div style="font-size:11px;color:var(--accent-dark)">Meru 15T</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ LOCAL DELIVERIES (April 2026 Logbook) ════ -->
+    <div class="page" id="page-localdeliveries">
+      <div class="metrics-grid">
+        <div class="metric-card c-navy"><div class="metric-icon navy"><i class="ti ti-map-2"></i></div><div class="metric-label">Total vehicles</div><div class="metric-value">50</div><div class="metric-sub">Nairobi area routes</div></div>
+        <div class="metric-card c-teal"><div class="metric-icon teal"><i class="ti ti-sun"></i></div><div class="metric-label">Morning trips</div><div class="metric-value">149</div><div class="metric-sub">KES 8,500 / day (7T)</div></div>
+        <div class="metric-card c-amber"><div class="metric-icon amber"><i class="ti ti-moon"></i></div><div class="metric-label">Afternoon trips</div><div class="metric-value">353</div><div class="metric-sub">KES 7,000 / day (7T)</div></div>
+        <div class="metric-card c-blue"><div class="metric-icon blue"><i class="ti ti-route"></i></div><div class="metric-label">Grand total trips</div><div class="metric-value">502</div><div class="metric-sub">26 vehicles on both shifts</div></div>
+      </div>
+      <div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:var(--radius-md);padding:12px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;font-size:13px">
+        <i class="ti ti-alert-triangle" style="color:#D97706;font-size:20px;flex-shrink:0;margin-top:1px"></i>
+        <div><div style="font-weight:600;color:#92400E;margin-bottom:3px">Billing note — blank columns</div><div style="color:#78350F">Several vehicles had blank morning or afternoon columns in the original logbook — recorded as zero (—). A blank may mean no trips in that shift or a missed entry. Verify with driver daily confirmations if totals seem low. Rates: Morning 7T = KES 8,500/day · Afternoon 7T = KES 7,000/day.</div></div>
+      </div>
+      <div class="search-bar-wrap">
+        <div style="position:relative;flex:1;min-width:160px;max-width:240px"><i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--gray-400);font-size:15px;pointer-events:none"></i><input type="text" placeholder="Search plate…" style="padding-left:32px;width:100%" oninput="filterLocal(this.value,'plate')"></div>
+        <select onchange="filterLocal(this.value,'shift')" style="min-width:160px"><option value="">All shifts</option><option value="morning">Morning only</option><option value="afternoon">Afternoon only</option><option value="both">Both shifts</option></select>
+        <select onchange="filterLocal(this.value,'trips')" style="min-width:160px"><option value="">All trip counts</option><option value="1-5">1–5 trips</option><option value="6-10">6–10 trips</option><option value="11-15">11–15 trips</option><option value="16+">16+ trips</option></select>
+        <div style="flex:1"></div>
+        <button class="btn btn-secondary btn-sm" onclick="toast('Local deliveries exported to CSV')"><i class="ti ti-download"></i> Export</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Registration</th><th style="text-align:center">Morning trips</th><th style="text-align:center">Afternoon trips</th><th style="text-align:center">Total trips</th><th>Shift type</th><th>Morning bill (KES)</th><th>Afternoon bill (KES)</th><th>Total net (KES)</th><th>VAT 16% (KES)</th><th>Invoice total (KES)</th></tr></thead>
+          <tbody id="local-tbody"></tbody>
+        </table>
+      </div>
+      <div class="totals-bar">
+        <div><span style="color:var(--gray-400)">Total net (excl. VAT):</span> <span class="mono" style="font-weight:600" id="local-net">—</span></div>
+        <div><span style="color:var(--gray-400)">VAT @ 16%:</span> <span class="mono" style="font-weight:600;color:var(--accent-dark)" id="local-vat">—</span></div>
+        <div><span style="color:var(--gray-400)">Grand total:</span> <span class="mono" style="font-weight:600;color:var(--navy)" id="local-gross">—</span></div>
+        <div style="margin-left:auto;color:var(--gray-400);font-size:11px">April 2026 · 50 vehicles · Nairobi routes</div>
+      </div>
+    </div>
+
+    <!-- ════ SAFARI / UPCOUNTRY (April 2026 Logbook) ════ -->
+    <div class="page" id="page-safari">
+      <div class="metrics-grid">
+        <div class="metric-card c-navy"><div class="metric-icon navy"><i class="ti ti-road"></i></div><div class="metric-label">Total safari trips</div><div class="metric-value">426</div><div class="metric-sub">Across 40 vehicles</div></div>
+        <div class="metric-card c-teal"><div class="metric-icon teal"><i class="ti ti-map-pin"></i></div><div class="metric-label">Unique destinations</div><div class="metric-value">39</div><div class="metric-sub">Across Kenya</div></div>
+        <div class="metric-card c-amber"><div class="metric-icon amber"><i class="ti ti-trophy"></i></div><div class="metric-label">Top vehicle</div><div class="metric-value">34</div><div class="metric-sub">KDE 073Q — 34 trips</div></div>
+        <div class="metric-card c-red"><div class="metric-icon red"><i class="ti ti-alert-circle"></i></div><div class="metric-label">Flagged entries</div><div class="metric-value">2</div><div class="metric-sub">Verify before invoicing</div></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+        <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:flex-start;gap:10px;font-size:13px">
+          <i class="ti ti-alert-triangle" style="color:#DC2626;font-size:20px;flex-shrink:0;margin-top:1px"></i>
+          <div><div style="font-weight:600;color:#991B1B;margin-bottom:2px">KDE 073Q — 19 Bomet trips in one month (VERIFY)</div><div style="color:#7F1D1D">Exceptionally high single-destination count. This vehicle also appears in local deliveries (1 morning + 9 afternoon). Cross-check with dispatch records before invoicing to avoid double-billing.</div></div>
+        </div>
+        <div style="background:var(--blue-light);border:1px solid #BFDBFE;border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:flex-start;gap:10px;font-size:13px">
+          <i class="ti ti-info-circle" style="color:#185FA5;font-size:20px;flex-shrink:0;margin-top:1px"></i>
+          <div><div style="font-weight:600;color:#1E3A5F;margin-bottom:2px">Day-delivery entries — 7 entries across 6 vehicles</div><div style="color:#185FA5">KCC 430Q, KCS 052D, KDD 975A, KDM 265G, KCD 064A, KDE 320P carry day-delivery trips (shown in purple). Day-delivery rates may differ from overnight rates — confirm with management before invoicing.</div></div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="section-header"><h2>Top 15 safari destinations — April 2026</h2><p>By total trips</p></div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px" id="dest-grid"></div>
+      </div>
+      <div class="search-bar-wrap">
+        <div style="position:relative;flex:1;min-width:160px;max-width:240px"><i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--gray-400);font-size:15px;pointer-events:none"></i><input type="text" placeholder="Search plate or destination…" style="padding-left:32px;width:100%" oninput="filterSafari(this.value,'q')"></div>
+        <select onchange="filterSafari(this.value,'dest')" style="min-width:180px"><option value="">All destinations</option><option>Kisumu</option><option>Kisii</option><option>Eldoret</option><option>Bomet</option><option>Mombasa</option><option>Nakuru</option><option>Namanga</option><option>Kitale</option><option>Meru</option><option>Naivasha</option><option>Bungoma</option><option>Embu</option><option>Voi</option><option>Molo</option></select>
+        <select onchange="filterSafari(this.value,'count')" style="min-width:160px"><option value="">All trip counts</option><option value="1-5">1–5 trips</option><option value="6-10">6–10 trips</option><option value="11-15">11–15 trips</option><option value="16-20">16–20 trips</option><option value="21+">21+ trips</option></select>
+        <div style="flex:1"></div>
+        <button class="btn btn-secondary btn-sm" onclick="toast('Safari data exported to CSV')"><i class="ti ti-download"></i> Export</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Registration</th><th style="text-align:center">Total trips</th><th>Destinations &amp; trip breakdown</th><th>Flag</th><th>Actions</th></tr></thead>
+          <tbody id="safari-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+        <!-- ════ ROUTES & DESTINATIONS ════ -->
+    <div class="page" id="page-routes">
+      <div class="metrics-grid">
+        <div class="metric-card c-navy">
+          <div class="metric-icon navy"><i class="ti ti-map-2"></i></div>
+          <div class="metric-label">Destinations covered</div>
+          <div class="metric-value">40+</div>
+          <div class="metric-sub">Across Kenya</div>
+        </div>
+        <div class="metric-card c-teal">
+          <div class="metric-icon teal"><i class="ti ti-home"></i></div>
+          <div class="metric-label">Nairobi revenue</div>
+          <div class="metric-value">KES 8.63M</div>
+          <div class="metric-sub">Morning + Afternoon · 126 trips</div>
+        </div>
+        <div class="metric-card c-amber">
+          <div class="metric-icon amber"><i class="ti ti-road"></i></div>
+          <div class="metric-label">Upcountry revenue</div>
+          <div class="metric-value">KES 9.0M</div>
+          <div class="metric-sub">35+ destinations</div>
+        </div>
+        <div class="metric-card c-red">
+          <div class="metric-icon red"><i class="ti ti-star"></i></div>
+          <div class="metric-label">Top upcountry route</div>
+          <div class="metric-value">Kisumu</div>
+          <div class="metric-sub">KES 995,280 · 14 trips</div>
+        </div>
+      </div>
+      <div class="section-header">
+        <div><h2>Destination revenue breakdown · March 2026</h2><p>Real data from RNTL_MARCH_2026_SCHEDULE.xlsx</p></div>
+        <button class="btn btn-secondary btn-sm" onclick="toast('Routes exported to Excel')"><i class="ti ti-download"></i> Export</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Destination</th>
+              <th>7T Rate (KES/day)</th>
+              <th>15T Rate (KES/day)</th>
+              <th style="text-align:center">Trips (Mar)</th>
+              <th>Total revenue (KES)</th>
+              <th>% of total</th>
+            </tr>
+          </thead>
+          <tbody id="routes-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+<div class="page" id="page-portal">
+      <div style="background:var(--navy);border-radius:var(--radius-lg);padding:18px 22px;margin-bottom:18px;display:flex;align-items:center;gap:14px">
+        <div style="width:44px;height:44px;background:rgba(255,255,255,.1);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--accent)"><i class="ti ti-building-skyscraper"></i></div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:600;color:#fff">G4S Kenya · Client portal</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">G4S Courier Services · P.O. BOX 30242, Outer Ring Rd, Nairobi · Viewer access · Approval rights</div>
+        </div>
+        <span class="badge badge-paid" style="font-size:11px">Portal active</span>
+      </div>
+      <div class="two-col">
+        <div>
+          <div class="section-header">
+            <h2>Invoices awaiting G4S approval</h2>
+            <span style="font-size:12px;color:var(--red);font-weight:500">12 invoices pending</span>
+          </div>
+          <div class="table-wrap" style="margin-bottom:14px">
+            <table>
+              <thead><tr><th>Invoice #</th><th>Vehicle</th><th>Destination</th><th>Amount (KES)</th><th>Sent</th><th>G4S action</th></tr></thead>
+              <tbody id="portal-tbody"></tbody>
+            </table>
+          </div>
+          <div style="display:flex;gap:9px">
+            <button class="btn btn-secondary" style="flex:1" onclick="toast('Bulk approval sent to G4S')"><i class="ti ti-checks"></i> Approve all 12</button>
+            <button class="btn btn-secondary" style="flex:1" onclick="toast('Reminder sent to G4S contact')"><i class="ti ti-send"></i> Send reminder</button>
+            <button class="btn btn-accent" style="flex:1" onclick="toast('SOA 101/03/26 forwarded to G4S')"><i class="ti ti-file-text"></i> Forward SOA</button>
+          </div>
+        </div>
+        <div>
+          <div class="card" style="margin-bottom:13px">
+            <div class="section-header"><h2>SOA approval · March 2026</h2></div>
+            <div style="font-size:13px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--gray-400)">Reference</span><span class="mono" style="font-weight:500">101/03/26</span></div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--gray-400)">Invoice lines</span><span class="mono">291 · 88 vehicles</span></div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--gray-400)">Grand total</span><span class="mono" style="font-weight:600">KES 17,624,460</span></div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:14px"><span style="color:var(--gray-400)">Status</span><span class="badge badge-pending">Pending G4S</span></div>
+              <button class="btn btn-accent" style="width:100%" onclick="approveSoa()"><i class="ti ti-signature"></i> Approve SOA 101/03/26</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-header"><h2>Approval history</h2></div>
+            <div class="soa-item"><span class="soa-ref">101/01/26</span><span class="soa-month">January 2026</span><span class="soa-amount">KES 15,800,000</span><span class="badge badge-paid">Settled</span></div>
+            <div class="soa-item"><span class="soa-ref">101/02/26</span><span class="soa-month">February 2026</span><span class="soa-amount">KES 17,151,054</span><span class="badge badge-paid">Settled</span></div>
+            <div class="soa-item"><span class="soa-ref">101/03/26</span><span class="soa-month">March 2026</span><span class="soa-amount">KES 17,624,460</span><span class="badge badge-pending">Pending</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ REPORTS ════ -->
+    <div class="page" id="page-reports">
+      <div class="metrics-grid">
+        <div class="metric-card c-teal">
+          <div class="metric-icon teal"><i class="ti ti-coin"></i></div>
+          <div class="metric-label">YTD revenue (Jan–Mar 2026)</div>
+          <div class="metric-value">50.6M</div>
+          <div class="metric-sub">KES incl. VAT · Actual data</div>
+        </div>
+        <div class="metric-card c-amber">
+          <div class="metric-icon amber"><i class="ti ti-chart-line"></i></div>
+          <div class="metric-label">Avg monthly (Jan–Mar)</div>
+          <div class="metric-value">16.87M</div>
+          <div class="metric-sub">KES per month</div>
+        </div>
+        <div class="metric-card c-navy">
+          <div class="metric-icon navy"><i class="ti ti-truck"></i></div>
+          <div class="metric-label">Fleet size (March)</div>
+          <div class="metric-value">88</div>
+          <div class="metric-sub">7T · 15T · Canter · Van</div>
+        </div>
+        <div class="metric-card c-red">
+          <div class="metric-icon red"><i class="ti ti-map-2"></i></div>
+          <div class="metric-label">Destinations served</div>
+          <div class="metric-value">40+</div>
+          <div class="metric-sub">Nairobi + upcountry Kenya</div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="card">
+          <div class="section-header">
+            <div><h2>Monthly revenue trend</h2><p>Jan – Mar 2026 · actual Excel data</p></div>
+            <button class="btn btn-secondary btn-sm" onclick="toast('Report exported to Excel')"><i class="ti ti-download"></i> Export</button>
+          </div>
+          <div class="rev-bar-wrap" style="margin-top:8px">
+            <div class="rev-bar-item">
+              <div class="rev-bar-label"><span>January 2026</span><span style="font-family:var(--mono)">KES 15,800,000</span></div>
+              <div class="rev-bar-track" style="height:10px"><div class="rev-bar-fill" style="width:89%;background:var(--navy)"></div></div>
+            </div>
+            <div class="rev-bar-item">
+              <div class="rev-bar-label"><span>February 2026</span><span style="font-family:var(--mono)">KES 17,151,054</span></div>
+              <div class="rev-bar-track" style="height:10px"><div class="rev-bar-fill" style="width:97%;background:var(--accent)"></div></div>
+            </div>
+            <div class="rev-bar-item">
+              <div class="rev-bar-label"><span style="font-weight:600">March 2026 (current)</span><span style="font-family:var(--mono);font-weight:600">KES 17,624,460</span></div>
+              <div class="rev-bar-track" style="height:10px"><div class="rev-bar-fill" style="width:100%;background:var(--teal)"></div></div>
+            </div>
+          </div>
+          <hr class="separator">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div style="background:var(--gray-50);border-radius:var(--radius-sm);padding:10px;text-align:center">
+              <div class="metric-label">January</div>
+              <div style="font-size:14px;font-weight:600;font-family:var(--mono)">KES 15.8M</div>
+            </div>
+            <div style="background:var(--gray-50);border-radius:var(--radius-sm);padding:10px;text-align:center">
+              <div class="metric-label">February</div>
+              <div style="font-size:14px;font-weight:600;font-family:var(--mono)">KES 17.15M</div>
+            </div>
+            <div style="background:var(--teal-light);border-radius:var(--radius-sm);padding:10px;text-align:center">
+              <div class="metric-label" style="color:var(--teal)">March</div>
+              <div style="font-size:14px;font-weight:600;font-family:var(--mono);color:var(--teal)">KES 17.62M</div>
+            </div>
+          </div>
+          <hr class="separator">
+          <div class="section-header" style="margin-bottom:8px"><h2>Fleet class breakdown · March</h2></div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--navy);flex-shrink:0"></div>
+              <div style="flex:1;font-size:12px">7T trucks (Nairobi morning)</div>
+              <span class="mono" style="font-size:12px;font-weight:500">67 vehicles · 5.58M revenue</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0"></div>
+              <div style="flex:1;font-size:12px">7T trucks (Nairobi afternoon)</div>
+              <span class="mono" style="font-size:12px;font-weight:500">67 vehicles · 3.23M revenue</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0"></div>
+              <div style="flex:1;font-size:12px">Canters (17 vehicles)</div>
+              <span class="mono" style="font-size:12px;font-weight:500">17 vehicles · 1.20M revenue</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0"></div>
+              <div style="flex:1;font-size:12px">7T trucks (upcountry)</div>
+              <span class="mono" style="font-size:12px;font-weight:500">Multi-vehicle · 7.62M revenue</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0"></div>
+              <div style="flex:1;font-size:12px">15T trucks (KBH 667W class)</div>
+              <span class="mono" style="font-size:12px;font-weight:500">2 vehicles · 245,920 revenue</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="card">
+            <div class="section-header">
+              <div><h2>Top 10 vehicles by revenue · March 2026</h2><p>Real data from schedule Excel</p></div>
+            </div>
+            <div id="report-top5"></div>
+          </div>
+
+          <div class="card">
+            <div class="section-header"><h2>VAT summary · March 2026</h2></div>
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:13px">
+              <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--gray-50)">
+                <span style="color:var(--gray-400)">Total invoice lines</span>
+                <span class="mono" style="font-weight:600">291</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--gray-50)">
+                <span style="color:var(--gray-400)">Net (excl. VAT)</span>
+                <span class="mono" style="font-weight:600">KES 15,193,500</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--gray-50)">
+                <span style="color:var(--gray-400)">VAT @ 16%</span>
+                <span class="mono" style="font-weight:600;color:var(--accent-dark)">KES 2,430,960</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:15px;font-weight:700">
+                <span>Grand total (incl. VAT)</span>
+                <span class="mono" style="color:var(--navy)">KES 17,624,460</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-header"><h2>Build timeline</h2></div>
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <div style="display:flex;gap:10px;align-items:center">
+                <div style="width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0"></div>
+                <div style="flex:1"><div style="font-size:11px;font-weight:600">Phase 1 — Core (Weeks 1–6)</div><div style="font-size:10px;color:var(--gray-400)">Auth · Fleet · Pricing · API Gateway</div></div>
+                <span class="badge badge-paid">Complete</span>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center">
+                <div style="width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0"></div>
+                <div style="flex:1"><div style="font-size:11px;font-weight:600">Phase 2 — Operations (Weeks 7–10)</div><div style="font-size:10px;color:var(--gray-400)">Schedule · Billing · eTIMS · Dashboard</div></div>
+                <span class="badge badge-paid">Complete</span>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center">
+                <div style="width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0"></div>
+                <div style="flex:1"><div style="font-size:11px;font-weight:600">Phase 3 — Client & Finance (Weeks 11–14)</div><div style="font-size:10px;color:var(--gray-400)">SOA · G4S Portal · Notifications · Payments</div></div>
+                <span class="badge badge-pending">In progress</span>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center">
+                <div style="width:7px;height:7px;border-radius:50%;background:var(--gray-200);flex-shrink:0"></div>
+                <div style="flex:1"><div style="font-size:11px;font-weight:600">Phase 4 — Enhancements (Week 15+)</div><div style="font-size:10px;color:var(--gray-400)">Driver app · GPS · ERP sync · Analytics</div></div>
+                <span class="badge badge-draft">Upcoming</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ═══════════ MODALS ═══════════ -->
+<div class="modal-overlay" id="modal-add-schedule" onclick="closeModalOnBg(event)">
+  <div class="modal" style="width:560px">
+    <div class="modal-header">
+      <h2>Add schedule entry</h2>
+      <div class="modal-close" onclick="closeModal('add-schedule')"><i class="ti ti-x"></i></div>
+    </div>
+
+    <div style="background:var(--accent-light);border-radius:var(--radius-sm);padding:9px 12px;margin-bottom:16px;font-size:12px;color:var(--accent-dark);display:flex;align-items:center;gap:8px">
+      <i class="ti ti-alert-circle"></i>
+      KDA 847D has 15 entries this month — verify days count before saving.
+    </div>
+
+    <div class="form-row">
+      <div class="form-group full">
+        <label class="field-label">Vehicle *</label>
+        <select id="sch-vehicle" onchange="updateRatePreview()">
+          <option value="">Select vehicle plate</option>
+          <option value="KBH667W_15T">KBH 667W — 15T</option>
+          <option value="KCA173Q_7T">KCA 173Q — 7T</option>
+          <option value="KDU864J_7T">KDU 864J — 7T</option>
+          <option value="KCS052D_7T">KCS 052D — 7T</option>
+          <option value="KBL094E_7T">KBL 094E — 7T</option>
+          <option value="KDJ027J_7T">KDJ 027J — 7T</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="field-label">Run date *</label>
+        <input type="date" id="sch-date" value="2026-06-04">
+      </div>
+      <div class="form-group">
+        <label class="field-label">Days count *</label>
+        <input type="number" id="sch-days" min="1" max="31" value="14" oninput="updateRatePreview()">
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-bottom:14px">
+      <label class="field-label">Route *</label>
+      <select id="sch-route" onchange="updateRatePreview()">
+        <option value="nairobi_morning">Nairobi Morning — 15T Rate: KES 9,000/day</option>
+        <option value="nairobi_afternoon">Nairobi Afternoon — 15T Rate: KES 8,000/day</option>
+        <option value="nairobi_morning_7t">Nairobi Morning — 7T Rate: KES 8,500/day</option>
+        <option value="nairobi_afternoon_7t">Nairobi Afternoon — 7T Rate: KES 7,000/day</option>
+        <option value="mombasa">Mombasa — KES 26,000</option>
+        <option value="kisumu">Kisumu — KES 22,000</option>
+        <option value="nakuru">Nakuru — KES 14,000</option>
+        <option value="eldoret">Eldoret — KES 22,000</option>
+      </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom:14px">
+      <label class="field-label">Run type *</label>
+      <div class="chip-group">
+        <div class="chip selected" onclick="selectChip(this)">Morning</div>
+        <div class="chip" onclick="selectChip(this)">Afternoon</div>
+        <div class="chip" onclick="selectChip(this)">Both</div>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="field-label">Notes (optional)</label>
+      <textarea placeholder="e.g. covered for KBG 004V on 3rd June"></textarea>
+    </div>
+
+    <!-- Live invoice preview -->
+    <div class="invoice-preview" id="invoice-preview">
+      <div class="row"><span>Rate</span><span style="color:#fff;font-family:var(--mono)">KES 9,000 / day</span></div>
+      <div class="row"><span>Days</span><span style="color:#fff;font-family:var(--mono)">14</span></div>
+      <div class="row"><span>Subtotal</span><span style="color:#fff;font-family:var(--mono)">KES 126,000</span></div>
+      <div class="row"><span>VAT (16%)</span><span style="color:#fff;font-family:var(--mono)">KES 20,160</span></div>
+      <div class="row total-row"><span>Total invoice amount</span><span>KES 146,160</span></div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-secondary" style="flex:1" onclick="closeModal('add-schedule')">Cancel</button>
+      <button class="btn btn-accent" style="flex:2" onclick="saveScheduleEntry()">
+        <i class="ti ti-device-floppy"></i> Save entry & calculate
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-vehicle" onclick="closeModalOnBg(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Register new vehicle</h2>
+      <div class="modal-close" onclick="closeModal('add-vehicle')"><i class="ti ti-x"></i></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="field-label">Registration plate *</label>
+        <input type="text" placeholder="e.g. KDJ 027J">
+      </div>
+      <div class="form-group">
+        <label class="field-label">Vehicle class *</label>
+        <select><option>7T</option><option>15T</option><option>Canter</option><option>Van</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="field-label">Fleet owner</label>
+        <input type="text" value="Fleet Travel Ltd" readonly>
+      </div>
+      <div class="form-group">
+        <label class="field-label">Contract client</label>
+        <input type="text" value="G4S Kenya" readonly>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="field-label">Status</label>
+      <div class="chip-group">
+        <div class="chip selected" onclick="selectChip(this)">Active</div>
+        <div class="chip" onclick="selectChip(this)">Inactive</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-secondary" style="flex:1" onclick="closeModal('add-vehicle')">Cancel</button>
+      <button class="btn btn-accent" style="flex:2" onclick="closeModal('add-vehicle');toast('Vehicle registered successfully')"><i class="ti ti-truck"></i> Register vehicle</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-rate" onclick="closeModalOnBg(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Add / update rate</h2>
+      <div class="modal-close" onclick="closeModal('add-rate')"><i class="ti ti-x"></i></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group full">
+        <label class="field-label">Route name *</label>
+        <input type="text" placeholder="e.g. Nairobi Morning">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="field-label">Vehicle class *</label>
+        <select><option>7T</option><option>15T</option><option>Canter</option><option>Van</option></select>
+      </div>
+      <div class="form-group">
+        <label class="field-label">Rate (KES/day) *</label>
+        <input type="number" placeholder="e.g. 9000">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="field-label">Effective from *</label>
+      <input type="date" value="2026-07-01">
+    </div>
+    <div style="background:var(--blue-light);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:#185FA5;margin-bottom:16px;display:flex;gap:8px">
+      <i class="ti ti-info-circle"></i>
+      Rate changes take effect from the next billing month. Existing invoices are not affected.
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-secondary" style="flex:1" onclick="closeModal('add-rate')">Cancel</button>
+      <button class="btn btn-accent" style="flex:2" onclick="closeModal('add-rate');toast('Rate card updated')"><i class="ti ti-coin"></i> Save rate</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <i class="ti ti-circle-check"></i>
+  <span id="toast-msg">Done</span>
+</div>
+
+<script>
+
+// ═══ REAL DATA: RNTL_MARCH_2026_SCHEDULE.xlsx + SOA_FEBRUARY_2026.xlsx + RNT_PRICE_LIST.xlsx ═══
+
+const marchSchedule = [
+  {plate:'KDJ 027J',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:8,cost:56000,vat:8960,total:64960},
+  {plate:'KDJ 027J',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:2,cost:17000,vat:2720,total:19720},
+  {plate:'KDB 207S',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:3,cost:25500,vat:4080,total:29580},
+  {plate:'KDB 207S',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:10,cost:70000,vat:11200,total:81200},
+  {plate:'KDB 207S',cls:'7T',dest:'KISII',runType:'Morning',rate:22000,days:2,cost:44000,vat:7040,total:51040},
+  {plate:'KDB 207S',cls:'7T',dest:'ELDORET',runType:'Morning',rate:22000,days:3,cost:66000,vat:10560,total:76560},
+  {plate:'KDB 207S',cls:'7T',dest:'EMBU/NYERI',runType:'Morning',rate:12000,days:3,cost:36000,vat:5760,total:41760},
+  {plate:'KDB 207S',cls:'7T',dest:'MOLO',runType:'Morning',rate:17000,days:3,cost:51000,vat:8160,total:59160},
+  {plate:'KBG 004V',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:1,cost:8500,vat:1360,total:9860},
+  {plate:'KBG 004V',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:20,cost:140000,vat:22400,total:162400},
+  {plate:'KBG 004V',cls:'7T',dest:'EMBU',runType:'Morning',rate:12000,days:4,cost:48000,vat:7680,total:55680},
+  {plate:'KBH 667W',cls:'15T',dest:'NAIROBI',runType:'Morning',rate:9000,days:14,cost:126000,vat:20160,total:146160},
+  {plate:'KBH 667W',cls:'15T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:8000,days:4,cost:32000,vat:5120,total:37120},
+  {plate:'KBH 667W',cls:'15T',dest:'MOLO',runType:'Morning',rate:18000,days:3,cost:54000,vat:8640,total:62640},
+  {plate:'KDJ 403Z',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:1,cost:8500,vat:1360,total:9860},
+  {plate:'KDJ 403Z',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:10,cost:70000,vat:11200,total:81200},
+  {plate:'KDJ 403Z',cls:'7T',dest:'MOMBASA',runType:'Morning',rate:26000,days:4,cost:104000,vat:16640,total:120640},
+  {plate:'KDJ 403Z',cls:'7T',dest:'BUNGOMA',runType:'Morning',rate:23000,days:1,cost:23000,vat:3680,total:26680},
+  {plate:'KDJ 403Z',cls:'7T',dest:'BUSIA',runType:'Morning',rate:25000,days:3,cost:75000,vat:12000,total:87000},
+  {plate:'KDE 073Q',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:9,cost:76500,vat:12240,total:88740},
+  {plate:'KDE 073Q',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:4,cost:28000,vat:4480,total:32480},
+  {plate:'KDE 073Q',cls:'7T',dest:'NAIVASHA',runType:'Morning',rate:14000,days:2,cost:28000,vat:4480,total:32480},
+  {plate:'KDE 073Q',cls:'7T',dest:'BOMET',runType:'Morning',rate:20000,days:2,cost:40000,vat:6400,total:46400},
+  {plate:'KDE 073Q',cls:'7T',dest:'KISUMU',runType:'Morning',rate:22000,days:1,cost:22000,vat:3520,total:25520},
+  {plate:'KDE 073Q',cls:'7T',dest:'MOMBASA',runType:'Morning',rate:26000,days:1,cost:26000,vat:4160,total:30160},
+  {plate:'KDE 073Q',cls:'7T',dest:'KITALE',runType:'Morning',rate:23000,days:2,cost:46000,vat:7360,total:53360},
+  {plate:'KDR 566W',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:1,cost:7000,vat:1120,total:8120},
+  {plate:'KDR 566W',cls:'7T',dest:'BOMET',runType:'Morning',rate:20000,days:25,cost:500000,vat:80000,total:580000},
+  {plate:'KDA 047Y',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:5,cost:35000,vat:5600,total:40600},
+  {plate:'KDA 047Y',cls:'7T',dest:'MOMBASA',runType:'Morning',rate:26000,days:2,cost:52000,vat:8320,total:60320},
+  {plate:'KBL 094E',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:13,cost:110500,vat:17680,total:128180},
+  {plate:'KBL 094E',cls:'7T',dest:'NAKURU',runType:'Morning',rate:14000,days:1,cost:14000,vat:2240,total:16240},
+  {plate:'KBL 094E',cls:'7T',dest:'KISII',runType:'Morning',rate:22000,days:2,cost:44000,vat:7040,total:51040},
+  {plate:'KAU 475A',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:1,cost:8500,vat:1360,total:9860},
+  {plate:'KAU 475A',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:10,cost:70000,vat:11200,total:81200},
+  {plate:'KAV 038M',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:11,cost:93500,vat:14960,total:108460},
+  {plate:'KAV 038M',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:3,cost:21000,vat:3360,total:24360},
+  {plate:'KAV 038M',cls:'7T',dest:'NAIVASHA',runType:'Morning',rate:14000,days:4,cost:56000,vat:8960,total:64960},
+  {plate:'KDA 047T',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:2,cost:17000,vat:2720,total:19720},
+  {plate:'KDA 047T',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:9,cost:63000,vat:10080,total:73080},
+  {plate:'KDA 047T',cls:'7T',dest:'KISUMU',runType:'Morning',rate:22000,days:10,cost:220000,vat:35200,total:255200},
+  {plate:'KDA 047T',cls:'7T',dest:'BUSIA',runType:'Morning',rate:25000,days:1,cost:25000,vat:4000,total:29000},
+  {plate:'KDC 183M',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:3,cost:25500,vat:4080,total:29580},
+  {plate:'KDC 183M',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:9,cost:63000,vat:10080,total:73080},
+  {plate:'KDC 183M',cls:'7T',dest:'ELDORET',runType:'Morning',rate:22000,days:2,cost:44000,vat:7040,total:51040},
+  {plate:'KDC 183M',cls:'7T',dest:'MALINDI',runType:'Morning',rate:28000,days:2,cost:56000,vat:8960,total:64960},
+  {plate:'KDC 183M',cls:'7T',dest:'MOMBASA',runType:'Morning',rate:26000,days:1,cost:26000,vat:4160,total:30160},
+  {plate:'KDD 975A',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:2,cost:17000,vat:2720,total:19720},
+  {plate:'KDD 975A',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:9,cost:63000,vat:10080,total:73080},
+  {plate:'KDD 975A',cls:'7T',dest:'BUSIA',runType:'Morning',rate:25000,days:2,cost:50000,vat:8000,total:58000},
+  {plate:'KCG 651N',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:1,cost:8500,vat:1360,total:9860},
+  {plate:'KCG 651N',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:10,cost:70000,vat:11200,total:81200},
+  {plate:'KAQ 990R',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:14,cost:98000,vat:15680,total:113680},
+  {plate:'KDU 864J',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:22,cost:154000,vat:24640,total:178640},
+  {plate:'KBD 854F',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:12,cost:102000,vat:16320,total:118320},
+  {plate:'KBD 854F',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:5,cost:35000,vat:5600,total:40600},
+  {plate:'KBG 799R',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:6,cost:42000,vat:6720,total:48720},
+  {plate:'KCM 731A',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:11,cost:77000,vat:12320,total:89320},
+  {plate:'KBH 694Q',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:16,cost:112000,vat:17920,total:129920},
+  {plate:'KBH 694Q',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:1,cost:8500,vat:1360,total:9860},
+  {plate:'KDA 847D',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:15,cost:105000,vat:16800,total:121800},
+  {plate:'KDA 847D',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:1,cost:8500,vat:1360,total:9860},
+  {plate:'KCG 926R',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:1,cost:8500,vat:1360,total:9860},
+  {plate:'KCG 926R',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:14,cost:98000,vat:15680,total:113680},
+  {plate:'KCS 052D',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:20,cost:170000,vat:27200,total:197200},
+  {plate:'KCA 173Q',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:1,cost:7000,vat:1120,total:8120},
+  {plate:'KCA 173Q',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:23,cost:195500,vat:31280,total:226780},
+  {plate:'KCR 035M',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:1,cost:8500,vat:1360,total:9860},
+  {plate:'KCR 035M',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:13,cost:91000,vat:14560,total:105560},
+  {plate:'KDD 547G',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:2,cost:17000,vat:2720,total:19720},
+  {plate:'KDD 547G',cls:'7T',dest:'DIANI',runType:'Morning',rate:27000,days:3,cost:81000,vat:12960,total:93960},
+  {plate:'KDD 547G',cls:'7T',dest:'KAPSABET',runType:'Morning',rate:22000,days:1,cost:22000,vat:3520,total:25520},
+  {plate:'KDD 547G',cls:'7T',dest:'MOMBASA',runType:'Morning',rate:26000,days:1,cost:26000,vat:4160,total:30160},
+  {plate:'KDD 547G',cls:'7T',dest:'BUSIA',runType:'Morning',rate:25000,days:1,cost:25000,vat:4000,total:29000},
+  {plate:'KDG 409G',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:6,cost:51000,vat:8160,total:59160},
+  {plate:'KDG 409G',cls:'7T',dest:'MALINDI',runType:'Morning',rate:28000,days:5,cost:140000,vat:22400,total:162400},
+  {plate:'KDG 409G',cls:'7T',dest:'MOMBASA',runType:'Morning',rate:26000,days:2,cost:52000,vat:8320,total:60320},
+  {plate:'KDG 409G',cls:'7T',dest:'BUNGOMA',runType:'Morning',rate:23000,days:1,cost:23000,vat:3680,total:26680},
+  {plate:'KCC 430Q',cls:'7T',dest:'KISII',runType:'Morning',rate:22000,days:11,cost:242000,vat:38720,total:280720},
+  {plate:'KCC 430Q',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:8,cost:56000,vat:8960,total:64960},
+  {plate:'KCC 430Q',cls:'7T',dest:'SIAYA',runType:'Morning',rate:25000,days:1,cost:25000,vat:4000,total:29000},
+  {plate:'KDE 081U',cls:'7T',dest:'BUNGOMA',runType:'Morning',rate:23000,days:4,cost:92000,vat:14720,total:106720},
+  {plate:'KDE 081U',cls:'7T',dest:'MOMBASA',runType:'Morning',rate:26000,days:2,cost:52000,vat:8320,total:60320},
+  {plate:'KDE 081U',cls:'7T',dest:'MALINDI',runType:'Morning',rate:28000,days:1,cost:28000,vat:4480,total:32480},
+  {plate:'KDE 081U',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:2,cost:17000,vat:2720,total:19720},
+  {plate:'KDK 488G',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:7,cost:59500,vat:9520,total:69020},
+  {plate:'KDK 488G',cls:'7T',dest:'KISUMU',runType:'Morning',rate:22000,days:5,cost:110000,vat:17600,total:127600},
+  {plate:'KDK 488G',cls:'7T',dest:'MOMBASA',runType:'Morning',rate:26000,days:1,cost:26000,vat:4160,total:30160},
+  {plate:'KDK 488G',cls:'7T',dest:'BUSIA',runType:'Morning',rate:25000,days:1,cost:25000,vat:4000,total:29000},
+  {plate:'KAZ 615V',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:19,cost:161500,vat:25840,total:187340},
+  {plate:'KAZ 615V',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:5,cost:35000,vat:5600,total:40600},
+  {plate:'KCD 315J',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:3,cost:25500,vat:4080,total:29580},
+  {plate:'KCD 315J',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:18,cost:126000,vat:20160,total:146160},
+  {plate:'KCF 894Q',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:13,cost:91000,vat:14560,total:105560},
+  {plate:'KCX 252Z',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:1,cost:8500,vat:1360,total:9860},
+  {plate:'KCX 252Z',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:12,cost:84000,vat:13440,total:97440},
+  {plate:'KCX 252Z',cls:'7T',dest:'BUNGOMA',runType:'Morning',rate:23000,days:2,cost:46000,vat:7360,total:53360},
+  {plate:'KDE 320P',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:4,cost:34000,vat:5440,total:39440},
+  {plate:'KDE 320P',cls:'7T',dest:'KITALE',runType:'Morning',rate:23000,days:3,cost:69000,vat:11040,total:80040},
+  {plate:'KCY 187F',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:6,cost:42000,vat:6720,total:48720},
+  {plate:'KCA 174Q',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:8,cost:68000,vat:10880,total:78880},
+  {plate:'KBZ 640M',cls:'7T',dest:'KISUMU',runType:'Morning',rate:22000,days:5,cost:110000,vat:17600,total:127600},
+  {plate:'KBZ 640M',cls:'7T',dest:'KAKAMEGA',runType:'Morning',rate:23000,days:3,cost:69000,vat:11040,total:80040},
+  {plate:'KDM 265G',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:11,cost:77000,vat:12320,total:89320},
+  {plate:'KDM 265G',cls:'7T',dest:'ELDORET',runType:'Morning',rate:22000,days:3,cost:66000,vat:10560,total:76560},
+  {plate:'KBX 718F',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:3,cost:25500,vat:4080,total:29580},
+  {plate:'KBX 718F',cls:'7T',dest:'NAIROBI AFTERNOON',runType:'Afternoon',rate:7000,days:5,cost:35000,vat:5600,total:40600},
+  {plate:'KBQ 492U',cls:'7T',dest:'NAIROBI',runType:'Morning',rate:8500,days:3,cost:25500,vat:4080,total:29580},
+  {plate:'KBQ 492U',cls:'7T',dest:'ELDORET',runType:'Morning',rate:22000,days:4,cost:88000,vat:14080,total:102080},
+  {plate:'KBQ 492U',cls:'7T',dest:'KITALE',runType:'Morning',rate:23000,days:3,cost:69000,vat:11040,total:80040},
+  // Canters
+  {plate:'KCD 558K',cls:'CANTER',dest:'NAIROBI',runType:'Morning',rate:5800,days:13,cost:75400,vat:12064,total:87464},
+  {plate:'KBW 605H',cls:'CANTER',dest:'NAIROBI',runType:'Morning',rate:5800,days:25,cost:145000,vat:23200,total:168200},
+  {plate:'KBH 208C',cls:'CANTER',dest:'NAIROBI',runType:'Morning',rate:5800,days:25,cost:145000,vat:23200,total:168200},
+  {plate:'KBY 144Z',cls:'CANTER',dest:'NAIROBI',runType:'Morning',rate:5800,days:25,cost:145000,vat:23200,total:168200},
+  {plate:'KBT 301M',cls:'CANTER',dest:'NAIROBI',runType:'Morning',rate:5800,days:23,cost:133400,vat:21344,total:154744},
+  {plate:'KCR 225A',cls:'CANTER',dest:'NAIROBI',runType:'Morning',rate:5800,days:21,cost:121800,vat:19488,total:141288},
+  {plate:'KCH 262K',cls:'CANTER',dest:'NAIROBI',runType:'Morning',rate:5800,days:25,cost:145000,vat:23200,total:168200},
+  {plate:'KCR 255A',cls:'CANTER',dest:'NAIROBI',runType:'Morning',rate:5800,days:24,cost:139200,vat:22272,total:161472},
+  {plate:'KBM 462Y',cls:'CANTER',dest:'NAIROBI',runType:'Morning',rate:5800,days:24,cost:139200,vat:22272,total:161472},
+  {plate:'KAX 442P',cls:'CANTER',dest:'NAIROBI',runType:'Morning',rate:5800,days:24,cost:139200,vat:22272,total:161472},
+  {plate:'KBD 624P',cls:'CANTER',dest:'NAKURU BRANCH',runType:'Morning',rate:5800,days:26,cost:150800,vat:24128,total:174928},
+  {plate:'KBD 199U',cls:'CANTER',dest:'KISUMU BRANCH',runType:'Morning',rate:5800,days:26,cost:150800,vat:24128,total:174928},
+  {plate:'KBN 641F',cls:'CANTER',dest:'NAMANGA BRANCH',runType:'Morning',rate:10000,days:24,cost:240000,vat:38400,total:278400},
+];
+
+const vehicleRevenue = [
+  {plate:'KDR 566W',cls:'7T',runs:2,days:26,total:588120,dests:['BOMET','NAIROBI AFTERNOON'],status:'active'},
+  {plate:'KDG 409G',cls:'7T',runs:10,days:27,total:563760,dests:['MALINDI','MOMBASA','NAIROBI','BUNGOMA'],status:'active'},
+  {plate:'KDD 547G',cls:'7T',runs:8,days:21,total:477920,dests:['DIANI','KAPSABET','MOMBASA','NAIROBI'],status:'active'},
+  {plate:'KDE 073Q',cls:'7T',runs:11,days:29,total:452980,dests:['NAIROBI','NAIVASHA','BOMET','KISUMU'],status:'active'},
+  {plate:'KDK 488G',cls:'7T',runs:7,days:24,total:403100,dests:['KISUMU','MOMBASA','NAIROBI','BUSIA'],status:'active'},
+  {plate:'KCC 430Q',cls:'7T',runs:4,days:21,total:401360,dests:['KISII','SIAYA','NAIROBI AFTERNOON'],status:'active'},
+  {plate:'KDA 847D',cls:'7T',runs:4,days:16,total:397300,dests:['NAIROBI AFTERNOON','NAIROBI'],status:'active'},
+  {plate:'KDE 320P',cls:'7T',runs:4,days:22,total:390920,dests:['NAIROBI','KITALE'],status:'active'},
+  {plate:'KDD 975A',cls:'7T',runs:4,days:17,total:376160,dests:['NAIROBI','BUSIA'],status:'active'},
+  {plate:'KDJ 403Z',cls:'7T',runs:7,days:22,total:390340,dests:['MOMBASA','BUNGOMA','BUSIA','NAIROBI'],status:'active'},
+  {plate:'KDB 207S',cls:'7T',runs:8,days:24,total:382220,dests:['KISII','ELDORET','EMBU/NYERI','MOLO'],status:'active'},
+  {plate:'KDE 081U',cls:'7T',runs:7,days:18,total:335320,dests:['BUNGOMA','MOMBASA','MALINDI','NAIROBI'],status:'active'},
+  {plate:'KDA 047T',cls:'7T',runs:4,days:22,total:377000,dests:['KISUMU','BUSIA','NAIROBI'],status:'active'},
+  {plate:'KBZ 640M',cls:'7T',runs:3,days:18,total:317640,dests:['KISUMU','KAKAMEGA'],status:'active'},
+  {plate:'KCX 252Z',cls:'7T',runs:5,days:19,total:268200,dests:['BUNGOMA','NAIROBI'],status:'active'},
+  {plate:'KBN 641F',cls:'CANTER',runs:1,days:24,total:278400,dests:['NAMANGA BRANCH'],status:'active'},
+  {plate:'KBH 667W',cls:'15T',runs:3,days:21,total:245920,dests:['NAIROBI','MOLO'],status:'active'},
+  {plate:'KCS 052D',cls:'7T',runs:1,days:20,total:197200,dests:['NAIROBI'],status:'active'},
+  {plate:'KCA 173Q',cls:'7T',runs:2,days:24,total:234900,dests:['NAIROBI'],status:'active'},
+  {plate:'KBQ 492U',cls:'7T',runs:4,days:17,total:330740,dests:['ELDORET','KITALE','NAIROBI'],status:'active'},
+  {plate:'KDU 864J',cls:'7T',runs:1,days:22,total:178640,dests:['NAIROBI AFTERNOON'],status:'active'},
+  {plate:'KBD 854F',cls:'7T',runs:2,days:17,total:158920,dests:['NAIROBI'],status:'active'},
+  {plate:'KAV 038M',cls:'7T',runs:4,days:19,total:222380,dests:['NAIROBI','NAIVASHA'],status:'active'},
+  {plate:'KAZ 615V',cls:'7T',runs:2,days:24,total:227940,dests:['NAIROBI'],status:'active'},
+  {plate:'KCD 315J',cls:'7T',runs:2,days:21,total:175740,dests:['NAIROBI'],status:'active'},
+  {plate:'KBW 605H',cls:'CANTER',runs:1,days:25,total:168200,dests:['NAIROBI'],status:'active'},
+  {plate:'KBH 208C',cls:'CANTER',runs:1,days:25,total:168200,dests:['NAIROBI'],status:'active'},
+  {plate:'KBD 624P',cls:'CANTER',runs:1,days:26,total:174928,dests:['NAKURU BRANCH'],status:'active'},
+  {plate:'KBD 199U',cls:'CANTER',runs:1,days:26,total:174928,dests:['KISUMU BRANCH'],status:'active'},
+  {plate:'KAR 083M',cls:'7T',runs:0,days:0,total:0,dests:[],status:'inactive'},
+];
+
+const rates7T = [
+  ['Nairobi morning',8500],['Nairobi afternoon',7000],['Meru',22000],['Naivasha',14000],['Nakuru',14000],
+  ['Nyeri',12000],['Eldoret',22000],['Kitale',23000],['Kisumu',22000],['Kakamega',23000],['Kisii',22000],
+  ['Kisii-Kisumu combo',23000],['Siaya',25000],['Nyahururu',16000],['Narok',18000],['Mumias',23000],
+  ["Murang'a",12000],['Wote',20000],['Embu',12000],['Karatina',12000],['Kerugoya',12000],['Nanyuki',14000],
+  ['Kericho/Bomet',20000],['Machakos',14000],['Kitui',16000],['Matuu',14000],['Voi',22000],
+  ['Mombasa',26000],['Diani',27000],['Kilifi',27000],['Malindi',28000],['Migori',23000],['Molo',17000],
+  ['Webuye',23000],['Homabay',24000],['Garissa',22000],['Mwingi',14000],['Kapsabet',22000],
+  ['Busia',25000],['Kapenguria',26000],['Bungoma',23000],['Oloitoktok',18000],
+  ['Canter Nairobi',5800],['Van Nairobi',5300],['Canter Kisumu Branch',6000],
+  ['Canter Nakuru Branch',6000],['Canter Namanga',10000],
+];
+
+const rates15T = [
+  ['Nairobi Morning',9000],['Nairobi Afternoon',8000],['Nakuru',15000],['Eldoret',25000],
+  ['Kisumu',25000],['Lodwar',50000],['Oyugis/Homabay/Mbati',30000],['Meru/Marsabit',30000],
+  ['Malindi',45000],['Kilifi',30000],['Embu',15000],['Molo',18000],['Homabay',26000],
+  ['Kapsabet',25000],['Busia',26000],['Bungoma',26000],
+];
+
+const febSOA = [
+  {inv:18351,reg:'KBG 004V',amt:69020},{inv:18352,reg:'KBG 004V',amt:129920},{inv:18353,reg:'KDE 073Q',amt:19720},
+  {inv:18354,reg:'KDR 566W',amt:8120},{inv:18355,reg:'KDE 073Q',amt:64960},{inv:18356,reg:'KBH 667W',amt:104400},
+  {inv:18357,reg:'KBH 667W',amt:27840},{inv:18358,reg:'KDB 207S',amt:56840},{inv:18359,reg:'KAU 475A',amt:167620},
+  {inv:18360,reg:'KAU 475A',amt:40600},{inv:18361,reg:'KBA 006B',amt:59160},{inv:18362,reg:'KCX 252Z',amt:19720},
+  {inv:18363,reg:'KCX 252Z',amt:64960},{inv:18364,reg:'KAV 038M',amt:8120},{inv:18365,reg:'KAV 038M',amt:138040},
+  {inv:18366,reg:'KDA 047T',amt:73080},{inv:18367,reg:'KDA 047T',amt:9860},{inv:18368,reg:'KDE 081U',amt:29580},
+  {inv:18369,reg:'KDE 081U',amt:64960},{inv:18370,reg:'KBQ 492U',amt:105560},{inv:18371,reg:'KAW 189V',amt:48720},
+  {inv:18372,reg:'KBL 094E',amt:128180},{inv:18373,reg:'KBL 094E',amt:40600},{inv:18374,reg:'KDC 183M',amt:64960},
+  {inv:18375,reg:'KCY 187F',amt:48120},{inv:18376,reg:'KDE 320P',amt:81200},{inv:18377,reg:'KDE 320P',amt:9860},
+  {inv:18378,reg:'KBV 985N',amt:56840},{inv:18379,reg:'KDK 488G',amt:19720},{inv:18380,reg:'KDK 488G',amt:48720},
+  {inv:18381,reg:'KDD 547G',amt:49300},{inv:18382,reg:'KDD 547G',amt:64960},{inv:18383,reg:'KDG 409G',amt:9860},
+  {inv:18384,reg:'KDG 409G',amt:105560},{inv:18385,reg:'KCC 813E',amt:8120},{inv:18386,reg:'KDC 339G',amt:56840},
+  {inv:18387,reg:'KCF 894Q',amt:19720},{inv:18388,reg:'KCF 894Q',amt:73080},{inv:18389,reg:'KCC 430Q',amt:29580},
+  {inv:18390,reg:'KCC 430Q',amt:32480},{inv:18391,reg:'KCU 841C',amt:49300},{inv:18392,reg:'KCU 841C',amt:16240},
+  {inv:18393,reg:'KCD 315J',amt:19720},{inv:18394,reg:'KCD 315J',amt:73080},{inv:18395,reg:'KAZ 615V',amt:98600},
+  {inv:18396,reg:'KAZ 615V',amt:81200},{inv:18397,reg:'KBX 718F',amt:49300},{inv:18398,reg:'KBX 718F',amt:48720},
+  {inv:18399,reg:'KCR 035M',amt:69020},{inv:18400,reg:'KCR 035M',amt:48720},{inv:18401,reg:'KDL 179N',amt:49300},
+  {inv:18402,reg:'KCS 052D',amt:147900},{inv:18403,reg:'KDD 975A',amt:73080},{inv:18404,reg:'KBZ 640M',amt:48720},
+  {inv:18405,reg:'KCM 731A',amt:19720},{inv:18406,reg:'KCM 731A',amt:32480},{inv:18407,reg:'KCA 173Q',amt:197200},
+  {inv:18408,reg:'KCA 173Q',amt:8120},{inv:18409,reg:'KBY 737G',amt:9860},{inv:18410,reg:'KBY 737G',amt:73080},
+  {inv:18411,reg:'KBH 694Q',amt:121800},{inv:18412,reg:'KBD 854F',amt:59160},{inv:18413,reg:'KBD 854F',amt:40600},
+  {inv:18414,reg:'KCX 155G',amt:9860},{inv:18415,reg:'KCX 155G',amt:32480},{inv:18416,reg:'KCB 972E',amt:16240},
+  {inv:18417,reg:'KCB 972E',amt:49300},{inv:18418,reg:'KBZ 352X',amt:19720},{inv:18419,reg:'KBZ 352X',amt:32480},
+  {inv:18420,reg:'KCE 512H',amt:9860},{inv:18421,reg:'KCE 512H',amt:73080},{inv:18422,reg:'KDU 864J',amt:49300},
+  {inv:18423,reg:'KDU 864J',amt:121800},{inv:18424,reg:'KBF 686H',amt:32480},{inv:18425,reg:'KCG 926R',amt:29580},
+  {inv:18426,reg:'KCG 926R',amt:105560},{inv:18427,reg:'KDR 988J',amt:9860},{inv:18428,reg:'KDR 988J',amt:48720},
+  {inv:18429,reg:'KDM 265G',amt:16240},{inv:18430,reg:'KBQ 550C',amt:9860},{inv:18431,reg:'KBQ 550C',amt:16240},
+  {inv:18432,reg:'KAQ 990R',amt:81200},{inv:18433,reg:'KCZ 236N',amt:24360},{inv:18434,reg:'KCG 651N',amt:24360},
+  {inv:18435,reg:'KAL 442Q',amt:81200},{inv:18436,reg:'KBJ 142R',amt:81200},{inv:18437,reg:'KAW 145B',amt:19720},
+  {inv:18438,reg:'KAW 145B',amt:40600},{inv:18439,reg:'KBY 725G',amt:16240},{inv:18440,reg:'KCA 174Q',amt:19720},
+  {inv:18441,reg:'KCA 174Q',amt:89320},{inv:18442,reg:'KCD 064A',amt:73080},{inv:18443,reg:'KBB 856G',amt:161472},
+  {inv:18444,reg:'KBW 605H',amt:161472},{inv:18445,reg:'KCR 255A',amt:134560},{inv:18446,reg:'KBN 641N',amt:232000},
+  {inv:18447,reg:'KBN 641N',amt:26912},{inv:18448,reg:'KBT 301M',amt:161472},{inv:18449,reg:'KBY 144Z',amt:161472},
+  {inv:18450,reg:'KBH 208C',amt:161472},{inv:18451,reg:'KCR 225A',amt:161472},{inv:18452,reg:'KCH 262K',amt:121104},
+  {inv:18453,reg:'KBM 462Y',amt:141288},{inv:18454,reg:'KBA 048A',amt:114376},{inv:18455,reg:'KAX 442P',amt:161472},
+  {inv:18456,reg:'KCP 055Z',amt:148016},{inv:18457,reg:'KAS 916K',amt:161472},{inv:18458,reg:'KCB 640M',amt:29580},
+  {inv:18459,reg:'KCV 401H',amt:184440},{inv:18460,reg:'KDG 960E',amt:184440},{inv:18461,reg:'KDU 114F',amt:184440},
+  {inv:18462,reg:'KDJ 027J',amt:8120},{inv:18463,reg:'KDJ 027J',amt:13920},{inv:18464,reg:'KBG 799R',amt:29580},
+  {inv:18465,reg:'KBG 799R',amt:113680},{inv:18466,reg:'KDJ 027S',amt:29580},{inv:18467,reg:'KDA 847D',amt:73080},
+  {inv:18468,reg:'KBG 799R',amt:20880},{inv:18469,reg:'KDA 847D',amt:26680},{inv:18470,reg:'KDA 847D',amt:25520},
+  {inv:18471,reg:'KDA 847D',amt:80040},{inv:18472,reg:'KDA 847D',amt:153120},{inv:18473,reg:'KDJ 027J',amt:25520},
+  {inv:18474,reg:'KDJ 027J',amt:29000},{inv:18475,reg:'KBE 973P',amt:24360},{inv:18476,reg:'KBA 659N',amt:8120},
+  {inv:18477,reg:'KCA 158Q',amt:8120},{inv:18478,reg:'KDD 975A',amt:8120},{inv:18479,reg:'KBG 799R',amt:9860},
+  {inv:18480,reg:'KBG 799R',amt:64960},{inv:18481,reg:'KCY 187F',amt:8120},{inv:18482,reg:'KDC 183M',amt:9860},
+  {inv:18483,reg:'KDE 073Q',amt:16240},{inv:18484,reg:'KBH 667W',amt:29000},{inv:18485,reg:'KDC 183M',amt:25520},
+];
+
+const destRevenue = [
+  {dest:'NAIROBI',rate7:8500,rate15:9000,trips:71,total:5578324},
+  {dest:'NAIROBI AFTERNOON',rate7:7000,rate15:8000,trips:55,total:3049640},
+  {dest:'KISUMU',rate7:22000,rate15:25000,trips:14,total:995280},
+  {dest:'MOMBASA',rate7:26000,rate15:null,trips:10,total:754000},
+  {dest:'KISII',rate7:22000,rate15:null,trips:11,total:638000},
+  {dest:'BOMET',rate7:20000,rate15:null,trips:8,total:626400},
+  {dest:'ELDORET',rate7:22000,rate15:25000,trips:9,total:535920},
+  {dest:'MOLO',rate7:17000,rate15:18000,trips:9,total:417600},
+  {dest:'BUNGOMA',rate7:23000,rate15:26000,trips:8,total:373520},
+  {dest:'BUSIA',rate7:25000,rate15:26000,trips:7,total:348000},
+  {dest:'MALINDI',rate7:28000,rate15:45000,trips:6,total:324800},
+  {dest:'KITALE',rate7:23000,rate15:null,trips:6,total:293480},
+  {dest:'DIANI',rate7:27000,rate15:null,trips:5,total:281880},
+  {dest:'NAMANGA BRANCH',rate7:10000,rate15:null,trips:1,total:278400},
+  {dest:'NAIVASHA',rate7:14000,rate15:null,trips:7,total:259840},
+  {dest:'NAKURU',rate7:14000,rate15:15000,trips:5,total:194880},
+  {dest:'KAKAMEGA',rate7:23000,rate15:null,trips:4,total:186760},
+  {dest:'MERU',rate7:22000,rate15:30000,trips:4,total:178640},
+  {dest:'NAKURU BRANCH',rate7:5800,rate15:null,trips:2,total:174928},
+  {dest:'KISUMU BRANCH',rate7:5800,rate15:null,trips:2,total:174928},
+];
+
+const pendingPortal = [
+  {inv:'#18920',plate:'KCA 173Q',dest:'Nairobi Morning',amt:226780},
+  {inv:'#18921',plate:'KDU 864J',dest:'Nairobi Afternoon',amt:178640},
+  {inv:'#18922',plate:'KBL 094E',dest:'Nairobi Morning',amt:128180},
+  {inv:'#18923',plate:'KCR 035M',dest:'Nairobi Afternoon',amt:105560},
+  {inv:'#18924',plate:'KBD 854F',dest:'Nairobi Morning',amt:118320},
+  {inv:'#18925',plate:'KBH 694Q',dest:'Nairobi Afternoon',amt:129920},
+  {inv:'#18926',plate:'KAQ 990R',dest:'Nairobi Afternoon',amt:113680},
+  {inv:'#18927',plate:'KCS 052D',dest:'Nairobi Morning',amt:197200},
+  {inv:'#18928',plate:'KAV 038M',dest:'Nairobi Morning',amt:108460},
+  {inv:'#18929',plate:'KDG 409G',dest:'Malindi',amt:162400},
+  {inv:'#18930',plate:'KDD 547G',dest:'Diani',amt:93960},
+  {inv:'#18931',plate:'KBH 667W',dest:'Nairobi Morning 15T',amt:146160},
+];
+
+const invoiceData = [
+  {id:'#19207',plate:'KCA 173Q',cls:'7T',route:'Nairobi Morning',days:23,net:195500,vat:31280,total:226780,status:'sent'},
+  {id:'#19208',plate:'KDU 864J',cls:'7T',route:'Nairobi Afternoon',days:22,net:154000,vat:24640,total:178640,status:'sent'},
+  {id:'#19209',plate:'KCS 052D',cls:'7T',route:'Nairobi Morning',days:20,net:170000,vat:27200,total:197200,status:'approved'},
+  {id:'#19210',plate:'KBH 667W',cls:'15T',route:'Nairobi Morning',days:14,net:126000,vat:20160,total:146160,status:'paid'},
+  {id:'#19211',plate:'KBL 094E',cls:'7T',route:'Nairobi Morning',days:13,net:110500,vat:17680,total:128180,status:'pending'},
+  {id:'#19212',plate:'KCR 035M',cls:'7T',route:'Nairobi Afternoon',days:13,net:91000,vat:14560,total:105560,status:'pending'},
+  {id:'#19213',plate:'KDA 847D',cls:'7T',route:'Nairobi Afternoon',days:15,net:105000,vat:16800,total:121800,status:'approved'},
+  {id:'#19214',plate:'KAV 038M',cls:'7T',route:'Nairobi Morning',days:11,net:93500,vat:14960,total:108460,status:'paid'},
+  {id:'#19215',plate:'KDE 073Q',cls:'7T',route:'Nairobi Morning',days:9,net:76500,vat:12240,total:88740,status:'draft'},
+  {id:'#19216',plate:'KBD 854F',cls:'7T',route:'Nairobi Morning',days:12,net:102000,vat:16320,total:118320,status:'sent'},
+  {id:'#19217',plate:'KBG 004V',cls:'7T',route:'Nairobi Afternoon',days:20,net:140000,vat:22400,total:162400,status:'approved'},
+  {id:'#19218',plate:'KCG 651N',cls:'7T',route:'Nairobi Afternoon',days:10,net:70000,vat:11200,total:81200,status:'paid'},
+  {id:'#19219',plate:'KDC 183M',cls:'7T',route:'Nairobi Morning',days:3,net:25500,vat:4080,total:29580,status:'draft'},
+  {id:'#19220',plate:'KBH 694Q',cls:'7T',route:'Nairobi Afternoon',days:16,net:112000,vat:17920,total:129920,status:'sent'},
+  {id:'#19221',plate:'KAQ 990R',cls:'7T',route:'Nairobi Afternoon',days:14,net:98000,vat:15680,total:113680,status:'pending'},
+];
+
+const localData = [
+  {reg:'KDA 047Y',m:7,a:16},{reg:'KCA 173Q',m:21,a:0},{reg:'KAZ 615V',m:18,a:2},{reg:'KDU 864J',m:0,a:20},
+  {reg:'KCD 315J',m:2,a:18},{reg:'KCA 174Q',m:0,a:18},{reg:'KCS 052D',m:16,a:1},{reg:'KBH 667W',m:9,a:6},
+  {reg:'KCX 252Z',m:0,a:15},{reg:'KBD 854F',m:9,a:6},{reg:'KAV 038M',m:12,a:2},{reg:'KBL 094E',m:10,a:4},
+  {reg:'KCG 926R',m:1,a:13},{reg:'KBH 694Q',m:0,a:14},{reg:'KDA 847D',m:0,a:13},{reg:'KBQ 492U',m:4,a:8},
+  {reg:'KDC 183M',m:1,a:11},{reg:'KCF 894Q',m:3,a:9},{reg:'KBV 985N',m:2,a:10},{reg:'KCX 155G',m:0,a:11},
+  {reg:'KDD 975A',m:0,a:11},{reg:'KCR 035M',m:2,a:9},{reg:'KBG 004V',m:0,a:10},{reg:'KDE 073Q',m:1,a:9},
+  {reg:'KDG 409G',m:2,a:8},{reg:'KCM 731A',m:0,a:10},{reg:'KDE 081U',m:4,a:5},{reg:'KDC 339G',m:5,a:4},
+  {reg:'KDM 265G',m:0,a:9},{reg:'KCG 651N',m:1,a:8},{reg:'KDD 547G',m:3,a:5},{reg:'KCZ 236N',m:0,a:8},
+  {reg:'KDB 207S',m:3,a:4},{reg:'KDT 403Z',m:1,a:6},{reg:'KCC 430Q',m:5,a:2},{reg:'KDX 066G',m:1,a:6},
+  {reg:'KDE 320P',m:0,a:6},{reg:'KAW 145B',m:0,a:5},{reg:'KBG 799R',m:0,a:5},{reg:'KDR 566W',m:3,a:1},
+  {reg:'KCA 171Q',m:0,a:4},{reg:'KBJ 142R',m:1,a:3},{reg:'KBF 686H',m:0,a:4},{reg:'KAQ 990R',m:0,a:4},
+  {reg:'KCD 064A',m:0,a:3},{reg:'KBY 737G',m:0,a:3},{reg:'KCB 972E',m:2,a:0},{reg:'KCA 158Q',m:0,a:2},
+  {reg:'KBZ 352X',m:0,a:1},{reg:'KBY 725G',m:0,a:1},
+].map(r => ({...r, total: r.m + r.a}));
+
+const safariData = [
+  {reg:'KDE 073Q',total:34,flag:'VERIFY',dest:'Bomet (19); Molo (4); Kitale (3); Naivasha (2); Kisii (1); Nakuru (1); Mombasa (1); Malindi (1); Nyeri (1)'},
+  {reg:'KDK 488G',total:23,flag:'',dest:'General safari (10); Mombasa (3); Bungoma (3); Kisumu (3); Kilifi/Malindi (1); Nakuru (1); Nyeri (1); Busia (1)'},
+  {reg:'KCY 187F',total:21,flag:'',dest:'Kisii (10); General safari (9); Kakamega (1); Kigoris (1)'},
+  {reg:'KBZ 640M',total:19,flag:'',dest:'General safari (8); Bungoma (6); Kisumu (3); Kisii (2)'},
+  {reg:'KCC 430Q',total:18,flag:'DAY',dest:'Kisii (12); Kisii — Day delivery (6)'},
+  {reg:'KCD 558K',total:16,flag:'',dest:'Namanga (16)'},
+  {reg:'KCX 252Z',total:16,flag:'',dest:'Embu/Nyeri (9); Mombasa (2); Molo (2); Nakuru (2); Voi (1)'},
+  {reg:'KDT 403Z',total:15,flag:'',dest:'Molo (6); Kitale (2); Bomet (2); Eldoret (2); Marnal (1); Naivasha (1); Voi (1)'},
+  {reg:'KDE 081U',total:15,flag:'',dest:'Kitale (8); Kisumu (2); Kisii (2); Voi (1); Mombasa (1); Bungoma (1)'},
+  {reg:'KDD 975A',total:14,flag:'DAY',dest:'Kisumu (3); Kakamega (2); Eldoret (2); Kakamega/Kisumu — Day delivery (2); Nakuru (1); Naivasha (1); Kitale (1); Molo (1); Nakuru (1)'},
+  {reg:'KCA 174Q',total:14,flag:'',dest:'Nyeri (5); Voi (2); Meru (2); Nakuru (2); Embu (1); Narok (1); Voi (1)'},
+  {reg:'KDA 047T',total:13,flag:'DAY',dest:'Kisumu (8); Kisii/Kakamega (1); Naivasha (1); Kitale (1); Kapenguria (1); Kisumu — Day delivery (1)'},
+  {reg:'KDC 183M',total:12,flag:'',dest:'Eldoret (4); Kitale (2); Bungoma (2); Kisumu (2); Busia (1); Voi (1)'},
+  {reg:'KDC 339G',total:12,flag:'',dest:'Garissa (5); Kisii (3); Mombasa (3); Malindi (1)'},
+  {reg:'KDE 320P',total:12,flag:'DAY',dest:'Kilgoris (4); Meru (2); Kisii (2); Kisumu (1); Bungoma (1); Kericho (1); Sunking — Day delivery (1)'},
+  {reg:'KDD 547G',total:12,flag:'',dest:'Kilgoris (3); Mombasa (3); Busia (2); Embu (1); Oloitokitok (1); Homabay (1); Migori (1)'},
+  {reg:'KDX 066G',total:12,flag:'',dest:'Kisumu (5); Molo (1); Bungoma (1); Eldoret (1); Kapsabet (1); Nakuru (1); Naivasha (1); Mombasa (1)'},
+  {reg:'KDA 847D',total:12,flag:'',dest:'Meru (5); Embu (3); Muranga (2); Voi (1); Karatina (1)'},
+  {reg:'KDB 207S',total:11,flag:'',dest:'Molo (4); Eldoret (2); Malindi (2); Bomet (2); Naivasha (1)'},
+  {reg:'KBQ 492U',total:10,flag:'',dest:'Eldoret (4); Bungoma (2); Kisumu (1); Kitale (1); Kakamega (1); Molo (1)'},
+  {reg:'KDA 047Y',total:10,flag:'',dest:'Busia (2); Kitale (2); Mombasa (1); Kakamega (1); Kapenguria (1); Eldoret (1); Bungoma (1); Kisumu (1)'},
+  {reg:'KBN 641F',total:10,flag:'',dest:'Namanga (7); Loitokitok (3)'},
+  {reg:'KCD 064A',total:10,flag:'DAY',dest:'Eldoret (4); Kakamega (2); Kisumu (1); Naivasha (1); Naivasha (1); Kakamega/Kisii — Day delivery (1)'},
+  {reg:'KDR 566W',total:9,flag:'',dest:'Eldoret (9)'},
+  {reg:'KCM 731A',total:9,flag:'',dest:'Kisumu (8); Kisumu/U (1)'},
+  {reg:'KCF 894Q',total:8,flag:'',dest:'Naivasha (2); Eldoret (1); Kapsabet (1); Kisumu/Kisii (1); Molo (1); Kisii (1); Voi (1)'},
+  {reg:'KCZ 236N',total:8,flag:'',dest:'Mombasa (6); Kisumu (1); Eldoret (1)'},
+  {reg:'KBL 094E',total:7,flag:'',dest:'Kisii (2); Kericho (2); Kisumu (1); Meru (1); Kerugoya (1)'},
+  {reg:'KDM 265G',total:7,flag:'DAY',dest:'Kisumu (2); Mombasa (1); Kakamega (1); Kilifi (1); Kakamega (1); Kisumu/Kisii — Day delivery (1)'},
+  {reg:'KBH 694Q',total:7,flag:'',dest:'Naivasha (3); Embu (2); Nyeri (1); Nakuru (1)'},
+  {reg:'KAV 038M',total:6,flag:'',dest:'Bomet (2); Kitale (1); Naivasha (1); Eldoret (1); Embu (1)'},
+  {reg:'KCR 035M',total:6,flag:'',dest:'Nakuru (3); Naivasha (2); Eldoret (1)'},
+  {reg:'KCS 052D',total:5,flag:'DAY',dest:'Kisii (1); Kisumu (1); Kakamega (1); Voi (1); Kisii — Day delivery (1)'},
+  {reg:'KDG 409G',total:4,flag:'',dest:'Kitale (2); Kisumu/Kisii (1); Kisii (1)'},
+  {reg:'KBV 985N',total:3,flag:'',dest:'Nakuru (2); Bomet (1)'},
+  {reg:'KCG 926R',total:2,flag:'',dest:'Narok (2)'},
+  {reg:'KOH 667W',total:1,flag:'',dest:'Marsabit (1)'},
+  {reg:'KBG 004V',total:1,flag:'',dest:'Embu (1)'},
+  {reg:'KBY 737G',total:1,flag:'',dest:'Mumias (1)'},
+  {reg:'KCR 038T',total:1,flag:'',dest:'Wote (1)'},
+];
+
+const topDests = [
+  {name:'Kisumu',trips:47},{name:'Kisii',trips:45},{name:'Eldoret',trips:33},{name:'Bomet',trips:27},
+  {name:'Namanga',trips:23},{name:'Kitale',trips:23},{name:'Mombasa',trips:22},{name:'Molo',trips:20},
+  {name:'Embu',trips:18},{name:'Naivasha',trips:17},{name:'Bungoma',trips:17},{name:'Nakuru',trips:15},
+  {name:'Kakamega',trips:13},{name:'Voi',trips:10},{name:'Meru',trips:10},
+];
+
+// ═══ HELPERS ═══
+function fmtN(n){return n?n.toLocaleString():'—';}
+function clsBadge(c){if(c==='15T')return'badge-sent';if(c==='CANTER')return'badge-pending';if(c==='VAN')return'badge-approved';return'badge-draft';}
+
+// ═══ RENDER: DASHBOARD ═══
+function renderDashboard(){
+  // Top vehicles table
+  const tbody = document.getElementById('dash-veh-tbody');
+  if(tbody) tbody.innerHTML = vehicleRevenue.slice(0,10).map(v => {
+    const net=Math.round(v.total/1.16), vat=v.total-net;
+    return `<tr>
+      <td class="mono" style="font-weight:600">${v.plate}</td>
+      <td><span class="badge ${clsBadge(v.cls)}">${v.cls}</span></td>
+      <td style="text-align:center;font-weight:600">${v.runs}</td>
+      <td><div style="display:flex;align-items:center;gap:6px"><div style="width:46px;background:var(--gray-100);border-radius:3px;height:4px"><div style="width:${Math.round(v.days/32*100)}%;height:100%;background:var(--teal);border-radius:3px"></div></div><span class="mono" style="font-size:11px">${v.days}</span></div></td>
+      <td style="font-size:11px;color:var(--gray-600);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.dests.slice(0,3).join(' · ')}</td>
+      <td class="mono">${fmtN(net)}</td>
+      <td class="mono" style="color:var(--gray-400)">${fmtN(vat)}</td>
+      <td class="mono" style="font-weight:600;color:var(--navy)">${fmtN(v.total)}</td>
+      <td><button class="veh-action-btn" onclick="toast('Viewing ${v.plate}')" title="View"><i class="ti ti-eye"></i></button></td>
+    </tr>`;}).join('');
+  // Dest bars
+  const bars = document.getElementById('dest-bars');
+  if(bars){
+    const mx = destRevenue[0].total;
+    bars.innerHTML = destRevenue.slice(0,10).map(d=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--gray-50)">
+        <span style="font-size:11px;width:115px;color:var(--gray-600);text-transform:capitalize;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.dest.toLowerCase()}</span>
+        <div style="flex:1;background:var(--gray-100);border-radius:3px;height:5px"><div style="width:${Math.round(d.total/mx*100)}%;height:100%;background:var(--navy);border-radius:3px"></div></div>
+        <span class="mono" style="font-size:11px;font-weight:500;min-width:65px;text-align:right">${(d.total/1000).toFixed(0)}K</span>
+      </div>`).join('');
+  }
+}
+
+// ═══ RENDER: SCHEDULE ═══
+let schedF = {plate:'',dest:'',cls:'',run:''};
+function formatRoute(dest){
+  if(!dest) return '—';
+  return dest.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+function renderSchedule(data){
+  const tbody = document.getElementById('schedule-tbody');
+  if(!tbody) return;
+  if(!data.length){tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:28px;color:var(--gray-400)">No entries match filters</td></tr>';return;}
+  tbody.innerHTML = data.map(e=>`<tr>
+    <td class="mono" style="font-weight:600">${e.plate}</td>
+    <td><span class="badge ${clsBadge(e.cls)}">${e.cls}</span></td>
+    <td style="font-size:12px">${formatRoute(e.dest)}</td>
+    <td><span class="badge ${e.runType==='Morning'?'badge-approved':'badge-sent'}">${e.runType}</span></td>
+    <td style="text-align:center;font-weight:600">${e.days}</td>
+    <td style="font-size:12px;color:var(--gray-400)">Mar 2026</td>
+    <td class="mono">${fmtN(e.cost)}</td>
+    <td class="mono" style="color:var(--gray-400)">${fmtN(e.vat)}</td>
+    <td class="mono" style="font-weight:600">${fmtN(e.total)}</td>
+    <td><span class="badge badge-paid">Saved</span></td>
+    <td><div style="display:flex;gap:4px">
+      <button class="veh-action-btn" onclick="toast('Entry viewed')" title="View"><i class="ti ti-eye"></i></button>
+      <button class="veh-action-btn" onclick="toast('Editing entry')" title="Edit"><i class="ti ti-edit"></i></button>
+      <button class="veh-action-btn" style="color:var(--red)" onclick="toast('Entry removed')" title="Delete"><i class="ti ti-trash"></i></button>
+    </div></td>
+  </tr>`).join('');
+}
+function filterScheduleEntries(val, field){
+  schedF[field]=val;
+  let d=marchSchedule;
+  if(schedF.plate) d=d.filter(e=>e.plate.toLowerCase().includes(schedF.plate.toLowerCase()));
+  if(schedF.dest) d=d.filter(e=>e.dest===schedF.dest);
+  if(schedF.cls) d=d.filter(e=>e.cls===schedF.cls);
+  if(schedF.run) d=d.filter(e=>e.runType===schedF.run);
+  renderSchedule(d);
+}
+function saveScheduleEntry(){closeModal('add-schedule');toast('Entry saved · Invoice auto-calculated · eTIMS queued');}
+
+// ═══ RENDER: INVOICES ═══
+function renderInvoices(data){
+  const tbody = document.getElementById('invoice-tbody');
+  if(!tbody) return;
+  tbody.innerHTML = data.map(inv => `<tr>
+    <td class="mono" style="font-weight:500">${inv.id}</td>
+    <td class="mono">${inv.plate}</td>
+    <td><span class="badge badge-draft">${inv.cls}</span></td>
+    <td style="font-size:12px">${inv.route}</td>
+    <td style="text-align:center">${inv.days}</td>
+    <td class="mono">${inv.net.toLocaleString()}</td>
+    <td class="mono">${inv.vat.toLocaleString()}</td>
+    <td class="mono" style="font-weight:500">${inv.total.toLocaleString()}</td>
+    <td><span class="badge badge-${inv.status}">${inv.status.charAt(0).toUpperCase()+inv.status.slice(1)}</span></td>
+    <td><div style="display:flex;gap:5px">
+      <button class="btn btn-secondary btn-sm" onclick="toast('Invoice viewed')"><i class="ti ti-eye"></i></button>
+      <button class="btn btn-secondary btn-sm" onclick="toast('PDF downloaded')"><i class="ti ti-download"></i></button>
+    </div></td>
+  </tr>`).join('');
+}
+function filterInvoices(status, el){
+  document.querySelectorAll('#page-invoices .filter-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderInvoices(status==='all' ? invoiceData : invoiceData.filter(i=>i.status===status));
+}
+function searchInvoices(val){
+  const q=val.toLowerCase();
+  renderInvoices(invoiceData.filter(i=>i.plate.toLowerCase().includes(q)||i.id.toLowerCase().includes(q)));
+}
+
+// ═══ RENDER: VEHICLES ═══
+function renderVehicles(data){
+  const tbody = document.getElementById('vehicle-tbody');
+  if(!tbody) return;
+  tbody.innerHTML = data.map(v=>`<tr style="${v.status==='suspended'?'opacity:0.6':''}">
+    <td><input type="checkbox" class="vrow-check" style="width:14px;height:14px;cursor:pointer"></td>
+    <td><div style="display:flex;align-items:center;gap:9px">
+      <div style="width:30px;height:30px;border-radius:7px;background:${v.status==='active'?'var(--blue-light)':v.status==='suspended'?'var(--accent-light)':'var(--gray-100)'};display:flex;align-items:center;justify-content:center;font-size:14px;color:${v.status==='active'?'var(--blue)':v.status==='suspended'?'var(--accent-dark)':'var(--gray-400)'}"><i class="ti ti-truck"></i></div>
+      <span class="mono" style="font-weight:600;font-size:13px">${v.plate}</span>
+    </div></td>
+    <td><span class="badge ${clsBadge(v.cls)}">${v.cls}</span></td>
+    <td style="font-size:11px">${v.dests.some(d=>d!=='NAIROBI'&&d!=='NAIROBI AFTERNOON')&&v.dests.some(d=>d==='NAIROBI'||d==='NAIROBI AFTERNOON')?'Both':v.dests.some(d=>d==='NAIROBI'||d==='NAIROBI AFTERNOON')?'Nairobi':'Upcountry'}</td>
+    <td style="text-align:center;font-weight:600;font-family:var(--mono)">${v.runs||'—'}</td>
+    <td style="text-align:center">${v.days?`<div style="display:flex;align-items:center;justify-content:center;gap:6px"><div style="width:48px;background:var(--gray-100);border-radius:3px;height:4px"><div style="width:${Math.round(v.days/32*100)}%;height:100%;background:var(--teal);border-radius:3px"></div></div><span class="mono" style="font-size:11px">${v.days}</span></div>`:'<span style="color:var(--gray-400)">—</span>'}</td>
+    <td class="mono" style="font-weight:600;color:var(--navy)">${v.total?fmtN(v.total):'—'}</td>
+    <td style="font-size:10px;color:var(--gray-600);max-width:135px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.dests.join(', ')}</td>
+    <td style="font-size:11px;color:var(--gray-400)">G4S Kenya</td>
+    <td><span class="badge badge-${v.status==='active'?'active':v.status==='suspended'?'suspended':'inactive'}">${v.status}</span></td>
+    <td><div style="display:flex;gap:3px">
+      <button class="veh-action-btn" title="View" onclick="toast('Viewing ${v.plate}')"><i class="ti ti-eye"></i></button>
+      <button class="veh-action-btn" title="Edit" onclick="toast('Editing ${v.plate}')"><i class="ti ti-edit"></i></button>
+      <button class="veh-action-btn" title="${v.status==='suspended'?'Reactivate':'Suspend'}" onclick="toggleSuspend(this,'${v.plate}')" style="color:${v.status==='suspended'?'var(--teal)':'var(--accent-dark)'}"><i class="ti ti-${v.status==='suspended'?'player-play':'player-pause'}"></i></button>
+      <button class="veh-action-btn" title="Delete" style="color:var(--red)" onclick="toast('${v.plate} removed')"><i class="ti ti-trash"></i></button>
+    </div></td>
+  </tr>`).join('');
+}
+function toggleSuspend(btn, plate){
+  const row=btn.closest('tr'), ico=btn.querySelector('i');
+  const susp=ico.classList.contains('ti-player-play');
+  if(susp){ico.className='ti ti-player-pause';btn.style.color='var(--accent-dark)';row.style.opacity='1';toast(plate+' reactivated');}
+  else{ico.className='ti ti-player-play';btn.style.color='var(--teal)';row.style.opacity='0.6';toast(plate+' suspended');}
+}
+function toggleAllVehicles(cb){document.querySelectorAll('.vrow-check').forEach(c=>c.checked=cb.checked);}
+function searchVehicles(val){const q=val.toLowerCase();renderVehicles(vehicleRevenue.filter(v=>v.plate.toLowerCase().includes(q)));}
+function filterVehicles(filter, el){
+  document.querySelectorAll('#page-vehicles .filter-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  let data=vehicleRevenue;
+  if(filter==='active') data=data.filter(v=>v.status==='active');
+  else if(filter==='inactive') data=data.filter(v=>v.status==='inactive');
+  else if(filter==='suspended') data=data.filter(v=>v.status==='suspended');
+  else if(['7T','15T','CANTER','VAN'].includes(filter)) data=data.filter(v=>v.cls===filter);
+  renderVehicles(data);
+}
+
+// ═══ RENDER: RATES ═══
+function renderRates(){
+  const t7=document.getElementById('rates-7t-tbody');
+  if(t7) t7.innerHTML=rates7T.map(([d,r])=>{const v=Math.round(r*.16);return`<tr><td style="font-size:12px">${d}</td><td class="mono" style="font-weight:500">${fmtN(r)}</td><td class="mono" style="color:var(--gray-400)">${fmtN(v)}</td><td class="mono" style="font-weight:600">${fmtN(r+v)}</td></tr>`;}).join('');
+  const t15=document.getElementById('rates-15t-tbody');
+  if(t15) t15.innerHTML=rates15T.map(([d,r])=>{const v=Math.round(r*.16);return`<tr><td style="font-size:12px">${d}</td><td class="mono" style="font-weight:500">${fmtN(r)}</td><td class="mono" style="color:var(--gray-400)">${fmtN(v)}</td><td class="mono" style="font-weight:600">${fmtN(r+v)}</td></tr>`;}).join('');
+}
+
+// ═══ RENDER: SOA / FEB ═══
+function renderFebSOA(){
+  const tbody=document.getElementById('feb-soa-tbody');
+  if(!tbody) return;
+  tbody.innerHTML=febSOA.map(s=>`<tr>
+    <td class="mono" style="font-weight:600">#${s.inv}</td>
+    <td class="mono">${s.reg}</td>
+    <td class="mono" style="font-weight:500">${fmtN(s.amt)}</td>
+  </tr>`).join('');
+}
+
+// ═══ RENDER: PORTAL ═══
+function renderPortal(){
+  const tbody=document.getElementById('portal-tbody');
+  if(!tbody) return;
+  tbody.innerHTML=pendingPortal.map(p=>`<tr>
+    <td class="mono" style="font-weight:600">${p.inv}</td>
+    <td class="mono">${p.plate}</td>
+    <td style="font-size:11px">${p.dest}</td>
+    <td class="mono" style="font-weight:500">${fmtN(p.amt)}</td>
+    <td style="font-size:11px;color:var(--gray-400)">04 Mar</td>
+    <td><button class="btn btn-accent btn-sm" onclick="approveInvoice(this,'${p.inv}')">Approve</button></td>
+  </tr>`).join('');
+}
+
+// ═══ RENDER: ROUTES ═══
+function renderRoutes(){
+  const tbody=document.getElementById('routes-tbody');
+  if(!tbody) return;
+  const gt=destRevenue.reduce((s,d)=>s+d.total,0);
+  tbody.innerHTML=destRevenue.map(d=>`<tr>
+    <td style="font-size:12px;font-weight:500;text-transform:capitalize">${d.dest.toLowerCase()}</td>
+    <td class="mono">${d.rate7?fmtN(d.rate7):'—'}</td>
+    <td class="mono">${d.rate15?fmtN(d.rate15):'—'}</td>
+    <td style="text-align:center;font-weight:600">${d.trips}</td>
+    <td class="mono" style="font-weight:600">${fmtN(d.total)}</td>
+    <td><div style="display:flex;align-items:center;gap:8px">
+      <div style="width:68px;background:var(--gray-100);border-radius:3px;height:4px"><div style="width:${Math.round(d.total/destRevenue[0].total*100)}%;height:100%;background:var(--teal);border-radius:3px"></div></div>
+      <span style="font-size:11px;color:var(--gray-400)">${(d.total/gt*100).toFixed(1)}%</span>
+    </div></td>
+  </tr>`).join('');
+}
+
+// ═══ RENDER: REPORTS top10 ═══
+function renderReports(){
+  const el=document.getElementById('report-top5');
+  if(!el) return;
+  el.innerHTML=vehicleRevenue.slice(0,10).map((v,i)=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--gray-50);font-size:12px">
+      <span style="width:20px;height:20px;border-radius:50%;background:var(--gray-100);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--gray-400);flex-shrink:0">${i+1}</span>
+      <span class="mono" style="font-weight:600;flex:1;margin-left:8px">${v.plate}</span>
+      <span class="badge ${clsBadge(v.cls)}">${v.cls}</span>
+      <span style="color:var(--gray-400);margin:0 10px">${v.runs} runs</span>
+      <span class="mono" style="font-weight:600;color:var(--navy)">KES ${(v.total/1000).toFixed(0)}K</span>
+    </div>`).join('');
+}
+
+// ═══ RENDER: LOCAL DELIVERIES ═══
+let localFilters = {plate:'',shift:'',trips:''};
+function shiftOf(r){return r.m>0&&r.a>0?'both':r.m>0?'morning':'afternoon';}
+function renderLocal(data){
+  let tNet=0,tVat=0,tGross=0;
+  const tbody=document.getElementById('local-tbody');
+  if(!tbody) return;
+  tbody.innerHTML = data.map((r,i)=>{
+    const mBill=r.m*8500,aBill=r.a*7000,net=mBill+aBill,vat=Math.round(net*0.16),gross=net+vat;
+    tNet+=net;tVat+=vat;tGross+=gross;
+    const s=shiftOf(r);
+    const sClass=s==='both'?'badge-both':s==='morning'?'badge-morning':'badge-afternoon';
+    const sLabel=s==='both'?'Both':s==='morning'?'Morning':'Afternoon';
+    return `<tr>
+      <td style="color:var(--gray-400);font-family:var(--mono);font-size:11px">${i+1}</td>
+      <td class="mono" style="font-weight:600">${r.reg}</td>
+      <td style="text-align:center;font-family:var(--mono);font-weight:500">${r.m||'—'}</td>
+      <td style="text-align:center;font-family:var(--mono);font-weight:500">${r.a||'—'}</td>
+      <td style="text-align:center;font-weight:700;font-family:var(--mono)">${r.total}</td>
+      <td><span class="badge ${sClass}">${sLabel}</span></td>
+      <td class="mono">${mBill>0?mBill.toLocaleString():'—'}</td>
+      <td class="mono">${aBill>0?aBill.toLocaleString():'—'}</td>
+      <td class="mono" style="font-weight:500">${net.toLocaleString()}</td>
+      <td class="mono" style="color:var(--accent-dark)">${vat.toLocaleString()}</td>
+      <td class="mono" style="font-weight:700;color:var(--navy)">${gross.toLocaleString()}</td>
+    </tr>`;
+  }).join('');
+  const netEl=document.getElementById('local-net'), vatEl=document.getElementById('local-vat'), grossEl=document.getElementById('local-gross');
+  if(netEl) netEl.textContent='KES '+tNet.toLocaleString();
+  if(vatEl) vatEl.textContent='KES '+tVat.toLocaleString();
+  if(grossEl) grossEl.textContent='KES '+tGross.toLocaleString();
+}
+function filterLocal(v, field){
+  localFilters[field]=v;
+  let d=localData;
+  if(localFilters.plate) d=d.filter(r=>r.reg.toLowerCase().includes(localFilters.plate.toLowerCase()));
+  if(localFilters.shift) d=d.filter(r=>shiftOf(r)===localFilters.shift);
+  if(localFilters.trips){
+    if(localFilters.trips==='1-5') d=d.filter(r=>r.total>=1&&r.total<=5);
+    if(localFilters.trips==='6-10') d=d.filter(r=>r.total>=6&&r.total<=10);
+    if(localFilters.trips==='11-15') d=d.filter(r=>r.total>=11&&r.total<=15);
+    if(localFilters.trips==='16+') d=d.filter(r=>r.total>=16);
+  }
+  renderLocal(d);
+}
+
+// ═══ RENDER: SAFARI ═══
+let safFilters = {q:'',dest:'',count:''};
+function renderSafari(data){
+  const tbody=document.getElementById('safari-tbody');
+  if(!tbody) return;
+  tbody.innerHTML = data.map((r,i)=>{
+    const isVerify=r.flag==='VERIFY', isDay=r.flag==='DAY';
+    const pills=r.dest.split(';').map(d=>{
+      const t=d.trim();
+      const day=t.toLowerCase().includes('day delivery');
+      return `<span class="dest-pill${day?' day':''}">${t}</span>`;
+    }).join('');
+    const flagCell=isVerify
+      ? `<span class="badge badge-flag"><i class="ti ti-alert-triangle" style="font-size:10px"></i> Verify</span>`
+      : isDay
+      ? `<span class="badge badge-both"><i class="ti ti-clock" style="font-size:10px"></i> Day rate</span>`
+      : '<span style="color:var(--gray-400);font-size:12px">—</span>';
+    return `<tr class="${isVerify?'row-flagged':''}">
+      <td style="color:var(--gray-400);font-family:var(--mono);font-size:11px">${i+1}</td>
+      <td class="mono" style="font-weight:700">${r.reg}</td>
+      <td style="text-align:center;font-family:var(--mono);font-size:18px;font-weight:700;color:var(--navy)">${r.total}</td>
+      <td style="font-size:12px;line-height:1.8;padding:10px 14px">${pills}</td>
+      <td>${flagCell}</td>
+      <td><div style="display:flex;gap:4px">
+        <button class="veh-action-btn" onclick="toast('${r.reg} details viewed')" title="View"><i class="ti ti-eye"></i></button>
+        <button class="veh-action-btn" onclick="toast('${r.reg} ready for invoicing')" title="Invoice"><i class="ti ti-file-invoice"></i></button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+function filterSafari(v, field){
+  safFilters[field]=v;
+  let d=safariData;
+  if(safFilters.q){const q=safFilters.q.toLowerCase();d=d.filter(r=>r.reg.toLowerCase().includes(q)||r.dest.toLowerCase().includes(q));}
+  if(safFilters.dest) d=d.filter(r=>r.dest.toLowerCase().includes(safFilters.dest.toLowerCase()));
+  if(safFilters.count){
+    if(safFilters.count==='1-5') d=d.filter(r=>r.total>=1&&r.total<=5);
+    if(safFilters.count==='6-10') d=d.filter(r=>r.total>=6&&r.total<=10);
+    if(safFilters.count==='11-15') d=d.filter(r=>r.total>=11&&r.total<=15);
+    if(safFilters.count==='16-20') d=d.filter(r=>r.total>=16&&r.total<=20);
+    if(safFilters.count==='21+') d=d.filter(r=>r.total>=21);
+  }
+  renderSafari(d);
+}
+function renderDestGrid(){
+  const grid=document.getElementById('dest-grid');
+  if(!grid) return;
+  const colors=['#0B1C3B','#0B1C3B','#1D9E75','#1D9E75','#E8A020'];
+  grid.innerHTML=topDests.map((d,i)=>`
+    <div style="background:var(--gray-50);border-radius:var(--radius-sm);padding:10px 12px;border-left:3px solid ${colors[Math.min(i,4)]}">
+      <div style="font-size:11px;color:var(--gray-400);margin-bottom:3px">${d.name}</div>
+      <div style="font-size:20px;font-weight:600">${d.trips}</div>
+    </div>`).join('');
+}
+
+// ═══ VAT CALCULATOR ═══
+function calcVAT(){
+  const r=parseFloat(document.getElementById('calc-rate').value)||0;
+  const d=parseInt(document.getElementById('calc-days').value)||0;
+  const c=r*d, v=Math.round(c*.16);
+  document.getElementById('calc-cost').textContent='KES '+fmtN(c);
+  document.getElementById('calc-vat').textContent='KES '+fmtN(v);
+  document.getElementById('calc-total').textContent='KES '+fmtN(c+v);
+}
+
+function updateRatePreview(){
+  const r=parseInt(document.getElementById('sch-route').value)||8500;
+  const d=parseInt(document.getElementById('sch-days').value)||0;
+  const c=r*d, v=Math.round(c*.16);
+  document.getElementById('invoice-preview').innerHTML=`
+    <div class="row"><span>Rate</span><span style="color:#fff;font-family:var(--mono)">KES ${fmtN(r)} / day</span></div>
+    <div class="row"><span>Days</span><span style="color:#fff;font-family:var(--mono)">${d}</span></div>
+    <div class="row"><span>Subtotal</span><span style="color:#fff;font-family:var(--mono)">KES ${fmtN(c)}</span></div>
+    <div class="row"><span>VAT (16%)</span><span style="color:#fff;font-family:var(--mono)">KES ${fmtN(v)}</span></div>
+    <div class="row total-row"><span>Total invoice amount</span><span>KES ${fmtN(c+v)}</span></div>`;
+}
+
+// ═══ PORTAL / SOA ═══
+function approveInvoice(btn, id){btn.textContent='✓ Approved';btn.className='btn btn-secondary btn-sm';btn.disabled=true;toast('Invoice '+id+' approved by G4S');}
+function approveSoa(){toast('SOA 101/03/26 approved by G4S — Fleet Admin notified');}
+
+// ═══ CHIPS / MODAL ═══
+function selectChip(el){el.closest('.chip-group').querySelectorAll('.chip').forEach(c=>c.classList.remove('selected'));el.classList.add('selected');}
+function openModal(n){document.getElementById('modal-'+n).classList.add('open');}
+function closeModal(n){document.getElementById('modal-'+n).classList.remove('open');}
+function closeModalOnBg(e){if(e.target===e.currentTarget)e.currentTarget.classList.remove('open');}
+
+// ═══ TOAST ═══
+let toastTimer;
+function toast(msg){
+  const el=document.getElementById('toast');
+  document.getElementById('toast-msg').textContent=msg;
+  el.classList.add('show');clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),2800);
+}
+
+// ═══ NAVIGATION ═══
+const pageTitles={
+  dashboard:['Dashboard','Fleet Travel Ltd — G4S Kenya · March 2026 · KES 17,624,460'],
+  schedule:['Schedule entry','291 line items · 88 vehicles · March 2026 · Real Excel data'],
+  invoices:['Invoices','June 2026 · 71 vehicles · KES 4,281,282 total'],
+  soa:['Statements (SOA)','G4S Courier Services · Ref: 101/03/26 · KES 17,624,460'],
+  vehicles:['Fleet vehicles','88 vehicles · 7T · 15T · Canter · Van · March 2026 data'],
+  rates:['Rate card','47 destinations · 7T & 15T rates · Excl. 16% VAT · Real price list'],
+  localdeliveries:['Local deliveries','April 2026 logbook · Nairobi routes · 50 vehicles · 502 trips'],
+  safari:['Safari / upcountry','April 2026 logbook · 40 vehicles · 426 trips · 39 destinations'],
+  routes:['Routes & destinations','40+ destinations · Nairobi + upcountry · March 2026 revenue'],
+  portal:['G4S client portal','Viewer access · Approval rights · 12 pending invoices'],
+  reports:['Reports & analytics','YTD KES 50.6M · Jan–Mar 2026 · Actual SOA data'],
+};
+const primaryActions={
+  dashboard:['Add schedule entry','add-schedule'],schedule:['Add entry','add-schedule'],
+  invoices:['Generate SOA',''],soa:['Generate SOA',''],
+  vehicles:['Add vehicle','add-vehicle'],rates:['Add rate','add-rate'],
+  localdeliveries:['Export deliveries',''],safari:['Export safari data',''],
+  routes:['',''],portal:['Forward SOA',''],reports:['Export report',''],
+};
+
+function navigate(page, el){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if(el) el.classList.add('active');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const pageEl=document.getElementById('page-'+page);
+  if(pageEl) pageEl.classList.add('active');
+  const[t,s]=pageTitles[page]||[page,''];
+  document.getElementById('page-title').textContent=t;
+  document.getElementById('page-sub').textContent=s;
+  const[bl,mo]=primaryActions[page]||['',''];
+  const btn=document.getElementById('primary-action');
+  if(bl){btn.style.display='';btn.innerHTML='<i class="ti ti-plus"></i> '+bl;btn.onclick=mo?()=>openModal(mo):()=>toast(bl+' initiated');}
+  else if(btn) btn.style.display='none';
+  // Lazy render on navigate
+  if(page==='schedule') renderSchedule(marchSchedule);
+  if(page==='invoices') renderInvoices(invoiceData);
+  if(page==='vehicles') renderVehicles(vehicleRevenue);
+  if(page==='rates') renderRates();
+  if(page==='localdeliveries') renderLocal(localData);
+  if(page==='safari'){renderSafari(safariData);renderDestGrid();}
+  if(page==='routes') renderRoutes();
+  if(page==='soa') renderFebSOA();
+  if(page==='portal') renderPortal();
+  if(page==='reports') renderReports();
+}
+
+// ═══ INIT ═══
+renderDashboard();
+renderSchedule(marchSchedule);
+renderInvoices(invoiceData);
+renderVehicles(vehicleRevenue);
+renderRates();
+renderLocal(localData);
+renderSafari(safariData);
+renderDestGrid();
+renderRoutes();
+renderFebSOA();
+renderPortal();
+renderReports();
+calcVAT();
+</script>
+</body>
+</html>

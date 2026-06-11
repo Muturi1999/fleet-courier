@@ -1,0 +1,524 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-fleet-gray-50 text-fleet-gray-800 font-sans antialiased;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center gap-1.5 rounded-fleet-sm px-4 py-2 text-[13px] font-medium transition-all border-0 cursor-pointer;
+  }
+  .btn-secondary {
+    @apply btn bg-white text-fleet-gray-600 border border-fleet-gray-200 hover:bg-fleet-gray-50;
+  }
+  .btn-accent {
+    @apply btn bg-accent text-navy font-semibold hover:bg-accent-dark hover:text-white;
+  }
+  .btn-sm {
+    @apply px-2.5 py-1.5 text-xs;
+  }
+  .field-input {
+    @apply w-full rounded-fleet-sm border border-fleet-gray-200 bg-white px-3 py-2 text-[13px] text-fleet-gray-800 outline-none transition focus:border-navy focus:ring-[3px] focus:ring-navy/10 font-sans;
+  }
+  .card {
+    @apply rounded-fleet border border-fleet-gray-100 bg-white p-5;
+  }
+  .section-header {
+    @apply mb-3.5 flex flex-wrap items-center justify-between gap-2;
+  }
+  .table-wrap {
+    @apply max-w-full overflow-x-auto rounded-fleet border border-fleet-gray-100 bg-white;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  .data-table {
+    @apply w-full min-w-[640px] border-collapse text-[13px];
+  }
+  .data-table thead th {
+    @apply whitespace-nowrap border-b border-fleet-gray-100 bg-fleet-gray-50 px-3.5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-fleet-gray-400;
+  }
+  .data-table tbody td {
+    @apply border-b border-fleet-gray-50 px-3.5 py-3 align-middle text-fleet-gray-800;
+  }
+  .data-table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+  .data-table tbody tr:hover td {
+    @apply bg-fleet-gray-50;
+  }
+  .search-bar-wrap {
+    @apply mb-4 flex flex-wrap items-center gap-2.5 rounded-fleet border border-fleet-gray-100 bg-white px-4 py-3;
+  }
+  .filter-bar {
+    @apply mb-4 rounded-fleet border border-fleet-gray-100 bg-white p-3 sm:p-4;
+  }
+  .filter-bar-grid {
+    @apply grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+  .filter-field {
+    @apply flex min-w-0 flex-col;
+  }
+  .filter-label {
+    @apply mb-1 block text-[10px] font-semibold uppercase tracking-wide text-fleet-gray-400;
+  }
+  .filter-control {
+    @apply h-[38px] min-h-[38px] py-0;
+  }
+  .filter-search-wrap {
+    @apply relative flex items-center;
+  }
+  .filter-search-icon {
+    @apply pointer-events-none absolute left-3 top-1/2 z-[1] -translate-y-1/2 text-fleet-gray-400;
+  }
+  .filter-search-input {
+    @apply h-[38px] min-h-[38px] w-full py-0 pl-9 pr-3;
+  }
+  .filter-bar-actions {
+    @apply mt-3 flex flex-wrap items-center gap-2 border-t border-fleet-gray-100 pt-3;
+  }
+  .record-screen {
+    @apply -mx-4 -mt-0 flex min-h-[calc(100vh-4rem)] flex-col bg-fleet-gray-50 sm:-mx-7;
+  }
+  .record-screen-header {
+    @apply border-b border-fleet-gray-100 bg-white px-4 py-4 sm:px-7;
+  }
+  .record-screen-body {
+    @apply flex-1 p-4 sm:p-7;
+  }
+  .record-breadcrumbs {
+    @apply flex flex-wrap items-center gap-1 text-xs text-fleet-gray-400;
+  }
+  .record-crumb-link {
+    @apply font-medium text-fleet-gray-400 transition hover:text-navy;
+  }
+  .record-crumb-current {
+    @apply font-semibold text-navy;
+  }
+  .totals-bar {
+    @apply mt-3 flex flex-wrap items-center gap-5 rounded-fleet-md border border-fleet-gray-100 bg-white px-4 py-3 text-[13px];
+  }
+  .metric-card {
+    @apply relative min-w-0 overflow-hidden rounded-fleet border border-fleet-gray-100 bg-white px-3 py-3 sm:px-5 sm:py-[18px];
+  }
+  .metric-card::after {
+    content: "";
+    @apply absolute inset-x-0 top-0 h-[3px];
+  }
+  .metric-card-amber::after { @apply bg-accent; }
+  .metric-card-teal::after { @apply bg-teal; }
+  .metric-card-navy::after { @apply bg-navy; }
+  .metric-card-red::after { @apply bg-fleet-red; }
+  .metric-card-blue::after { @apply bg-fleet-blue; }
+  .filter-tab {
+    @apply cursor-pointer rounded-fleet-sm border border-fleet-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-fleet-gray-600 transition hover:bg-fleet-gray-50;
+  }
+  .filter-tab-active {
+    @apply border-navy bg-navy text-white;
+  }
+  .dest-pill {
+    @apply m-0.5 inline-flex items-center rounded-xl bg-fleet-blue-light px-1.5 py-0.5 text-[10px] font-semibold text-[#185FA5];
+  }
+  .dest-pill-day {
+    @apply bg-[#F3E8FF] text-[#7E22CE];
+  }
+  .nav-item {
+    @apply relative mb-px flex cursor-pointer items-center gap-2 rounded-fleet-sm px-2.5 py-2 text-[13.5px] text-white/55 transition hover:bg-white/[0.07] hover:text-white/85;
+  }
+  .nav-item-active {
+    @apply bg-accent/15 font-medium text-accent;
+  }
+  .nav-item-active::before {
+    content: "";
+    @apply absolute bottom-1.5 left-0 top-1.5 w-[3px] rounded-r bg-accent;
+  }
+
+  /* Road Network Transporters invoice */
+  .rnt-invoice {
+    @apply mx-auto max-w-[720px] text-[13px] leading-snug text-black;
+    font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  .rnt-invoice-sheet {
+    @apply rounded-fleet border border-fleet-gray-200 bg-[#fffef5] p-6 shadow-fleet;
+  }
+  .rnt-invoice-compact {
+    @apply p-2;
+  }
+  .rnt-invoice-title-wrap {
+    @apply mb-3 flex justify-center;
+  }
+  .rnt-invoice-title {
+    @apply border-2 border-black px-4 py-0.5 text-center text-sm font-bold tracking-widest;
+  }
+  .rnt-invoice-head {
+    @apply mb-2 flex flex-wrap items-start justify-between gap-4;
+  }
+  .rnt-invoice-brand {
+    @apply flex items-start gap-3;
+  }
+  .rnt-logo {
+    @apply h-14 w-14 shrink-0 text-black;
+  }
+  .rnt-invoice-company {
+    font-family: "Trebuchet MS", "Arial Rounded MT Bold", "Segoe UI", sans-serif;
+    @apply text-lg font-bold lowercase tracking-tight text-black;
+  }
+  .rnt-invoice-line {
+    @apply text-[12px] leading-tight text-black;
+  }
+  .rnt-invoice-date {
+    @apply pt-1 text-right text-[13px];
+  }
+  .rnt-invoice-date-label {
+    @apply mr-2 font-medium;
+  }
+  .rnt-invoice-date-value {
+    @apply inline-block min-w-[72px] border-b border-black font-mono;
+  }
+  .rnt-invoice-tax {
+    @apply mb-3 flex flex-wrap gap-x-8 gap-y-1 text-[12px] font-medium;
+  }
+  .rnt-invoice-refs {
+    @apply mb-3 space-y-1.5 text-[13px];
+  }
+  .rnt-invoice-ref-row {
+    @apply flex items-baseline gap-2;
+  }
+  .rnt-invoice-ref-label {
+    @apply min-w-[110px] shrink-0 font-medium;
+  }
+  .rnt-invoice-ref-value {
+    @apply flex-1 border-b border-black font-mono uppercase;
+  }
+  .rnt-invoice-table {
+    @apply mb-0 w-full border-collapse border-2 border-black text-[12px];
+  }
+  .rnt-invoice-table th,
+  .rnt-invoice-table td {
+    @apply border border-black px-2 py-1.5 align-top;
+  }
+  .rnt-invoice-table thead th {
+    @apply bg-white text-center text-[11px] font-bold uppercase;
+  }
+  .rnt-invoice-subhead th {
+    @apply py-0.5 text-[10px] font-semibold normal-case;
+  }
+  .rnt-col-qty {
+    @apply w-[52px] text-center;
+  }
+  .rnt-col-particulars {
+    @apply min-w-[200px];
+  }
+  .rnt-col-unit {
+    @apply w-[80px] text-right font-mono;
+  }
+  .rnt-col-amount {
+    @apply text-center;
+  }
+  .rnt-col-kshs {
+    @apply w-[88px] text-right font-mono;
+  }
+  .rnt-col-cts {
+    @apply w-[44px] text-center font-mono;
+  }
+  .rnt-invoice-blank-row td {
+    @apply h-7;
+  }
+  .rnt-invoice-bottom {
+    @apply flex flex-wrap items-end justify-between gap-4 border-2 border-t-0 border-black px-2 pb-3 pt-2;
+  }
+  .rnt-invoice-legal {
+    @apply flex min-w-[200px] flex-1 flex-col gap-3 text-[11px];
+  }
+  .rnt-invoice-eoe {
+    @apply font-semibold;
+  }
+  .rnt-invoice-terms {
+    @apply text-center text-[12px] font-medium;
+  }
+  .rnt-invoice-serial {
+    @apply text-base font-bold text-[#c41e1e];
+  }
+  .rnt-invoice-totals {
+    @apply border-collapse border-2 border-black text-[12px];
+  }
+  .rnt-invoice-totals th,
+  .rnt-invoice-totals td {
+    @apply border border-black px-3 py-1;
+  }
+  .rnt-invoice-totals th {
+    @apply text-left font-bold uppercase;
+  }
+  .rnt-invoice-totals td {
+    @apply min-w-[72px] text-right font-mono;
+  }
+  .rnt-invoice-total-row th,
+  .rnt-invoice-total-row td {
+    @apply font-bold;
+  }
+  .rnt-invoice-etims {
+    @apply mt-3 text-center text-[10px] text-fleet-gray-400;
+  }
+
+  /* G4S Vehicle Work Ticket */
+  .g4s-wt {
+    @apply mx-auto max-w-[820px] text-[11px] leading-snug text-black;
+    font-family: Arial, "Segoe UI", sans-serif;
+  }
+  .g4s-wt-sheet {
+    @apply rounded-fleet border border-fleet-gray-200 bg-white p-5 shadow-fleet;
+  }
+  .g4s-wt-compact {
+    @apply p-1;
+  }
+  .g4s-wt-header-note {
+    @apply mb-2 text-center text-xs font-semibold uppercase tracking-wide;
+  }
+  .g4s-wt-top {
+    @apply mb-3 flex flex-wrap items-start justify-between gap-3 border-b-2 border-black pb-3;
+  }
+  .g4s-wt-logo {
+    @apply flex h-12 w-12 shrink-0 items-center justify-center border-2 border-black;
+  }
+  .g4s-wt-logo-mark {
+    @apply text-sm font-black tracking-tighter text-[#c41e1e];
+  }
+  .g4s-wt-heading {
+    @apply flex-1 text-center;
+  }
+  .g4s-wt-company {
+    @apply text-sm font-bold uppercase;
+  }
+  .g4s-wt-doc-title {
+    @apply text-xs font-semibold uppercase tracking-wide;
+  }
+  .g4s-wt-serial {
+    @apply flex min-w-[100px] flex-col items-center border-2 border-[#c41e1e] px-2 py-1 text-center;
+  }
+  .g4s-wt-serial-label {
+    @apply text-[9px] font-semibold uppercase;
+  }
+  .g4s-wt-serial-no {
+    @apply text-lg font-bold text-[#c41e1e];
+  }
+  .g4s-wt-meta {
+    @apply mb-3 grid gap-1 sm:grid-cols-2;
+  }
+  .g4s-wt-meta-row {
+    @apply flex gap-2 text-[11px];
+  }
+  .g4s-wt-meta-row > span:first-child {
+    @apply min-w-[130px] shrink-0 font-semibold;
+  }
+  .g4s-wt-meta-val {
+    @apply flex-1 border-b border-black font-mono uppercase;
+  }
+  .g4s-wt-table {
+    @apply mb-0 w-full border-collapse border-2 border-black text-[10px];
+  }
+  .g4s-wt-table th,
+  .g4s-wt-table td {
+    @apply border border-black px-1 py-1 align-top;
+  }
+  .g4s-wt-table thead th {
+    @apply bg-white text-center font-bold uppercase;
+  }
+  .g4s-wt-col-details {
+    @apply min-w-[140px] w-[28%];
+  }
+  .g4s-wt-col-fuel {
+    @apply w-[52px];
+  }
+  .g4s-wt-num {
+    @apply text-right font-mono;
+  }
+  .g4s-wt-blank-row td {
+    @apply h-6;
+  }
+  .g4s-wt-bottom {
+    @apply flex flex-wrap items-end justify-between gap-4 border-2 border-t-0 border-black p-2;
+  }
+  .g4s-wt-notes {
+    @apply min-w-[200px] flex-1 text-[9px] leading-relaxed;
+  }
+  .g4s-wt-route {
+    @apply mb-2 text-[11px];
+  }
+  .g4s-wt-form-ref {
+    @apply font-mono;
+  }
+  .g4s-wt-instruction {
+    @apply mt-1 italic;
+  }
+  .g4s-wt-summary {
+    @apply border-collapse border-2 border-black text-[11px];
+  }
+  .g4s-wt-summary th,
+  .g4s-wt-summary td {
+    @apply border border-black px-3 py-1;
+  }
+  .g4s-wt-summary th {
+    @apply text-left font-bold uppercase;
+  }
+  .g4s-wt-billing {
+    @apply mt-3 flex flex-wrap justify-end gap-4 text-xs text-fleet-gray-400;
+  }
+
+  /* Consolidated invoice & SOA */
+  .consolidated-doc {
+    @apply rounded-fleet border border-fleet-gray-200 bg-white p-5 text-[13px] text-fleet-gray-800;
+  }
+  .consolidated-doc-title {
+    @apply mb-4 border-b-2 border-navy pb-2 text-center text-sm font-bold uppercase tracking-widest text-navy;
+  }
+  .consolidated-doc-header {
+    @apply mb-4 flex flex-wrap justify-between gap-4;
+  }
+  .consolidated-doc-brand {
+    @apply text-lg font-bold text-navy;
+  }
+  .consolidated-doc-meta {
+    @apply text-[11px] text-fleet-gray-400;
+  }
+  .consolidated-doc-party {
+    @apply mb-4 rounded-fleet-sm bg-fleet-gray-50 p-3;
+  }
+  .consolidated-doc-label {
+    @apply text-[10px] font-semibold uppercase tracking-wider text-fleet-gray-400;
+  }
+  .consolidated-doc-terms {
+    @apply mb-4 rounded-fleet-sm border border-fleet-gray-100 p-3;
+  }
+  .consolidated-doc-table {
+    @apply mb-0 w-full border-collapse text-[12px];
+  }
+  .consolidated-doc-table th,
+  .consolidated-doc-table td {
+    @apply border border-fleet-gray-200 px-2 py-2 align-top;
+  }
+  .consolidated-doc-table thead th {
+    @apply bg-fleet-gray-50 text-left text-[10px] font-semibold uppercase text-fleet-gray-400;
+  }
+  .consolidated-doc-grand th,
+  .consolidated-doc-grand td {
+    @apply bg-fleet-gray-50 font-semibold text-navy;
+  }
+  .consolidated-doc-note {
+    @apply mt-3 text-center text-[11px] italic text-fleet-gray-400;
+  }
+
+  /* Landing delivery hero */
+  .delivery-hero {
+    @apply relative min-h-[320px] rounded-fleet border border-white/10 bg-white/[0.04] p-6 overflow-hidden;
+  }
+  .delivery-hero-map {
+    @apply relative h-[200px];
+  }
+  .delivery-hero-truck {
+    @apply absolute text-accent;
+    animation: drive-route 8s ease-in-out infinite;
+  }
+  .delivery-hero-truck-1 {
+    top: 55%;
+    left: 8%;
+    animation-duration: 10s;
+  }
+  .delivery-hero-truck-2 {
+    top: 35%;
+    left: 5%;
+    animation-duration: 14s;
+    animation-delay: -4s;
+  }
+  .delivery-hero-cards {
+    @apply relative mt-4 grid gap-3 sm:grid-cols-2;
+  }
+  .delivery-hero-card {
+    @apply flex items-center gap-3 rounded-fleet-sm border border-white/10 bg-white/[0.06] px-4 py-3;
+  }
+  .delivery-hero-card-float-1 {
+    animation: float-card 4s ease-in-out infinite;
+  }
+  .delivery-hero-card-float-2 {
+    animation: float-card 4s ease-in-out infinite;
+    animation-delay: -2s;
+  }
+}
+
+@keyframes drive-route {
+  0%, 100% { transform: translate(0, 0); opacity: 0.6; }
+  50% { transform: translate(220px, -80px); opacity: 1; }
+}
+
+@keyframes float-card {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #invoice-print-root,
+  #invoice-print-root * {
+    visibility: visible;
+  }
+  #invoice-print-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    border: none;
+    box-shadow: none;
+    padding: 12mm;
+    background: white !important;
+  }
+  .rnt-invoice-etims {
+    display: none;
+  }
+  #work-ticket-print-root,
+  #work-ticket-print-root * {
+    visibility: visible;
+  }
+  #work-ticket-print-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    border: none;
+    box-shadow: none;
+    padding: 10mm;
+    background: white !important;
+  }
+  .g4s-wt-billing {
+    display: none;
+  }
+  #consolidated-billing-print,
+  #consolidated-billing-print * {
+    visibility: visible;
+  }
+  #consolidated-billing-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    background: white !important;
+  }
+  #consolidated-billing-print .consolidated-doc {
+    border: none;
+    box-shadow: none;
+    padding: 12mm;
+  }
+  #consolidated-billing-print .consolidated-soa {
+    page-break-before: always;
+    padding-top: 12mm;
+  }
+  .consolidated-doc-etims {
+    display: none;
+  }
+}
