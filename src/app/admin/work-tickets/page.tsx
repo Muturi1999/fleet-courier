@@ -17,6 +17,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { FormActions, FormField } from "@/components/ui/Modal";
 import { RecordScreen } from "@/components/layout/RecordScreen";
 import { WorkTicketDocument, printWorkTicket } from "@/components/work-tickets/WorkTicketDocument";
+import { WorkTicketLegForm } from "@/components/work-tickets/WorkTicketLegForm";
 import { clearedFilters, highlightSearch } from "@/lib/filters";
 import type { FleetFilters } from "@/lib/filters";
 import type { Rate, Vehicle, WorkTicket, WorkTicketJourneyLeg, WorkTicketStatus } from "@/lib/types";
@@ -48,7 +49,7 @@ function emptyTicket(existing: WorkTicket[], vehicles: Vehicle[]): FormState {
     tripDate: new Date().toISOString().slice(0, 10),
     plate,
     make: VEHICLE_MAKE_BY_PLATE[plate] ?? "",
-    driverName: DRIVER_OPTIONS[0],
+    driverName: "",
     route: "",
     rateType: "fixed",
     agreedRate: 8500,
@@ -70,7 +71,7 @@ function filterTickets(items: WorkTicket[], filters: FleetFilters, tab: string) 
       q &&
       !t.serialNo.includes(q) &&
       !t.plate.toLowerCase().includes(q) &&
-      !t.driverName.toLowerCase().includes(q) &&
+      !t.driverName?.toLowerCase().includes(q) &&
       !t.route.toLowerCase().includes(q)
     ) {
       return false;
@@ -82,7 +83,7 @@ function filterTickets(items: WorkTicket[], filters: FleetFilters, tab: string) 
 
 export default function WorkTicketsPage() {
   const { toast } = useToast();
-  const { items, loading, create, update, remove } = useCrud<WorkTicket>("work-tickets");
+  const { items, loading, create, update, remove, refresh } = useCrud<WorkTicket>("work-tickets");
   const { items: vehicles } = useCrud<Vehicle>("vehicles");
   const { items: rates } = useCrud<Rate>("rates");
   const { screen, isList, openCreate, openEdit, openView, close } = usePageScreen();
@@ -182,12 +183,32 @@ export default function WorkTicketsPage() {
   };
 
   const shareTicket = async (t: WorkTicket) => {
-    await update(t.id, { status: "sent" });
+    const res = await fetch(`/api/work-tickets/${t.id}/share`, {
+      method: "POST",
+      credentials: "same-origin",
+    });
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+      toast(err.message ?? err.error ?? "Share failed");
+      return;
+    }
+    await refresh();
     toast(`Work ticket ${t.serialNo} shared with G4S`);
   };
 
   const approveTicket = async (t: WorkTicket) => {
-    await update(t.id, { status: "approved" });
+    const res = await fetch(`/api/work-tickets/${t.id}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+      toast(err.message ?? err.error ?? "Approval failed");
+      return;
+    }
+    await refresh();
     toast(`Work ticket ${t.serialNo} approved`);
   };
 
@@ -240,18 +261,19 @@ export default function WorkTicketsPage() {
                 onChange={(e) => setForm({ ...form, branch: e.target.value })}
               />
             </FormField>
-            <FormField label="Driver name *">
-              <select
+            <FormField label="Driver name (optional)">
+              <input
+                list="driver-options"
                 className="field-input"
                 value={form.driverName}
+                placeholder="Leave blank if not assigned"
                 onChange={(e) => setForm({ ...form, driverName: e.target.value })}
-              >
+              />
+              <datalist id="driver-options">
                 {DRIVER_OPTIONS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
+                  <option key={d} value={d} />
                 ))}
-              </select>
+              </datalist>
             </FormField>
             <FormField label="Header notes" className="col-span-2">
               <input
@@ -361,106 +383,29 @@ export default function WorkTicketsPage() {
             </div>
           </section>
 
-          <section className="card">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-navy">Journey log</h3>
+          <section className="card space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-navy">Journey log</h3>
+                <p className="mt-0.5 text-xs text-fleet-gray-400">
+                  Add one card per leg. Use the message field for routes, stops, and bullet lists.
+                </p>
+              </div>
               <button type="button" className="btn-secondary btn-sm" onClick={addLeg}>
                 <IconPlus size={14} /> Add leg
               </button>
             </div>
-            <div className="table-wrap">
-              <table className="data-table min-w-[900px] text-xs">
-                <thead>
-                  <tr>
-                    <th>Details of journey</th>
-                    <th>Open km</th>
-                    <th>Time out</th>
-                    <th>Officer</th>
-                    <th>Fuel</th>
-                    <th>Time in</th>
-                    <th>Close km</th>
-                    <th>Service</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {form.legs.map((leg) => (
-                    <tr key={leg.id}>
-                      <td>
-                        <input
-                          className="field-input min-w-[140px]"
-                          value={leg.details}
-                          onChange={(e) => updateLeg(leg.id, { details: e.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          className="field-input w-20"
-                          value={leg.openingMileage || ""}
-                          onChange={(e) => updateLeg(leg.id, { openingMileage: Number(e.target.value) })}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className="field-input w-16"
-                          value={leg.timeOut}
-                          onChange={(e) => updateLeg(leg.id, { timeOut: e.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className="field-input w-20"
-                          value={leg.officerAuthorising}
-                          onChange={(e) => updateLeg(leg.id, { officerAuthorising: e.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className="field-input w-14"
-                          value={leg.fuelDrawn}
-                          onChange={(e) => updateLeg(leg.id, { fuelDrawn: e.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className="field-input w-16"
-                          value={leg.timeIn}
-                          onChange={(e) => updateLeg(leg.id, { timeIn: e.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          className="field-input w-20"
-                          value={leg.closingMileage || ""}
-                          onChange={(e) => updateLeg(leg.id, { closingMileage: Number(e.target.value) })}
-                        />
-                      </td>
-                      <td>
-                        <select
-                          className="field-input w-16"
-                          value={leg.serviceType}
-                          onChange={(e) => updateLeg(leg.id, { serviceType: e.target.value })}
-                        >
-                          <option value="">—</option>
-                          <option value="A/V">A/V</option>
-                          <option value="S/S">S/S</option>
-                        </select>
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="btn-secondary btn-sm text-fleet-red"
-                          onClick={() => removeLeg(leg.id)}
-                        >
-                          <IconTrash size={12} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-4">
+              {form.legs.map((leg, index) => (
+                <WorkTicketLegForm
+                  key={leg.id}
+                  leg={leg}
+                  index={index}
+                  onChange={(patch) => updateLeg(leg.id, patch)}
+                  onRemove={() => removeLeg(leg.id)}
+                  canRemove={form.legs.length > 1}
+                />
+              ))}
             </div>
           </section>
 
@@ -547,7 +492,7 @@ export default function WorkTicketsPage() {
                   <td className="font-mono font-semibold text-[#c41e1e]">{t.serialNo}</td>
                   <td className="whitespace-nowrap text-xs">{t.tripDate}</td>
                   <td className="font-mono">{t.plate}</td>
-                  <td>{t.driverName}</td>
+                  <td>{t.driverName || "—"}</td>
                   <td className="max-w-[160px] truncate text-xs">{t.route}</td>
                   <td className="font-mono text-xs">{t.officialKm || sumLegDistances(t.legs)} km</td>
                   <td className="font-mono font-medium">{t.total.toLocaleString()}</td>

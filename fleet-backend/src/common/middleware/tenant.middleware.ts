@@ -8,6 +8,12 @@ export class TenantMiddleware implements NestMiddleware {
   constructor(private readonly prisma: PrismaService) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
+    // Authenticated routes resolve tenant from JWT — header override is a security risk.
+    const auth = req.headers.authorization;
+    if (auth?.startsWith("Bearer ")) {
+      return next();
+    }
+
     const tenantId = req.headers["x-tenant-id"] as string | undefined;
     const tenantSlug = req.headers["x-tenant-slug"] as string | undefined;
 
@@ -29,13 +35,14 @@ export class TenantMiddleware implements NestMiddleware {
       throw new NotFoundException("Tenant not found or inactive");
     }
 
-    const info = {
-      id: tenant.id,
-      slug: tenant.slug,
-      schema: tenant.schema,
-      name: tenant.name,
-    };
-
-    TenantContextStorage.run(info, () => next());
+    TenantContextStorage.run(
+      {
+        id: tenant.id,
+        slug: tenant.slug,
+        schema: tenant.schema,
+        name: tenant.name,
+      },
+      () => next(),
+    );
   }
 }

@@ -20,6 +20,8 @@ import { useCrud } from "@/hooks/useCrud";
 import { usePageScreen } from "@/hooks/usePageScreen";
 import { usePagination } from "@/hooks/usePagination";
 import { usePlateFromUrl } from "@/hooks/usePlateFromUrl";
+import { ExcelImportButton } from "@/components/import/ExcelImportButton";
+import { parseScheduleExcel } from "@/lib/excel-import";
 
 const PAGE = "Schedule entry";
 
@@ -40,7 +42,7 @@ const emptyForm = (): Omit<ScheduleEntry, "id"> => ({
 
 export default function SchedulePage() {
   const { toast } = useToast();
-  const { items, loading, create, update, remove } = useCrud<ScheduleEntry>("schedules");
+  const { items, loading, create, update, remove, refresh } = useCrud<ScheduleEntry>("schedules");
   const { items: localDeliveries } = useCrud<LocalDelivery>("local-deliveries");
   const { items: safari } = useCrud<SafariEntry>("safari");
   const { items: invoices } = useCrud<Invoice>("invoices");
@@ -92,6 +94,27 @@ export default function SchedulePage() {
       close();
     } catch {
       toast("Failed to save entry");
+    }
+  };
+
+  const importSchedule = async (file: File) => {
+    try {
+      const rows = await parseScheduleExcel(file);
+      if (!rows.length) {
+        toast("No schedule rows found — check column headers");
+        return;
+      }
+      const res = await fetch("/api/schedules/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows }),
+      });
+      if (!res.ok) throw new Error("Import failed");
+      const json = (await res.json()) as { imported?: number };
+      toast(`Imported ${json.imported ?? rows.length} schedule rows`);
+      await refresh();
+    } catch {
+      toast("Import failed — use Excel with Plate, Dest, Rate, Days columns");
     }
   };
 
@@ -183,6 +206,7 @@ export default function SchedulePage() {
         statusKind="schedule"
         resultCount={filtered.length}
       >
+        <ExcelImportButton label="Import Excel" onImport={importSchedule} />
         <button type="button" className="btn-secondary btn-sm" onClick={() => toast("Exported to CSV")}><IconDownload size={14} /> Export</button>
         <button type="button" className="btn-accent btn-sm" onClick={() => { setForm(emptyForm()); openCreate(); }}><IconPlus size={14} /> Add entry</button>
       </FilterBar>

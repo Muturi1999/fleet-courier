@@ -26,6 +26,11 @@ export class RateCardsController {
     return this.service.create(dto);
   }
 
+  @Post("import")
+  importBulk(@Body() body: { rows: CreateRateDto[] }) {
+    return this.service.importBulk(body.rows ?? []);
+  }
+
   @Put(":id")
   update(@Param("id") id: string, @Body() dto: UpdateRateDto) {
     return this.service.update(id, dto);

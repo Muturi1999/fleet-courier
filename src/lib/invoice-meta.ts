@@ -1,4 +1,5 @@
 import type { Invoice } from "./types";
+import type { BillingProfile } from "./types";
 
 /** Road Network Transporters — supplier on every invoice */
 export const SUPPLIER = {
@@ -19,6 +20,11 @@ export const CLIENT = {
   email: "accounts@g4s.co.ke",
   contractRef: "G4S-RNT-2026-001",
 } as const;
+
+export const DEFAULT_BILLING_PROFILE: BillingProfile = {
+  supplier: { ...SUPPLIER },
+  client: { ...CLIENT },
+};
 
 export const INVOICE_DEFAULTS = {
   paymentTerms: "Accounts are due on demand",

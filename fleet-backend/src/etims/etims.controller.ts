@@ -10,6 +10,12 @@ import { EtimsService } from "./etims.service";
 export class EtimsController {
   constructor(private readonly service: EtimsService) {}
 
+  @Post("invoices/:id/validate")
+  @ApiOperation({ summary: "Validate a single invoice against eTIMS checks" })
+  validate(@Param("id") id: string) {
+    return this.service.validateInvoice(id);
+  }
+
   @Post("invoices/:id/submit")
   @ApiOperation({ summary: "Manually trigger eTIMS submission for an invoice" })
   submit(@Param("id") id: string) {

@@ -1,21 +1,29 @@
 import { NextRequest } from "next/server";
 import { jsonDelete, jsonGet, jsonUpdate } from "@/lib/api-helpers";
+import { localCollection, proxyDelete, proxyGetOne, proxyUpdate } from "@/lib/api-proxy";
 import type { ScheduleEntry } from "@/lib/types";
 
+const RESOURCE = "schedules";
 type Ctx = { params: Promise<{ id: string }> };
 
-export async function GET(_: NextRequest, ctx: Ctx) {
+export async function GET(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
-  return jsonGet<ScheduleEntry>("schedules", id);
+  const proxied = await proxyGetOne(req, RESOURCE, id);
+  if (proxied) return proxied;
+  return jsonGet<ScheduleEntry>(localCollection(RESOURCE), id);
 }
 
 export async function PUT(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
-  const body = (await req.json()) as Partial<ScheduleEntry>;
-  return jsonUpdate<ScheduleEntry>("schedules", id, body);
+  const body = await req.json();
+  const proxied = await proxyUpdate(req, RESOURCE, id, body);
+  if (proxied) return proxied;
+  return jsonUpdate<ScheduleEntry>(localCollection(RESOURCE), id, body);
 }
 
-export async function DELETE(_: NextRequest, ctx: Ctx) {
+export async function DELETE(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
-  return jsonDelete("schedules", id);
+  const proxied = await proxyDelete(req, RESOURCE, id);
+  if (proxied) return proxied;
+  return jsonDelete(localCollection(RESOURCE), id);
 }

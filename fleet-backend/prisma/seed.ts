@@ -10,15 +10,15 @@ function schemaName(slug: string) {
   return `tenant_${slug.replace(/-/g, "_")}`;
 }
 
-async function runTenantPatches(pool: Pool, schema: string) {
-  const patchesDir = path.join(__dirname, "tenant-patches");
-  if (!fs.existsSync(patchesDir)) return;
-  const files = fs.readdirSync(patchesDir).filter((f) => f.endsWith(".sql")).sort();
-  await pool.query(`SET search_path TO "${schema}"`);
-  for (const file of files) {
-    await pool.query(fs.readFileSync(path.join(patchesDir, file), "utf-8"));
+async function applyTenantPatches(pool: Pool, schema: string) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { runTenantPatches } = require("./tenant-patch-runner.js");
+  const client = await pool.connect();
+  try {
+    await runTenantPatches(client, schema);
+  } finally {
+    client.release();
   }
-  await pool.query(`SET search_path TO public`);
 }
 
 async function provisionTenantSchema(pool: Pool, schema: string) {
@@ -28,7 +28,7 @@ async function provisionTenantSchema(pool: Pool, schema: string) {
   const sql = fs.readFileSync(sqlPath, "utf-8");
   await pool.query(`SET search_path TO "${schema}"`);
   await pool.query(sql);
-  await runTenantPatches(pool, schema);
+  await applyTenantPatches(pool, schema);
 }
 
 async function seedTenantData(pool: Pool, schema: string) {
@@ -37,7 +37,7 @@ async function seedTenantData(pool: Pool, schema: string) {
   const drivers = ["Hillary", "Samuel", "James", "Peter", "Joseph"];
   for (const name of drivers) {
     await pool.query(
-      `INSERT INTO drivers (name, active) SELECT $1, TRUE WHERE NOT EXISTS (SELECT 1 FROM drivers WHERE name = $1)`,
+      `INSERT INTO drivers (name, active) SELECT $1::varchar, TRUE WHERE NOT EXISTS (SELECT 1 FROM drivers WHERE name = $1::varchar)`,
       [name],
     );
   }
@@ -83,6 +83,45 @@ async function seedTenantData(pool: Pool, schema: string) {
     console.log("Seeded sample work ticket 1189105");
   }
 
+  const billingCount = await pool.query(`SELECT COUNT(*)::int AS c FROM billing_profiles`);
+  if ((billingCount.rows[0]?.c ?? 0) === 0) {
+    await pool.query(
+      `INSERT INTO billing_profiles (supplier, client) VALUES ($1::jsonb, $2::jsonb)`,
+      [
+        JSON.stringify({
+          name: "Road network transporters",
+          address: "P.O. Box 4622-00200, Nairobi.",
+          phone: "Tel: 020 2011330",
+          vatNo: "0161681P",
+          pin: "P051470271Y",
+        }),
+        JSON.stringify({
+          name: "G4S COURIER",
+          legalName: "G4S Courier Services Kenya Ltd",
+          address: "G4S House, Waiyaki Way",
+          city: "Nairobi, Kenya",
+          pin: "P051987654G",
+          contact: "Accounts Payable",
+          email: "accounts@g4s.co.ke",
+          contractRef: "G4S-RNT-2026-001",
+        }),
+      ],
+    );
+    console.log("Seeded billing profile");
+  }
+
+  const expenseCount = await pool.query(`SELECT COUNT(*)::int AS c FROM expenses`);
+  if ((expenseCount.rows[0]?.c ?? 0) === 0) {
+    await pool.query(
+      `INSERT INTO expenses (expense_date, category, description, amount, vehicle_plate, month, status) VALUES
+       ('2026-03-05','fuel','Fleet diesel — Nairobi depot',485000,NULL,'Mar 2026','paid'),
+       ('2026-03-12','maintenance','KBH 667W — brake service',42000,'KBH 667W','Mar 2026','approved'),
+       ('2026-03-18','insurance','Commercial fleet cover — Q1',320000,NULL,'Mar 2026','paid'),
+       ('2026-03-22','salaries','Driver wages — March',890000,NULL,'Mar 2026','recorded')`,
+    );
+    console.log("Seeded sample expenses");
+  }
+
   await pool.query(`SET search_path TO public`);
 }
 
@@ -100,21 +139,31 @@ async function main() {
     tenant = await prisma.tenant.create({
       data: {
         slug,
-        name: "G4S Kenya",
+        name: "Road Network Transporters",
         schema,
         contract: "G4S Courier Services — March 2026",
       },
     });
     console.log(`Created tenant: ${tenant.name} (${schema})`);
   } else {
-    await runTenantPatches(pool, schema);
+    await applyTenantPatches(pool, schema);
+    if (tenant.name !== "Road Network Transporters") {
+      tenant = await prisma.tenant.update({
+        where: { id: tenant.id },
+        data: {
+          name: "Road Network Transporters",
+          contract: tenant.contract ?? "G4S Courier Services — March 2026",
+        },
+      });
+      console.log(`Updated tenant display name to: ${tenant.name}`);
+    }
   }
 
   await seedTenantData(pool, schema);
 
   const users = [
-    { username: "admin", role: UserRole.admin, displayName: "Fleet Admin", password: "admin123" },
-    { username: "client", role: UserRole.client, displayName: "G4S Client", password: "client123" },
+    { username: "admin", role: UserRole.admin, displayName: "RNT Fleet Admin", password: "admin123" },
+    { username: "client", role: UserRole.client, displayName: "G4S Partner", password: "client123" },
   ];
 
   for (const u of users) {

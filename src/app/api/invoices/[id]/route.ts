@@ -1,28 +1,29 @@
 import { NextRequest } from "next/server";
 import { jsonDelete, jsonGet, jsonUpdate } from "@/lib/api-helpers";
-import { getStore, persistStore } from "@/lib/data-store";
-import { processInvoiceStatusChange } from "@/lib/workflows";
+import { localCollection, proxyDelete, proxyGetOne, proxyUpdate } from "@/lib/api-proxy";
 import type { Invoice } from "@/lib/types";
 
+const RESOURCE = "invoices";
 type Ctx = { params: Promise<{ id: string }> };
 
-export async function GET(_: NextRequest, ctx: Ctx) {
-  return jsonGet<Invoice>("invoices", (await ctx.params).id);
+export async function GET(req: NextRequest, ctx: Ctx) {
+  const { id } = await ctx.params;
+  const proxied = await proxyGetOne(req, RESOURCE, id);
+  if (proxied) return proxied;
+  return jsonGet<Invoice>(localCollection(RESOURCE), id);
 }
 
 export async function PUT(req: NextRequest, ctx: Ctx) {
-  const id = (await ctx.params).id;
-  const body = (await req.json()) as Partial<Invoice>;
-  const before = getStore().invoices.get(id);
-  const updated = getStore().invoices.update(id, body);
-  if (!updated) {
-    return Response.json({ error: "Not found" }, { status: 404 });
-  }
-  processInvoiceStatusChange(before, updated);
-  persistStore();
-  return Response.json(updated);
+  const { id } = await ctx.params;
+  const body = await req.json();
+  const proxied = await proxyUpdate(req, RESOURCE, id, body);
+  if (proxied) return proxied;
+  return jsonUpdate<Invoice>(localCollection(RESOURCE), id, body);
 }
 
-export async function DELETE(_: NextRequest, ctx: Ctx) {
-  return jsonDelete("invoices", (await ctx.params).id);
+export async function DELETE(req: NextRequest, ctx: Ctx) {
+  const { id } = await ctx.params;
+  const proxied = await proxyDelete(req, RESOURCE, id);
+  if (proxied) return proxied;
+  return jsonDelete(localCollection(RESOURCE), id);
 }

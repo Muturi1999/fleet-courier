@@ -1,5 +1,5 @@
 /** Monthly contract totals (actual Excel / SOA data) */
-import type { Invoice, ScheduleEntry, Vehicle } from "./types";
+import type { Invoice, ScheduleEntry, Vehicle, Expense } from "./types";
 
 export const REPORT_MONTHS = [
   { key: "2026-01", label: "January 2026", short: "Jan 2026", period: "Jan 2026" },
@@ -313,4 +313,56 @@ export function invoiceStatusBreakdown(invoices: Invoice[], monthKey: ReportMont
     counts.set(i.status, (counts.get(i.status) ?? 0) + 1);
   }
   return [...counts.entries()].map(([status, count]) => ({ status, count }));
+}
+
+export type PnlLine = {
+  label: string;
+  amount: number;
+  kind: "revenue" | "expense" | "summary";
+};
+
+export type PnlReport = {
+  revenue: number;
+  expenses: number;
+  grossProfit: number;
+  marginPct: number;
+  lines: PnlLine[];
+  byCategory: { category: string; amount: number }[];
+};
+
+export function computePnL(expenses: Expense[], monthKey: ReportMonthKey): PnlReport {
+  const snap = snapshotForMonth(monthKey);
+  const revenue = snap.net;
+  const period = periodForMonth(monthKey);
+  const monthExpenses = period
+    ? expenses.filter((e) => e.month === period)
+    : expenses.filter((e) => ["Jan 2026", "Feb 2026", "Mar 2026"].includes(e.month));
+
+  const expenseTotal = monthExpenses.reduce((s, e) => s + e.amount, 0);
+  const grossProfit = revenue - expenseTotal;
+  const marginPct = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
+
+  const byCat = new Map<string, number>();
+  for (const e of monthExpenses) {
+    byCat.set(e.category, (byCat.get(e.category) ?? 0) + e.amount);
+  }
+
+  const lines: PnlLine[] = [
+    { label: "Revenue (net excl. VAT)", amount: revenue, kind: "revenue" },
+    ...monthExpenses.map((e) => ({
+      label: `${e.category} — ${e.description}`,
+      amount: -e.amount,
+      kind: "expense" as const,
+    })),
+    { label: "Gross profit", amount: grossProfit, kind: "summary" },
+  ];
+
+  return {
+    revenue,
+    expenses: expenseTotal,
+    grossProfit,
+    marginPct,
+    lines,
+    byCategory: [...byCat.entries()].map(([category, amount]) => ({ category, amount })),
+  };
 }

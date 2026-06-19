@@ -1,0 +1,100 @@
+# Production stack — images built locally, loaded on server (no build on server).
+# NPM proxies https://swiftfleet.africa → 127.0.0.1:3300
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: swiftfleet-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fleet}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-fleet_courier}
+    volumes:
+      - swiftfleet_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fleet} -d ${POSTGRES_DB:-fleet_courier}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - swiftfleet
+
+  redis:
+    image: redis:7-alpine
+    container_name: swiftfleet-redis
+    restart: unless-stopped
+    volumes:
+      - swiftfleet_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - swiftfleet
+
+  backend:
+    image: swiftfleet-backend:${SWIFTFLEET_VERSION:-latest}
+    container_name: swiftfleet-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      API_PREFIX: api/v1
+      DATABASE_URL: postgresql://${POSTGRES_USER:-fleet}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-fleet_courier}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://swiftfleet.africa}
+      DEFAULT_TENANT_SLUG: ${DEFAULT_TENANT_SLUG:-g4s-kenya}
+      RUN_SEED: ${RUN_SEED:-false}
+      ONBOARDING_ENABLED: ${ONBOARDING_ENABLED:-true}
+      PLATFORM_API_KEY: ${PLATFORM_API_KEY:-}
+      PG_POOL_MAX: ${PG_POOL_MAX:-20}
+    ports:
+      - "127.0.0.1:4300:4000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:4000/api/v1/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
+    networks:
+      - swiftfleet
+
+  frontend:
+    image: swiftfleet-frontend:${SWIFTFLEET_VERSION:-latest}
+    container_name: swiftfleet-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      FLEET_BACKEND_URL: http://backend:4000/api/v1
+      FLEET_BACKEND_TENANT: ${FLEET_BACKEND_TENANT:-g4s-kenya}
+    ports:
+      - "127.0.0.1:3300:3000"
+    networks:
+      - swiftfleet
+
+volumes:
+  swiftfleet_pg_data:
+  swiftfleet_redis_data:
+
+networks:
+  swiftfleet:
+    driver: bridge

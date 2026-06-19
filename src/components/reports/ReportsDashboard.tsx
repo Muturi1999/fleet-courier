@@ -19,6 +19,7 @@ import {
   computeClassBreakdown,
   computeDestBreakdown,
   computeFleetRanking,
+  computePnL,
   computeVatSummary,
   computeVehicleReport,
   invoiceStatusBreakdown,
@@ -30,9 +31,9 @@ import { fmtN } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
 import { useCrud } from "@/hooks/useCrud";
 import { usePagination } from "@/hooks/usePagination";
-import type { Invoice, ScheduleEntry, Vehicle } from "@/lib/types";
+import type { Invoice, ScheduleEntry, Vehicle, Expense } from "@/lib/types";
 
-type ReportTab = "overview" | "vat" | "fleet" | "vehicle" | "destinations";
+type ReportTab = "overview" | "pnl" | "vat" | "fleet" | "vehicle" | "destinations";
 
 const CLASS_COLORS: Record<string, string> = {
   "7T": "#1E3A5F",
@@ -46,12 +47,13 @@ export function ReportsDashboard({ role }: { role: "admin" | "client" }) {
   const { items: invoices, loading: invLoading } = useCrud<Invoice>("invoices");
   const { items: schedules, loading: schLoading } = useCrud<ScheduleEntry>("schedules");
   const { items: vehicles, loading: vehLoading } = useCrud<Vehicle>("vehicles");
+  const { items: expenses, loading: expLoading } = useCrud<Expense>("expenses");
 
   const [month, setMonth] = useState<ReportMonthKey>("2026-03");
   const [tab, setTab] = useState<ReportTab>("overview");
   const [vehiclePlate, setVehiclePlate] = useState("");
 
-  const loading = invLoading || schLoading || vehLoading;
+  const loading = invLoading || schLoading || vehLoading || expLoading;
   const snap = snapshotForMonth(month);
 
   const vat = useMemo(() => computeVatSummary(invoices, month), [invoices, month]);
@@ -62,6 +64,7 @@ export function ReportsDashboard({ role }: { role: "admin" | "client" }) {
   const fleet = useMemo(() => computeFleetRanking(vehicles, schedules, month), [vehicles, schedules, month]);
   const destinations = useMemo(() => computeDestBreakdown(schedules, month), [schedules, month]);
   const statusBreakdown = useMemo(() => invoiceStatusBreakdown(invoices, month), [invoices, month]);
+  const pnl = useMemo(() => computePnL(expenses, month), [expenses, month]);
 
   const plates = useMemo(() => fleet.map((f) => f.plate), [fleet]);
   const selectedPlate = vehiclePlate || plates[0] || "";
@@ -93,6 +96,7 @@ export function ReportsDashboard({ role }: { role: "admin" | "client" }) {
 
   const tabs: { id: ReportTab; label: string; adminOnly?: boolean }[] = [
     { id: "overview", label: "Overview" },
+    { id: "pnl", label: "P&L", adminOnly: true },
     { id: "vat", label: "VAT report" },
     { id: "fleet", label: "Fleet ranking" },
     { id: "vehicle", label: "Single vehicle" },
@@ -208,6 +212,87 @@ export function ReportsDashboard({ role }: { role: "admin" | "client" }) {
             </div>
           )}
         </>
+      )}
+
+      {tab === "pnl" && role === "admin" && (
+        <div className="card">
+          <div className="section-header">
+            <div>
+              <h2 className="text-[15px] font-semibold">Profit &amp; Loss · {monthLabel}</h2>
+              <p className="text-xs text-fleet-gray-400">Revenue (net) minus recorded operating expenses</p>
+            </div>
+            <button
+              type="button"
+              className="btn-secondary btn-sm"
+              onClick={() => {
+                downloadExcelFriendly(
+                  `pnl-${month}`,
+                  ["Line", "Amount (KES)"],
+                  [
+                    ["Revenue (net)", pnl.revenue],
+                    ...pnl.byCategory.map((c) => [`Expense: ${c.category}`, -c.amount]),
+                    ["Gross profit", pnl.grossProfit],
+                  ],
+                );
+                exportToast("P&L report");
+              }}
+            >
+              <IconDownload size={14} /> Export
+            </button>
+          </div>
+
+          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              ["Revenue (net)", `KES ${fmtN(pnl.revenue)}`],
+              ["Total expenses", `KES ${fmtN(pnl.expenses)}`],
+              ["Gross profit", `KES ${fmtN(pnl.grossProfit)}`],
+              ["Margin", `${pnl.marginPct.toFixed(1)}%`],
+            ].map(([k, v]) => (
+              <div key={String(k)} className="rounded-fleet-sm border border-fleet-gray-100 bg-fleet-gray-50 px-3 py-2">
+                <p className="text-[10px] uppercase text-fleet-gray-400">{k}</p>
+                <p className="font-mono text-sm font-semibold text-navy">{v}</p>
+              </div>
+            ))}
+          </div>
+
+          {pnl.byCategory.length > 0 && (
+            <div className="mb-4">
+              <HorizontalBars
+                items={pnl.byCategory.map((c) => ({
+                  label: c.category,
+                  value: c.amount,
+                  sub: `${((c.amount / Math.max(pnl.expenses, 1)) * 100).toFixed(0)}% of costs`,
+                }))}
+              />
+            </div>
+          )}
+
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr><th>Line item</th><th>Amount (KES)</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="font-medium text-teal">Revenue (net excl. VAT)</td>
+                  <td className="font-mono font-semibold text-teal">{fmtN(pnl.revenue)}</td>
+                </tr>
+                {expenses
+                  .filter((e) => (month === "ytd" ? ["Jan 2026", "Feb 2026", "Mar 2026"].includes(e.month) : e.month === (REPORT_MONTHS.find((m) => m.key === month)?.period ?? "")))
+                  .map((e) => (
+                    <tr key={e.id}>
+                      <td className="text-xs">{e.category} — {e.description}</td>
+                      <td className="font-mono text-xs text-fleet-red">({fmtN(e.amount)})</td>
+                    </tr>
+                  ))}
+                <tr className="border-t-2 border-fleet-gray-200">
+                  <td className="font-semibold">Gross profit</td>
+                  <td className={`font-mono font-bold ${pnl.grossProfit >= 0 ? "text-navy" : "text-fleet-red"}`}>{fmtN(pnl.grossProfit)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {tab === "vat" && (

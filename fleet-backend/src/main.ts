@@ -14,7 +14,13 @@ async function bootstrap() {
   app.enableCors({
     origin: config.get<string>("CORS_ORIGIN", "*"),
     credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization", "x-tenant-id", "x-tenant-slug"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-tenant-id",
+      "x-tenant-slug",
+      "x-platform-key",
+    ],
   });
   app.useGlobalPipes(
     new ValidationPipe({
@@ -32,6 +38,7 @@ async function bootstrap() {
     .addBearerAuth()
     .addApiKey({ type: "apiKey", name: "x-tenant-id", in: "header" }, "tenant-id")
     .addApiKey({ type: "apiKey", name: "x-tenant-slug", in: "header" }, "tenant-slug")
+    .addApiKey({ type: "apiKey", name: "x-platform-key", in: "header" }, "platform-key")
     .build();
   SwaggerModule.setup("docs", app, SwaggerModule.createDocument(app, swagger));
 

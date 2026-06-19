@@ -12,7 +12,10 @@ import type {
   WorkflowNotification,
   WorkTicket,
   ConsolidatedInvoice,
+  Expense,
+  BillingProfile,
 } from "./types";
+import { DEFAULT_BILLING_PROFILE } from "./invoice-meta";
 
 type IdEntity = { id: string };
 
@@ -62,6 +65,8 @@ class FleetStore {
   workTickets: Collection<WorkTicket>;
   consolidatedInvoices: Collection<ConsolidatedInvoice>;
   notifications: Collection<WorkflowNotification>;
+  expenses: Collection<Expense>;
+  billingProfile: BillingProfile;
 
   constructor(seed: FleetData) {
     this.schedules = new Collection(seed.schedules);
@@ -74,6 +79,8 @@ class FleetStore {
     this.workTickets = new Collection(seed.workTickets);
     this.consolidatedInvoices = new Collection(seed.consolidatedInvoices ?? []);
     this.notifications = new Collection(seed.notifications);
+    this.expenses = new Collection(seed.expenses ?? []);
+    this.billingProfile = structuredClone(seed.billingProfile ?? DEFAULT_BILLING_PROFILE);
   }
 
   snapshot(): FleetData {
@@ -88,6 +95,8 @@ class FleetStore {
       workTickets: this.workTickets.all(),
       consolidatedInvoices: this.consolidatedInvoices.all(),
       notifications: this.notifications.all(),
+      expenses: this.expenses.all(),
+      billingProfile: structuredClone(this.billingProfile),
     };
   }
 }
@@ -101,6 +110,8 @@ export function getStore(): FleetStore {
     const data = saved ?? seed;
     if (!saved?.workTickets?.length) data.workTickets = seed.workTickets;
     if (!saved?.consolidatedInvoices?.length) data.consolidatedInvoices = seed.consolidatedInvoices ?? [];
+    if (!saved?.expenses?.length) data.expenses = seed.expenses ?? [];
+    if (!saved?.billingProfile) data.billingProfile = seed.billingProfile ?? DEFAULT_BILLING_PROFILE;
     globalStore.__fleetStore = new FleetStore(data);
   }
   return globalStore.__fleetStore;
@@ -122,8 +133,19 @@ export type StoreCollection = keyof Pick<
   | "workTickets"
   | "consolidatedInvoices"
   | "notifications"
+  | "expenses"
 >;
 
 export function getCollection<K extends StoreCollection>(key: K): FleetStore[K] {
   return getStore()[key];
+}
+
+export function getBillingProfile(): BillingProfile {
+  return structuredClone(getStore().billingProfile);
+}
+
+export function setBillingProfile(profile: BillingProfile): BillingProfile {
+  getStore().billingProfile = structuredClone(profile);
+  persistStore();
+  return getBillingProfile();
 }

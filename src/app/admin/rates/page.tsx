@@ -14,6 +14,8 @@ import { fmtN } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
 import { useCrud } from "@/hooks/useCrud";
 import { usePagination } from "@/hooks/usePagination";
+import { ExcelImportButton } from "@/components/import/ExcelImportButton";
+import { parseRatesExcel } from "@/lib/excel-import";
 
 const emptyRate = (): Omit<Rate, "id"> => ({
   route: "",
@@ -26,7 +28,7 @@ const emptyRate = (): Omit<Rate, "id"> => ({
 
 export default function RatesPage() {
   const { toast } = useToast();
-  const { items, loading, create, update, remove } = useCrud<Rate>("rates");
+  const { items, loading, create, update, remove, refresh } = useCrud<Rate>("rates");
   const [calcRate, setCalcRate] = useState(8500);
   const [calcDays, setCalcDays] = useState(20);
   const [modal, setModal] = useState<"create" | "edit" | null>(null);
@@ -66,6 +68,27 @@ export default function RatesPage() {
     }
   };
 
+  const importRates = async (file: File) => {
+    try {
+      const rows = await parseRatesExcel(file);
+      if (!rows.length) {
+        toast("No rate rows found — check column headers");
+        return;
+      }
+      const res = await fetch("/api/rates/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows }),
+      });
+      if (!res.ok) throw new Error("Import failed");
+      const json = (await res.json()) as { imported?: number };
+      toast(`Imported ${json.imported ?? rows.length} rates`);
+      await refresh();
+    } catch {
+      toast("Import failed — use Excel with Route, Class, Rate columns");
+    }
+  };
+
   const nairobi = paginated.filter((r) => r.category === "nairobi");
   const upcountry = paginated.filter((r) => r.category === "upcountry");
 
@@ -73,8 +96,11 @@ export default function RatesPage() {
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <div>
         <div className="section-header">
-          <div><h2 className="text-[15px] font-semibold">Rate card</h2><p className="text-xs text-fleet-gray-400">Excl. 16% VAT</p></div>
-          <button type="button" className="btn-accent btn-sm" onClick={() => { setForm(emptyRate()); setEditId(null); setModal("create"); }}><IconPlus size={14} /> Add rate</button>
+          <div><h2 className="text-[15px] font-semibold">Rate card</h2><p className="text-xs text-fleet-gray-400">Excl. 16% VAT · import RNT_PRICE_LIST.xlsx</p></div>
+          <div className="flex flex-wrap gap-2">
+            <ExcelImportButton label="Import Excel" onImport={importRates} />
+            <button type="button" className="btn-accent btn-sm" onClick={() => { setForm(emptyRate()); setEditId(null); setModal("create"); }}><IconPlus size={14} /> Add rate</button>
+          </div>
         </div>
 
         <FilterBar filters={filters} onChange={setFilters} fields={["search", "destination", "status"]} statusKind="route" resultCount={filtered.length} />

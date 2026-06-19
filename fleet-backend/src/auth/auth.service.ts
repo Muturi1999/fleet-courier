@@ -63,8 +63,21 @@ export class AuthService {
   }
 
   async validateUser(payload: JwtPayload) {
-    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
-    if (!user?.active) throw new UnauthorizedException();
-    return payload;
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      include: { tenant: true },
+    });
+    if (!user?.active || !user.tenant.active) {
+      throw new UnauthorizedException();
+    }
+    if (user.tenantId !== payload.tenantId || user.tenant.schema !== payload.tenantSchema) {
+      throw new UnauthorizedException("Workspace membership changed — sign in again");
+    }
+    return {
+      ...payload,
+      tenantSlug: user.tenant.slug,
+      tenantSchema: user.tenant.schema,
+      tenantName: user.tenant.name,
+    };
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { IconPrinter } from "@tabler/icons-react";
-import type { Invoice } from "@/lib/types";
+import type { BillingProfile, Invoice } from "@/lib/types";
 import {
   CLIENT,
   INVOICE_DEFAULTS,
@@ -32,13 +32,17 @@ function TruckLogo() {
 
 export function InvoiceDocument({
   invoice,
+  profile,
   onPrint,
   compact,
 }: {
   invoice: Invoice;
+  profile?: BillingProfile;
   onPrint?: () => void;
   compact?: boolean;
 }) {
+  const supplier = profile?.supplier ?? SUPPLIER;
+  const client = profile?.client ?? CLIENT;
   const issueDate = formatRntDate(invoiceIssueDate(invoice));
   const invoiceNumber = formatInvoiceNumber(invoice.invoiceNo);
   const rate = unitRate(invoice.net, invoice.days);
@@ -61,9 +65,9 @@ export function InvoiceDocument({
         <div className="rnt-invoice-brand">
           <TruckLogo />
           <div>
-            <div className="rnt-invoice-company">{SUPPLIER.name}</div>
-            <p className="rnt-invoice-line">{SUPPLIER.address}</p>
-            <p className="rnt-invoice-line">{SUPPLIER.phone}</p>
+            <div className="rnt-invoice-company">{supplier.name}</div>
+            <p className="rnt-invoice-line">{supplier.address}</p>
+            {supplier.phone && <p className="rnt-invoice-line">{supplier.phone}</p>}
           </div>
         </div>
         <div className="rnt-invoice-date">
@@ -73,15 +77,21 @@ export function InvoiceDocument({
       </div>
 
       <div className="rnt-invoice-tax">
-        <span>V.A.T No: {SUPPLIER.vatNo}</span>
-        <span>PIN No: {SUPPLIER.pin}</span>
+        <span>V.A.T No: {supplier.vatNo ?? "—"}</span>
+        <span>PIN No: {supplier.pin}</span>
       </div>
 
       <div className="rnt-invoice-refs">
         <div className="rnt-invoice-ref-row">
           <span className="rnt-invoice-ref-label">To.</span>
-          <span className="rnt-invoice-ref-value">{CLIENT.name}</span>
+          <span className="rnt-invoice-ref-value">{client.name}</span>
         </div>
+        {client.pin && (
+          <div className="rnt-invoice-ref-row">
+            <span className="rnt-invoice-ref-label">Client PIN</span>
+            <span className="rnt-invoice-ref-value font-mono">{client.pin}</span>
+          </div>
+        )}
         <div className="rnt-invoice-ref-row">
           <span className="rnt-invoice-ref-label">Your Order No.</span>
           <span className="rnt-invoice-ref-value">{invoice.plate}</span>

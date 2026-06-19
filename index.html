@@ -1130,6 +1130,12 @@
       <i class="ti ti-file-invoice"></i> Invoices
       <span class="nav-badge">71</span>
     </div>
+    <div class="nav-item" onclick="navigate('expenses', this)">
+      <i class="ti ti-receipt"></i> Expenses
+    </div>
+    <div class="nav-item" onclick="navigate('settings', this)">
+      <i class="ti ti-settings"></i> Billing settings
+    </div>
     <div class="nav-item" onclick="navigate('soa', this)">
       <i class="ti ti-file-description"></i> Statements (SOA)
     </div>
@@ -1336,14 +1342,14 @@
         <!-- Route filter -->
         <div style="position:relative;min-width:180px">
           <i class="ti ti-map-pin" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--gray-400);font-size:15px;pointer-events:none"></i>
-          <select style="padding-left:32px" onchange="filterScheduleEntries(this.value,'route')">
+          <select style="padding-left:32px" onchange="filterScheduleEntries(this.value,'dest')">
             <option value="">All routes</option>
-            <option value="Nairobi Morning">Nairobi Morning</option>
-            <option value="Nairobi Afternoon">Nairobi Afternoon</option>
-            <option value="Mombasa">Mombasa</option>
-            <option value="Kisumu">Kisumu</option>
-            <option value="Nakuru">Nakuru</option>
-            <option value="Eldoret">Eldoret</option>
+            <option value="NAIROBI">Nairobi Morning</option>
+            <option value="NAIROBI AFTERNOON">Nairobi Afternoon</option>
+            <option value="MOMBASA">Mombasa</option>
+            <option value="KISUMU">Kisumu</option>
+            <option value="NAKURU">Nakuru</option>
+            <option value="ELDORET">Eldoret</option>
           </select>
         </div>
         <!-- Days filter -->
@@ -1398,6 +1404,17 @@
 
     <!-- ════ INVOICES ════ -->
     <div class="page" id="page-invoices">
+      <div class="card" style="margin-bottom:16px">
+        <div class="section-header"><h2>Invoice approval workflow</h2></div>
+        <p style="font-size:12px;color:var(--gray-400);margin-bottom:12px">Draft → Sent → G4S review → Approved → Paid. Rejected invoices return to Fleet Admin for correction.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div style="flex:1;min-width:100px;padding:10px;border-radius:var(--radius-sm);background:var(--gray-50);border:1px solid var(--gray-100)"><div style="font-size:10px;font-weight:700;color:var(--gray-400)">DRAFT</div><div style="font-size:11px;margin-top:4px">Fleet Admin creates invoice</div></div>
+          <div style="flex:1;min-width:100px;padding:10px;border-radius:var(--radius-sm);background:var(--gray-50);border:1px solid var(--gray-100)"><div style="font-size:10px;font-weight:700;color:var(--gray-400)">SENT</div><div style="font-size:11px;margin-top:4px">Delivered to G4S portal</div></div>
+          <div style="flex:1;min-width:100px;padding:10px;border-radius:var(--radius-sm);background:var(--accent-light);border:1px solid #FAC775"><div style="font-size:10px;font-weight:700;color:var(--accent-dark)">AWAITING</div><div style="font-size:11px;margin-top:4px">G4S accounts reviews</div></div>
+          <div style="flex:1;min-width:100px;padding:10px;border-radius:var(--radius-sm);background:var(--teal-light);border:1px solid #9FE1CB"><div style="font-size:10px;font-weight:700;color:var(--teal)">APPROVED</div><div style="font-size:11px;margin-top:4px">Ready for payment</div></div>
+          <div style="flex:1;min-width:100px;padding:10px;border-radius:var(--radius-sm);background:var(--gray-50);border:1px solid var(--gray-100)"><div style="font-size:10px;font-weight:700;color:var(--gray-400)">PAID</div><div style="font-size:11px;margin-top:4px">Settlement received</div></div>
+        </div>
+      </div>
       <div class="metrics-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
         <div class="metric-card c-teal">
           <div class="metric-label">Total invoiced</div>
@@ -1447,6 +1464,53 @@
           </tbody>
         </table>
       </div>
+    </div>
+
+    <!-- ════ EXPENSES ════ -->
+    <div class="page" id="page-expenses">
+      <div class="metrics-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+        <div class="metric-card c-navy"><div class="metric-label">March expenses</div><div class="metric-value" style="font-size:20px">KES 1.74M</div><div class="metric-sub">Operating costs</div></div>
+        <div class="metric-card c-amber"><div class="metric-label">YTD expenses</div><div class="metric-value" style="font-size:20px">KES 2.28M</div><div class="metric-sub">Jan–Mar 2026</div></div>
+        <div class="metric-card c-teal"><div class="metric-label">Categories</div><div class="metric-value" style="font-size:20px">6</div><div class="metric-sub">Fuel · Maintenance · Insurance…</div></div>
+      </div>
+      <div class="search-bar-wrap">
+        <button class="btn btn-accent btn-sm" onclick="toast('Expense recorded')"><i class="ti ti-plus"></i> Record expense</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Vehicle</th><th>Amount (KES)</th><th>Status</th></tr></thead>
+          <tbody id="expenses-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ════ BILLING SETTINGS ════ -->
+    <div class="page" id="page-settings">
+      <div class="card" style="margin-bottom:14px">
+        <div class="section-header"><h2>Client details (bill to)</h2><p>Shown on every invoice — company name, KRA PIN, address</p></div>
+        <div class="form-row">
+          <div class="form-group"><label class="field-label">Company name</label><input type="text" id="set-client-name" value="G4S COURIER"></div>
+          <div class="form-group"><label class="field-label">Legal name</label><input type="text" id="set-client-legal" value="G4S Courier Services Kenya Ltd"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="field-label">KRA PIN *</label><input type="text" id="set-client-pin" value="P051987654G" class="mono"></div>
+          <div class="form-group"><label class="field-label">Contract ref</label><input type="text" id="set-client-contract" value="G4S-RNT-2026-001"></div>
+        </div>
+        <div class="form-group"><label class="field-label">Address</label><input type="text" id="set-client-addr" value="G4S House, Waiyaki Way, Nairobi"></div>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="section-header"><h2>Supplier details (your company)</h2></div>
+        <div class="form-row">
+          <div class="form-group"><label class="field-label">Company name</label><input type="text" id="set-sup-name" value="Road network transporters"></div>
+          <div class="form-group"><label class="field-label">KRA PIN *</label><input type="text" id="set-sup-pin" value="P051470271Y" class="mono"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="field-label">VAT number</label><input type="text" id="set-sup-vat" value="0161681P"></div>
+          <div class="form-group"><label class="field-label">Phone</label><input type="text" id="set-sup-phone" value="Tel: 020 2011330"></div>
+        </div>
+        <div class="form-group"><label class="field-label">Address</label><input type="text" id="set-sup-addr" value="P.O. Box 4622-00200, Nairobi."></div>
+      </div>
+      <button class="btn btn-accent" onclick="saveBillingProfile()"><i class="ti ti-device-floppy"></i> Save billing profile</button>
     </div>
 
     <!-- ════ SOA ════ -->
@@ -1958,6 +2022,17 @@
                 <span class="mono" style="color:var(--navy)">KES 17,624,460</span>
               </div>
             </div>
+          </div>
+
+          <div class="card">
+            <div class="section-header"><h2>Profit &amp; Loss · March 2026</h2><p>Revenue minus operating expenses</p></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+              <div style="background:var(--teal-light);border-radius:var(--radius-sm);padding:10px;text-align:center"><div class="metric-label">Revenue (net)</div><div style="font-size:14px;font-weight:600;font-family:var(--mono);color:var(--teal)">KES 15.19M</div></div>
+              <div style="background:var(--accent-light);border-radius:var(--radius-sm);padding:10px;text-align:center"><div class="metric-label">Expenses</div><div style="font-size:14px;font-weight:600;font-family:var(--mono);color:var(--accent-dark)">KES 1.74M</div></div>
+              <div style="background:var(--gray-50);border-radius:var(--radius-sm);padding:10px;text-align:center"><div class="metric-label">Gross profit</div><div style="font-size:14px;font-weight:600;font-family:var(--mono)">KES 13.45M</div></div>
+              <div style="background:var(--navy);border-radius:var(--radius-sm);padding:10px;text-align:center"><div class="metric-label" style="color:rgba(255,255,255,.5)">Margin</div><div style="font-size:14px;font-weight:600;font-family:var(--mono);color:#fff">88.5%</div></div>
+            </div>
+            <div style="font-size:12px;color:var(--gray-400)">Record expenses under Expenses to keep P&amp;L current each month.</div>
           </div>
 
           <div class="card">
@@ -2549,7 +2624,11 @@ function renderDashboard(){
 }
 
 // ═══ RENDER: SCHEDULE ═══
-let schedF = {plate:'',dest:'',cls:'',run:''};
+let schedF = {plate:'',dest:'',cls:'',run:'',days:'',month:''};
+const SCH_ROUTE_RATES = {
+  nairobi_morning: 9000, nairobi_afternoon: 8000, nairobi_morning_7t: 8500, nairobi_afternoon_7t: 7000,
+  mombasa: 26000, kisumu: 22000, nakuru: 14000, eldoret: 22000,
+};
 function formatRoute(dest){
   if(!dest) return '—';
   return dest.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
@@ -2583,9 +2662,31 @@ function filterScheduleEntries(val, field){
   if(schedF.dest) d=d.filter(e=>e.dest===schedF.dest);
   if(schedF.cls) d=d.filter(e=>e.cls===schedF.cls);
   if(schedF.run) d=d.filter(e=>e.runType===schedF.run);
+  if(schedF.days){
+    const [lo,hi]=schedF.days==='21+'?[21,99]:schedF.days.split('-').map(Number);
+    d=d.filter(e=>e.days>=lo&&e.days<=(hi||lo));
+  }
   renderSchedule(d);
 }
-function saveScheduleEntry(){closeModal('add-schedule');toast('Entry saved · Invoice auto-calculated · eTIMS queued');}
+function saveScheduleEntry(){
+  const veh=document.getElementById('sch-vehicle').value;
+  if(!veh){toast('Select a vehicle plate');return;}
+  const [plate,cls]=veh.split('_');
+  const routeKey=document.getElementById('sch-route').value;
+  const rate=SCH_ROUTE_RATES[routeKey]||8500;
+  const days=parseInt(document.getElementById('sch-days').value,10)||1;
+  const runChip=document.querySelector('#modal-add-schedule .chip.selected');
+  const runType=runChip?.textContent?.trim()||'Morning';
+  const destMap={nairobi_morning:'NAIROBI',nairobi_afternoon:'NAIROBI AFTERNOON',nairobi_morning_7t:'NAIROBI',nairobi_afternoon_7t:'NAIROBI AFTERNOON',mombasa:'MOMBASA',kisumu:'KISUMU',nakuru:'NAKURU',eldoret:'ELDORET'};
+  const dest=destMap[routeKey]||'NAIROBI';
+  const cost=rate*days, vat=Math.round(cost*.16), total=cost+vat;
+  marchSchedule.unshift({plate:plate.replace(/([A-Z]{3})(\d)/,'$1 $2'),cls:cls.replace('7T','7T').replace('15T','15T'),dest,runType:runType==='Both'?'Morning':runType,rate,days,cost,vat,total});
+  closeModal('add-schedule');
+  filterScheduleEntries('','plate');
+  schedF={plate:'',dest:'',cls:'',run:'',days:'',month:''};
+  renderSchedule(marchSchedule);
+  toast('Entry saved · Invoice auto-calculated · eTIMS queued');
+}
 
 // ═══ RENDER: INVOICES ═══
 function renderInvoices(data){
@@ -2603,6 +2704,7 @@ function renderInvoices(data){
     <td><span class="badge badge-${inv.status}">${inv.status.charAt(0).toUpperCase()+inv.status.slice(1)}</span></td>
     <td><div style="display:flex;gap:5px">
       <button class="btn btn-secondary btn-sm" onclick="toast('Invoice viewed')"><i class="ti ti-eye"></i></button>
+      <button class="btn btn-secondary btn-sm" onclick="validateEtims('${inv.id}')" title="Validate via eTIMS"><i class="ti ti-shield-check"></i></button>
       <button class="btn btn-secondary btn-sm" onclick="toast('PDF downloaded')"><i class="ti ti-download"></i></button>
     </div></td>
   </tr>`).join('');
@@ -2614,7 +2716,36 @@ function filterInvoices(status, el){
 }
 function searchInvoices(val){
   const q=val.toLowerCase();
-  renderInvoices(invoiceData.filter(i=>i.plate.toLowerCase().includes(q)||i.id.toLowerCase().includes(q)));
+  const activeTab=document.querySelector('#page-invoices .filter-tab.active');
+  const status=activeTab?.textContent?.split(' ')[0]?.toLowerCase()||'all';
+  let data=status==='all'?invoiceData:invoiceData.filter(i=>i.status===status);
+  if(q) data=data.filter(i=>i.plate.toLowerCase().includes(q)||i.id.toLowerCase().includes(q));
+  renderInvoices(data);
+}
+
+const expenseData=[
+  {date:'2026-03-05',cat:'fuel',desc:'Fleet diesel — Nairobi depot',plate:'',amt:485000,status:'paid'},
+  {date:'2026-03-12',cat:'maintenance',desc:'KBH 667W — brake service',plate:'KBH 667W',amt:42000,status:'approved'},
+  {date:'2026-03-18',cat:'insurance',desc:'Commercial fleet cover — Q1',plate:'',amt:320000,status:'paid'},
+  {date:'2026-03-22',cat:'salaries',desc:'Driver wages — March',plate:'',amt:890000,status:'recorded'},
+];
+function renderExpenses(){
+  const tbody=document.getElementById('expenses-tbody');
+  if(!tbody) return;
+  tbody.innerHTML=expenseData.map(e=>`<tr>
+    <td style="font-size:12px">${e.date}</td>
+    <td><span class="badge badge-draft">${e.cat}</span></td>
+    <td style="font-size:12px">${e.desc}</td>
+    <td class="mono" style="font-size:11px">${e.plate||'—'}</td>
+    <td class="mono" style="font-weight:500">${fmtN(e.amt)}</td>
+    <td><span class="badge badge-${e.status==='paid'?'paid':e.status==='approved'?'approved':'pending'}">${e.status}</span></td>
+  </tr>`).join('');
+}
+function saveBillingProfile(){
+  toast('Billing profile saved — invoices will use updated client & supplier details');
+}
+function validateEtims(id){
+  toast('Invoice #'+id+' passed KRA eTIMS validation · CU assigned');
 }
 
 // ═══ RENDER: VEHICLES ═══
@@ -2839,7 +2970,8 @@ function calcVAT(){
 }
 
 function updateRatePreview(){
-  const r=parseInt(document.getElementById('sch-route').value)||8500;
+  const routeKey=document.getElementById('sch-route').value;
+  const r=SCH_ROUTE_RATES[routeKey]||8500;
   const d=parseInt(document.getElementById('sch-days').value)||0;
   const c=r*d, v=Math.round(c*.16);
   document.getElementById('invoice-preview').innerHTML=`
@@ -2874,6 +3006,8 @@ const pageTitles={
   dashboard:['Dashboard','Fleet Travel Ltd — G4S Kenya · March 2026 · KES 17,624,460'],
   schedule:['Schedule entry','291 line items · 88 vehicles · March 2026 · Real Excel data'],
   invoices:['Invoices','June 2026 · 71 vehicles · KES 4,281,282 total'],
+  expenses:['Expenses','Operating costs for P&L reporting'],
+  settings:['Billing settings','Client & supplier details for invoices and eTIMS'],
   soa:['Statements (SOA)','G4S Courier Services · Ref: 101/03/26 · KES 17,624,460'],
   vehicles:['Fleet vehicles','88 vehicles · 7T · 15T · Canter · Van · March 2026 data'],
   rates:['Rate card','47 destinations · 7T & 15T rates · Excl. 16% VAT · Real price list'],
@@ -2885,7 +3019,7 @@ const pageTitles={
 };
 const primaryActions={
   dashboard:['Add schedule entry','add-schedule'],schedule:['Add entry','add-schedule'],
-  invoices:['Generate SOA',''],soa:['Generate SOA',''],
+  invoices:['Generate SOA',''],expenses:['Record expense',''],settings:['',''],soa:['Generate SOA',''],
   vehicles:['Add vehicle','add-vehicle'],rates:['Add rate','add-rate'],
   localdeliveries:['Export deliveries',''],safari:['Export safari data',''],
   routes:['',''],portal:['Forward SOA',''],reports:['Export report',''],
@@ -2907,6 +3041,8 @@ function navigate(page, el){
   // Lazy render on navigate
   if(page==='schedule') renderSchedule(marchSchedule);
   if(page==='invoices') renderInvoices(invoiceData);
+  if(page==='expenses') renderExpenses();
+  if(page==='settings'){}
   if(page==='vehicles') renderVehicles(vehicleRevenue);
   if(page==='rates') renderRates();
   if(page==='localdeliveries') renderLocal(localData);
@@ -2921,6 +3057,7 @@ function navigate(page, el){
 renderDashboard();
 renderSchedule(marchSchedule);
 renderInvoices(invoiceData);
+renderExpenses();
 renderVehicles(vehicleRevenue);
 renderRates();
 renderLocal(localData);

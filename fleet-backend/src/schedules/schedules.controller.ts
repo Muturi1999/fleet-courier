@@ -27,6 +27,12 @@ export class SchedulesController {
     return this.service.create(dto);
   }
 
+  @Post("import")
+  @ApiOperation({ summary: "Bulk import schedule rows from Excel/CSV export" })
+  importBulk(@Body() body: { rows: CreateScheduleDto[] }) {
+    return this.service.importBulk(body.rows ?? []);
+  }
+
   @Put(":id")
   update(@Param("id") id: string, @Body() dto: UpdateScheduleDto) {
     return this.service.update(id, dto);

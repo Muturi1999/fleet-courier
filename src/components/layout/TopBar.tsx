@@ -82,7 +82,7 @@ export function TopBar({ role, onMenuClick }: { role: "admin" | "client"; onMenu
   const notifHref = role === "admin" ? "/admin/notifications" : "/client/notifications";
 
   return (
-    <header className="relative z-[100] shrink-0 border-b border-fleet-gray-100 bg-white px-3 py-2 sm:px-7 sm:py-0 md:h-16">
+    <header className="relative z-[100] shrink-0 border-b border-fleet-gray-100 bg-white px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-7 sm:pb-0 md:h-16 md:pt-0">
       {/* Mobile */}
       <div className="flex h-12 items-center gap-2 md:hidden">
         <button

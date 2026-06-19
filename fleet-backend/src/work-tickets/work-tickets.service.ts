@@ -105,7 +105,7 @@ export class WorkTicketsService {
         dto.tripDate,
         dto.plate,
         dto.make,
-        dto.driverName,
+        dto.driverName ?? "",
         dto.route,
         dto.rateType ?? "fixed",
         dto.agreedRate,

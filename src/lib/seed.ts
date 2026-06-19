@@ -8,6 +8,7 @@ import {
 } from "./data/mock-data";
 import type {
   ConsolidatedInvoice,
+  Expense,
   FleetData,
   Invoice,
   LocalDelivery,
@@ -19,6 +20,7 @@ import type {
   WorkTicket,
 } from "./types";
 import { calcWorkTicketAmounts } from "./work-ticket-meta";
+import { DEFAULT_BILLING_PROFILE } from "./invoice-meta";
 import { seedServiceDate } from "./filters";
 import { seedNotificationsFromInvoices } from "./workflows";
 
@@ -310,6 +312,15 @@ export function buildSeedData(): FleetData {
     },
   ];
 
+  const expenses: Expense[] = [
+    { id: nid("exp"), date: "2026-03-05", category: "fuel", description: "Fleet diesel — Nairobi depot", amount: 485000, month: "Mar 2026", status: "paid" },
+    { id: nid("exp"), date: "2026-03-12", category: "maintenance", description: "KBH 667W — brake service", amount: 42000, vehiclePlate: "KBH 667W", month: "Mar 2026", status: "approved" },
+    { id: nid("exp"), date: "2026-03-18", category: "insurance", description: "Commercial fleet cover — Q1", amount: 320000, month: "Mar 2026", status: "paid" },
+    { id: nid("exp"), date: "2026-03-22", category: "salaries", description: "Driver wages — March", amount: 890000, month: "Mar 2026", status: "recorded" },
+    { id: nid("exp"), date: "2026-02-08", category: "fuel", description: "Fleet diesel — February", amount: 462000, month: "Feb 2026", status: "paid" },
+    { id: nid("exp"), date: "2026-01-15", category: "tolls", description: "Nairobi expressway passes", amount: 78000, month: "Jan 2026", status: "paid" },
+  ];
+
   return {
     schedules,
     vehicles,
@@ -321,5 +332,7 @@ export function buildSeedData(): FleetData {
     workTickets,
     consolidatedInvoices,
     notifications,
+    expenses,
+    billingProfile: DEFAULT_BILLING_PROFILE,
   };
 }

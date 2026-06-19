@@ -30,11 +30,11 @@ export function RecordScreen({
             </span>
           ))}
         </nav>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <button type="button" className="btn-secondary btn-sm" onClick={onBack}>
+        <div className="mt-3 flex flex-col gap-2 xs:flex-row xs:flex-wrap xs:items-center xs:gap-3">
+          <button type="button" className="btn-secondary btn-sm w-full justify-center xs:w-auto" onClick={onBack}>
             <IconArrowLeft size={16} /> Back
           </button>
-          <h2 className="text-lg font-semibold text-fleet-gray-800">{title}</h2>
+          <h2 className="min-w-0 text-base font-semibold leading-snug text-fleet-gray-800 xs:text-lg">{title}</h2>
         </div>
       </div>
       <div className="record-screen-body">{children}</div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 
@@ -13,10 +13,19 @@ export function AppShell({
 }) {
   const [mobileNav, setMobileNav] = useState(false);
 
+  useEffect(() => {
+    if (!mobileNav) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileNav]);
+
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="dashboard-shell flex h-screen h-[100dvh] overflow-hidden">
       {/* Desktop sidebar */}
-      <div className="hidden md:flex">
+      <div className="hidden h-full shrink-0 md:flex">
         <Sidebar role={role} />
       </div>
 
@@ -29,7 +38,7 @@ export function AppShell({
             aria-label="Close menu"
             onClick={() => setMobileNav(false)}
           />
-          <div className="relative z-[901] h-full w-[min(280px,88vw)] animate-slideIn shadow-fleet">
+          <div className="relative z-[901] h-full w-[min(280px,88vw)] max-w-[88vw] animate-slideIn shadow-fleet">
             <Sidebar role={role} onNavigate={() => setMobileNav(false)} />
           </div>
         </div>
@@ -37,7 +46,9 @@ export function AppShell({
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <TopBar role={role} onMenuClick={() => setMobileNav(true)} />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 md:p-7">{children}</main>
+        <main className="dashboard-main flex-1 overflow-y-auto overflow-x-hidden p-4 xs:p-5 sm:p-6 md:p-7">
+          {children}
+        </main>
       </div>
     </div>
   );

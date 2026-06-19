@@ -81,9 +81,10 @@ export class CreateWorkTicketDto {
   @IsString()
   make!: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({ example: "Hillary" })
+  @IsOptional()
   @IsString()
-  driverName!: string;
+  driverName?: string;
 
   @ApiProperty()
   @IsString()

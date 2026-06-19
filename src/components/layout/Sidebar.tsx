@@ -16,15 +16,17 @@ import {
   IconTruckDelivery,
   IconChartBar,
   IconClipboardList,
+  IconReceipt,
+  IconSettings,
 } from "@tabler/icons-react";
 import { useAuth } from "@/context/AuthContext";
+import { useBillingProfile } from "@/hooks/useBillingProfile";
 import { NotificationNavLink } from "./NotificationNavLink";
 
 type NavItem = {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
-  badge?: string;
 };
 
 const adminSections: { label: string; items: NavItem[] }[] = [
@@ -33,9 +35,11 @@ const adminSections: { label: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin", label: "Dashboard", icon: IconLayoutDashboard },
       { href: "/admin/schedule", label: "Schedule entry", icon: IconCalendarEvent },
-      { href: "/admin/invoices", label: "Invoices", icon: IconFileInvoice, badge: "71" },
+      { href: "/admin/invoices", label: "Invoices", icon: IconFileInvoice },
       { href: "/admin/work-tickets", label: "Work tickets", icon: IconClipboardList },
       { href: "/admin/soa", label: "Consolidated billing", icon: IconFileDescription },
+      { href: "/admin/expenses", label: "Expenses", icon: IconReceipt },
+      { href: "/admin/settings", label: "Billing settings", icon: IconSettings },
     ],
   },
   {
@@ -48,8 +52,8 @@ const adminSections: { label: string; items: NavItem[] }[] = [
       { href: "/admin/vehicles", label: "Vehicles", icon: IconTruck },
       { href: "/admin/rates", label: "Rate card", icon: IconCoin },
       { href: "/admin/routes", label: "Routes & destinations", icon: IconMap2 },
-      { href: "/admin/local-deliveries", label: "Local deliveries", icon: IconMap2, badge: "50" },
-      { href: "/admin/safari", label: "Safari / upcountry", icon: IconRoad, badge: "40" },
+      { href: "/admin/local-deliveries", label: "Local deliveries", icon: IconMap2 },
+      { href: "/admin/safari", label: "Safari / upcountry", icon: IconRoad },
     ],
   },
   {
@@ -62,9 +66,9 @@ const adminSections: { label: string; items: NavItem[] }[] = [
 
 const clientSections: { label: string; items: NavItem[] }[] = [
   {
-    label: "G4S Client",
+    label: "Partner",
     items: [
-      { href: "/client", label: "Invoices", icon: IconFileInvoice, badge: "12" },
+      { href: "/client", label: "Invoices", icon: IconFileInvoice },
       { href: "/client/work-tickets", label: "Work tickets", icon: IconClipboardList },
       { href: "/client/reports", label: "Reports", icon: IconChartBar },
     ],
@@ -78,10 +82,15 @@ const clientSections: { label: string; items: NavItem[] }[] = [
 export function Sidebar({ role, onNavigate }: { role: "admin" | "client"; onNavigate?: () => void }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { profile } = useBillingProfile();
   const sections = role === "admin" ? adminSections : clientSections;
+  const partnerLabel =
+    role === "admin"
+      ? profile?.client.name ?? "G4S Kenya"
+      : profile?.supplier.name ?? "Road Network Transporters";
 
   return (
-    <nav className="flex h-screen w-60 shrink-0 flex-col overflow-y-auto bg-navy">
+    <nav className="flex h-full min-h-0 w-60 shrink-0 flex-col overflow-y-auto bg-navy pb-[max(0px,env(safe-area-inset-bottom))]">
       <div className="border-b border-white/[0.08] px-5 pb-4 pt-5">
         <div className="flex items-center gap-2.5">
           <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-fleet-sm bg-accent text-navy">
@@ -90,15 +99,17 @@ export function Sidebar({ role, onNavigate }: { role: "admin" | "client"; onNavi
           <div className="flex flex-col">
             <span className="text-[13px] font-semibold leading-tight text-white">Fleet Courier</span>
             <span className="text-[10px] uppercase tracking-wider text-white/45">
-              {role === "admin" ? "Admin Portal" : "Client Portal"}
+              {role === "admin" ? "Fleet Operator" : "Partner Portal"}
             </span>
           </div>
         </div>
       </div>
 
       <div className="mx-3.5 my-3 rounded-fleet-sm border border-white/[0.07] bg-white/[0.05] px-2.5 py-2">
-        <p className="mb-0.5 text-[10px] uppercase tracking-wider text-white/35">Active Contract</p>
-        <p className="text-xs font-medium text-white/70">G4S Kenya — March 2026</p>
+        <p className="mb-0.5 text-[10px] uppercase tracking-wider text-white/35">
+          {role === "admin" ? "Partner contract" : "Fleet operator"}
+        </p>
+        <p className="text-xs font-medium text-white/70">{partnerLabel}</p>
       </div>
 
       {sections.map((section) => (
@@ -114,11 +125,6 @@ export function Sidebar({ role, onNavigate }: { role: "admin" | "client"; onNavi
                 <Link key={item.href} href={item.href} onClick={onNavigate} className={`nav-item ${active ? "nav-item-active" : ""}`}>
                   <Icon size={17} className="w-5 shrink-0" />
                   <span className="flex-1">{item.label}</span>
-                  {item.badge && (
-                    <span className="ml-auto min-w-[18px] rounded-full bg-accent px-1.5 py-0.5 text-center text-[10px] font-semibold text-navy">
-                      {item.badge}
-                    </span>
-                  )}
                 </Link>
               );
             })

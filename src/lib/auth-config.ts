@@ -1,10 +1,11 @@
 import type { AuthUser, UserRole } from "./types";
 
 export const AUTH_COOKIE = "fc-auth";
+export const AUTH_TOKEN_COOKIE = "fc-token";
 
 export const CREDENTIALS: Record<string, { password: string; role: UserRole; displayName: string }> = {
   admin: { password: "admin123", role: "admin", displayName: "Fleet Admin" },
-  client: { password: "client123", role: "client", displayName: "G4S Client" },
+  client: { password: "client123", role: "client", displayName: "G4S Partner" },
 };
 
 export function validateLogin(username: string, password: string): AuthUser | null {

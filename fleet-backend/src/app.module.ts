@@ -2,11 +2,13 @@ import { BullModule } from "@nestjs/bullmq";
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AuthModule } from "./auth/auth.module";
+import { BillingProfileModule } from "./billing-profile/billing-profile.module";
 import { ClientsModule } from "./clients/clients.module";
 import { ConsolidatedInvoicesModule } from "./consolidated-invoices/consolidated-invoices.module";
 import { DeliveriesModule } from "./deliveries/deliveries.module";
 import { DriversModule } from "./drivers/drivers.module";
 import { EtimsModule } from "./etims/etims.module";
+import { ExpensesModule } from "./expenses/expenses.module";
 import { HealthModule } from "./health/health.module";
 import { InvoicesModule } from "./invoices/invoices.module";
 import { NotificationsModule } from "./notifications/notifications.module";
@@ -44,6 +46,8 @@ import { TenantContextModule } from "./common/tenant-context/tenant-context.modu
     VehiclesModule,
     DriversModule,
     RoutesModule,
+    ExpensesModule,
+    BillingProfileModule,
     InvoicesModule,
     RateCardsModule,
     DeliveriesModule,
@@ -62,6 +66,7 @@ export class AppModule implements NestModule {
       .exclude(
         "api/v1/auth/login",
         "api/v1/tenants",
+        "api/v1/tenants/(.*)",
         "api/v1/health",
         "docs",
         "docs/(.*)",

@@ -9,7 +9,7 @@ export function useCrud<T extends { id: string }>(endpoint: string) {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/${endpoint}`, { cache: "no-store" });
+      const res = await fetch(`/api/${endpoint}`, { cache: "no-store", credentials: "same-origin" });
       if (res.ok) setItems(await res.json());
     } finally {
       setLoading(false);
@@ -24,6 +24,7 @@ export function useCrud<T extends { id: string }>(endpoint: string) {
     const res = await fetch(`/api/${endpoint}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error("Create failed");
@@ -35,6 +36,7 @@ export function useCrud<T extends { id: string }>(endpoint: string) {
     const res = await fetch(`/api/${endpoint}/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error("Update failed");
@@ -43,7 +45,7 @@ export function useCrud<T extends { id: string }>(endpoint: string) {
   };
 
   const remove = async (id: string) => {
-    const res = await fetch(`/api/${endpoint}/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/${endpoint}/${id}`, { method: "DELETE", credentials: "same-origin" });
     if (!res.ok) throw new Error("Delete failed");
     await refresh();
   };

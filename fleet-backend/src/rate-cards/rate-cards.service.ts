@@ -63,4 +63,12 @@ export class RateCardsService {
     await this.db.query(`DELETE FROM rates WHERE id = $1`, [id]);
     return { ok: true };
   }
+
+  async importBulk(rows: CreateRateDto[]) {
+    const created: unknown[] = [];
+    for (const dto of rows) {
+      created.push(await this.create(dto));
+    }
+    return { imported: created.length, rows: created };
+  }
 }

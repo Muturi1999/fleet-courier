@@ -44,5 +44,9 @@ export function MetricCard({
 }
 
 export function MetricsGrid({ children }: { children: React.ReactNode }) {
-  return <div className="mb-6 grid grid-cols-2 gap-2.5 sm:gap-3.5 xl:grid-cols-4">{children}</div>;
+  return (
+    <div className="mb-6 grid grid-cols-1 gap-2.5 xs:grid-cols-2 sm:gap-3.5 xl:grid-cols-4">
+      {children}
+    </div>
+  );
 }

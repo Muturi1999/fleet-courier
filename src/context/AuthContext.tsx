@@ -6,21 +6,20 @@ import {
   AUTH_COOKIE,
   authCookieValue,
   parseAuthCookie,
-  validateLogin,
 } from "@/lib/auth-config";
 import type { AuthUser } from "@/lib/types";
 
 type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
-  login: (username: string, password: string) => boolean;
+  login: (username: string, password: string, tenantSlug?: string) => Promise<boolean>;
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   loading: true,
-  login: () => false,
+  login: async () => false,
   logout: () => {},
 });
 
@@ -58,16 +57,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = useCallback((username: string, password: string) => {
-    const authUser = validateLogin(username, password);
-    if (!authUser) return false;
-    persistUser(authUser);
-    setUser(authUser);
-    router.push(authUser.role === "admin" ? "/admin" : "/client");
-    return true;
+  const login = useCallback(async (username: string, password: string, tenantSlug?: string) => {
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ username, password, tenantSlug }),
+      });
+      if (!res.ok) return false;
+      const { user: authUser } = (await res.json()) as { user: AuthUser };
+      persistUser(authUser);
+      setUser(authUser);
+      router.push(authUser.role === "admin" ? "/admin" : "/client");
+      return true;
+    } catch {
+      return false;
+    }
   }, [router]);
 
   const logout = useCallback(() => {
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     persistUser(null);
     setUser(null);
     router.push("/");

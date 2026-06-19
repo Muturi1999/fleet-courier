@@ -13,6 +13,8 @@ export function middleware(request: NextRequest) {
   if (!user) {
     const login = new URL("/login", request.url);
     login.searchParams.set("from", pathname);
+    const tenant = parseAuthCookie(request.cookies.get(AUTH_COOKIE)?.value)?.tenantSlug;
+    if (tenant) login.searchParams.set("tenant", tenant);
     return NextResponse.redirect(login);
   }
 

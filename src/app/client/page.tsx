@@ -260,7 +260,7 @@ function InvoiceRow({
       <td className="whitespace-nowrap font-mono font-medium">{fmtN(inv.total)}</td>
       <td className="whitespace-nowrap"><Badge variant={inv.status}>{inv.status}</Badge></td>
       <td>
-        <div className="flex flex-nowrap gap-1">
+        <div className="flex flex-wrap gap-1 sm:flex-nowrap">
           <button type="button" className="btn-secondary btn-sm shrink-0" title="View invoice" onClick={onView}>
             <IconEye size={14} />
           </button>

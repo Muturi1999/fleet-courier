@@ -86,4 +86,12 @@ export class SchedulesService {
     await this.db.query(`DELETE FROM schedules WHERE id = $1`, [id]);
     return { ok: true };
   }
+
+  async importBulk(rows: CreateScheduleDto[]) {
+    const created: unknown[] = [];
+    for (const dto of rows) {
+      created.push(await this.create(dto));
+    }
+    return { imported: created.length, rows: created };
+  }
 }

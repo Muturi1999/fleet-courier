@@ -97,34 +97,37 @@ export class ConsolidatedInvoicesService {
     const { invoiceNo, refNo } = await this.nextNumbers(dto.periodEnd);
     const id = randomUUID();
 
-    const invoice = await this.db.queryOne(
-      `INSERT INTO consolidated_invoices (
+    return this.db.withTransaction(async (client) => {
+      const invoice = await client.query(
+        `INSERT INTO consolidated_invoices (
         id, invoice_no, ref_no, period_start, period_end, invoice_date, description,
         payment_terms_days, total_trips, net, vat, total, status, work_ticket_ids
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,90,$8,$9,$10,$11,'draft',$12) RETURNING *`,
-      [
-        id,
-        invoiceNo,
-        refNo,
-        dto.periodStart,
-        dto.periodEnd,
-        dto.invoiceDate ?? new Date().toISOString().slice(0, 10),
-        DESCRIPTION,
-        tickets.length,
-        net,
-        vat,
-        total,
-        JSON.stringify(dto.workTicketIds),
-      ],
-    );
-
-    for (const t of tickets) {
-      await this.db.query(
-        `UPDATE work_tickets SET status = 'invoiced', consolidated_invoice_id = $1, updated_at = NOW() WHERE id = $2`,
-        [id, (t as { id: string }).id],
+        [
+          id,
+          invoiceNo,
+          refNo,
+          dto.periodStart,
+          dto.periodEnd,
+          dto.invoiceDate ?? new Date().toISOString().slice(0, 10),
+          DESCRIPTION,
+          tickets.length,
+          net,
+          vat,
+          total,
+          JSON.stringify(dto.workTicketIds),
+        ],
       );
-    }
-    return invoice;
+
+      await client.query(
+        `UPDATE work_tickets
+         SET status = 'invoiced', consolidated_invoice_id = $1, updated_at = NOW()
+         WHERE id = ANY($2::uuid[])`,
+        [id, dto.workTicketIds],
+      );
+
+      return invoice.rows[0];
+    });
   }
 
   async updateStatus(id: string, status: string, extra: Record<string, unknown> = {}) {

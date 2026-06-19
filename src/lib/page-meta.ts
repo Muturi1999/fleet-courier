@@ -49,7 +49,15 @@ export const adminPageMeta: Record<string, PageMeta> = {
   },
   "/admin/reports": {
     title: "Reports & analytics",
-    subtitle: "Revenue, VAT, fleet and destination breakdowns",
+    subtitle: "Revenue, P&L, VAT, fleet and destination breakdowns",
+  },
+  "/admin/expenses": {
+    title: "Expenses",
+    subtitle: "Record operating costs for P&L reporting",
+  },
+  "/admin/settings": {
+    title: "Billing settings",
+    subtitle: "Client & supplier details for invoices and eTIMS",
   },
 };
 

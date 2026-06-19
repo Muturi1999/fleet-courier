@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS safari_entries (
   reg VARCHAR(20) NOT NULL,
   total INT NOT NULL DEFAULT 0,
   flag VARCHAR(20) NOT NULL DEFAULT '',
-  dest VARCHAR(120) NOT NULL,
+  dest VARCHAR(500) NOT NULL,
   service_date DATE,
   period VARCHAR(20),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

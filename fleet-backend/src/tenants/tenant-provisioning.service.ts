@@ -1,8 +1,9 @@
-import { Injectable } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
+import { Inject, Injectable } from "@nestjs/common";
+import { Pool, PoolClient } from "pg";
 import * as fs from "fs";
 import * as path from "path";
-import { Pool } from "pg";
+import { PG_POOL } from "../common/database/postgres-pool.provider";
+import { PatchRunResult, runTenantPatches } from "../common/database/tenant-patch.runner";
 
 export function tenantSchemaName(slug: string): string {
   return `tenant_${slug.replace(/-/g, "_")}`;
@@ -10,11 +11,7 @@ export function tenantSchemaName(slug: string): string {
 
 @Injectable()
 export class TenantProvisioningService {
-  private pool: Pool;
-
-  constructor(config: ConfigService) {
-    this.pool = new Pool({ connectionString: config.getOrThrow("DATABASE_URL") });
-  }
+  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
   async provisionSchema(schema: string): Promise<void> {
     const client = await this.pool.connect();
@@ -25,29 +22,31 @@ export class TenantProvisioningService {
       const sql = fs.readFileSync(sqlPath, "utf-8");
       await client.query(`SET search_path TO "${schema}"`);
       await client.query(sql);
-      await this.runPatches(client, schema);
+      await runTenantPatches(client, schema);
     } finally {
       client.release();
     }
   }
 
-  async applyPatches(schema: string): Promise<void> {
+  async applyPatches(schema: string): Promise<PatchRunResult> {
     const client = await this.pool.connect();
     try {
-      await this.runPatches(client, schema);
+      return await runTenantPatches(client, schema);
     } finally {
       client.release();
     }
   }
 
-  private async runPatches(client: import("pg").PoolClient, schema: string) {
-    const patchesDir = path.join(process.cwd(), "prisma", "tenant-patches");
-    if (!fs.existsSync(patchesDir)) return;
-    const files = fs.readdirSync(patchesDir).filter((f) => f.endsWith(".sql")).sort();
-    await client.query(`SET search_path TO "${schema}"`);
-    for (const file of files) {
-      const patch = fs.readFileSync(path.join(patchesDir, file), "utf-8");
-      await client.query(patch);
+  async dropSchema(schema: string): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    } finally {
+      client.release();
     }
+  }
+
+  async migrateSchemaWithClient(client: PoolClient, schema: string): Promise<PatchRunResult> {
+    return runTenantPatches(client, schema);
   }
 }

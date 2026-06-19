@@ -36,6 +36,13 @@ export class InvoicesController {
     return this.service.create(dto);
   }
 
+  @Post("import")
+  @ApiTenantAuth(UserRole.admin)
+  @ApiOperation({ summary: "Bulk import invoices from Excel/CSV export" })
+  importBulk(@Body() body: { rows: CreateInvoiceDto[] }) {
+    return this.service.importBulk(body.rows ?? []);
+  }
+
   @Put(":id")
   @ApiTenantAuth(UserRole.admin, UserRole.client)
   update(@Param("id") id: string, @Body() dto: UpdateInvoiceDto) {

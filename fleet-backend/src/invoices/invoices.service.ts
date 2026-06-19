@@ -96,6 +96,14 @@ export class InvoicesService {
     );
   }
 
+  async importBulk(rows: CreateInvoiceDto[]) {
+    const created: unknown[] = [];
+    for (const dto of rows) {
+      created.push(await this.create(dto));
+    }
+    return { imported: created.length, rows: created };
+  }
+
   async update(id: string, dto: UpdateInvoiceDto) {
     const before = (await this.findOne(id)) as InvoiceRow;
     const fields: string[] = [];

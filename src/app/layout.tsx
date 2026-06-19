@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Mono, DM_Sans } from "next/font/google";
 import { AuthProvider } from "@/context/AuthContext";
 import { ToastProvider } from "@/context/ToastContext";
@@ -18,7 +18,21 @@ const dmMono = DM_Mono({
 
 export const metadata: Metadata = {
   title: "Fleet Courier Management System — Fleet Travel Ltd",
-  description: "G4S Kenya fleet courier billing and operations",
+  description: "Fleet operator billing and operations platform — Road Network Transporters with G4S partner portal",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon", type: "image/png", sizes: "32x32" },
+    ],
+    apple: [{ url: "/apple-icon", type: "image/png", sizes: "180x180" }],
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0B1C3B",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

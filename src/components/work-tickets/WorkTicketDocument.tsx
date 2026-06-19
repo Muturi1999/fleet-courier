@@ -71,7 +71,7 @@ export function WorkTicketDocument({
         </div>
         <div className="g4s-wt-meta-row">
           <span>Name of Driver</span>
-          <span className="g4s-wt-meta-val">{ticket.driverName}</span>
+          <span className="g4s-wt-meta-val">{ticket.driverName || "—"}</span>
         </div>
         {ticket.gatePassRef && (
           <div className="g4s-wt-meta-row">
@@ -101,7 +101,9 @@ export function WorkTicketDocument({
         <tbody>
           {ticket.legs.map((leg) => (
             <tr key={leg.id}>
-              <td className="g4s-wt-col-details">{leg.details}</td>
+              <td className="g4s-wt-col-details align-top">
+                <span className="block whitespace-pre-wrap text-left leading-snug">{leg.details}</span>
+              </td>
               <td className="g4s-wt-num">{leg.openingMileage || ""}</td>
               <td>{leg.timeOut}</td>
               <td>{leg.officerAuthorising}</td>
@@ -158,12 +160,6 @@ export function WorkTicketDocument({
             </tr>
           </tbody>
         </table>
-      </div>
-
-      <div className="g4s-wt-billing print:hidden">
-        <span>Agreed rate: KES {ticket.net.toLocaleString()} excl. VAT</span>
-        <span>VAT: KES {ticket.vat.toLocaleString()}</span>
-        <span>Total: KES {ticket.total.toLocaleString()}</span>
       </div>
 
       {onPrint && (

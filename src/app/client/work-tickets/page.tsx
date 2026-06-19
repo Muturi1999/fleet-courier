@@ -14,7 +14,7 @@ import { usePagination } from "@/hooks/usePagination";
 
 export default function ClientWorkTicketsPage() {
   const { toast } = useToast();
-  const { items, loading, update } = useCrud<WorkTicket>("work-tickets");
+  const { items, loading, refresh } = useCrud<WorkTicket>("work-tickets");
   const [viewId, setViewId] = useState<string | null>(null);
 
   const received = useMemo(
@@ -26,8 +26,19 @@ export default function ClientWorkTicketsPage() {
 
   const viewTicket = viewId ? items.find((t) => t.id === viewId) : null;
 
-  const approve = async (t: WorkTicket) => {
-    await update(t.id, { status: "approved" });
+  const approve = async (t: WorkTicket, clientNote?: string) => {
+    const res = await fetch(`/api/work-tickets/${t.id}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ clientNote }),
+    });
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+      toast(err.message ?? err.error ?? "Approval failed");
+      return;
+    }
+    await refresh();
     toast(`Work ticket ${t.serialNo} approved`);
     setViewId(null);
   };

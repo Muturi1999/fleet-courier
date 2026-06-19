@@ -1,10 +1,18 @@
-import { Global, Module } from "@nestjs/common";
+import { Global, Module, OnModuleDestroy, Inject } from "@nestjs/common";
+import { Pool } from "pg";
+import { PG_POOL, postgresPoolProvider } from "../database/postgres-pool.provider";
 import { TenantContextService } from "./tenant-context.service";
 import { TenantDatabaseService } from "../database/tenant-database.service";
 
 @Global()
 @Module({
-  providers: [TenantContextService, TenantDatabaseService],
-  exports: [TenantContextService, TenantDatabaseService],
+  providers: [postgresPoolProvider, TenantContextService, TenantDatabaseService],
+  exports: [PG_POOL, TenantContextService, TenantDatabaseService],
 })
-export class TenantContextModule {}
+export class TenantContextModule implements OnModuleDestroy {
+  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+
+  async onModuleDestroy() {
+    await this.pool.end();
+  }
+}

@@ -29,4 +29,9 @@ export class ReportsController {
   vat(@Query("month") month?: string) {
     return this.service.vatSummary(month);
   }
+
+  @Get("pnl")
+  pnl(@Query("month") month?: string) {
+    return this.service.pnl(month);
+  }
 }

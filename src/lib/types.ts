@@ -4,6 +4,8 @@ export type AuthUser = {
   username: string;
   role: UserRole;
   displayName: string;
+  tenantSlug?: string;
+  tenantName?: string;
 };
 
 export type ScheduleEntry = {
@@ -173,6 +175,54 @@ export type RouteRecord = {
   status: "active" | "inactive";
 };
 
+export type BillingParty = {
+  name: string;
+  legalName?: string;
+  address: string;
+  city?: string;
+  phone?: string;
+  vatNo?: string;
+  pin: string;
+  contact?: string;
+  email?: string;
+  contractRef?: string;
+};
+
+export type BillingProfile = {
+  supplier: BillingParty;
+  client: BillingParty;
+};
+
+export type ExpenseCategory =
+  | "fuel"
+  | "maintenance"
+  | "insurance"
+  | "salaries"
+  | "tolls"
+  | "other";
+
+export type Expense = {
+  id: string;
+  date: string;
+  category: ExpenseCategory;
+  description: string;
+  amount: number;
+  vehiclePlate?: string;
+  month: string;
+  status: "recorded" | "approved" | "paid";
+};
+
+export type EtimsValidationResult = {
+  invoiceId: string;
+  invoiceNo: string;
+  status: "valid" | "pending" | "failed";
+  kraReference?: string;
+  cuInvoiceNumber?: string;
+  validatedAt: string;
+  checks: { label: string; passed: boolean; detail?: string }[];
+  message?: string;
+};
+
 export type FleetData = {
   schedules: ScheduleEntry[];
   vehicles: Vehicle[];
@@ -184,6 +234,8 @@ export type FleetData = {
   workTickets: WorkTicket[];
   consolidatedInvoices: ConsolidatedInvoice[];
   notifications: WorkflowNotification[];
+  expenses: Expense[];
+  billingProfile: BillingProfile;
 };
 
 export type NotificationAudience = "admin" | "client";

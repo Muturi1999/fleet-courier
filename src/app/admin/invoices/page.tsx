@@ -9,6 +9,9 @@ import { Pagination } from "@/components/ui/Pagination";
 import { FormActions, FormField } from "@/components/ui/Modal";
 import { RecordScreen } from "@/components/layout/RecordScreen";
 import { InvoiceDocument, printInvoice } from "@/components/invoices/InvoiceDocument";
+import { InvoiceCreateWizard } from "@/components/invoices/InvoiceCreateWizard";
+import { ApprovalWorkflowCard } from "@/components/invoices/ApprovalWorkflowCard";
+import { EtimsValidationPanel } from "@/components/invoices/EtimsValidationPanel";
 import { calcBilling } from "@/lib/billing";
 import { generateNextInvoiceNumber } from "@/lib/invoice-meta";
 import { clearedFilters, filterInvoices, highlightSearch } from "@/lib/filters";
@@ -19,6 +22,9 @@ import { useCrud } from "@/hooks/useCrud";
 import { usePageScreen } from "@/hooks/usePageScreen";
 import { usePagination } from "@/hooks/usePagination";
 import { usePlateFromUrl } from "@/hooks/usePlateFromUrl";
+import { useBillingProfile } from "@/hooks/useBillingProfile";
+import { ExcelImportButton } from "@/components/import/ExcelImportButton";
+import { parseInvoicesExcel } from "@/lib/excel-import";
 
 const PAGE = "Invoices";
 
@@ -41,14 +47,17 @@ const emptyInvoice = (existing: Invoice[]): Omit<Invoice, "id"> => ({
 
 export default function InvoicesPage() {
   const { toast } = useToast();
-  const { items, loading, create, update, remove } = useCrud<Invoice>("invoices");
+  const { items, loading, create, update, remove, refresh } = useCrud<Invoice>("invoices");
+  const { profile, loading: profileLoading, save: saveProfile } = useBillingProfile();
   const { screen, isList, openCreate, openEdit, openView, close } = usePageScreen();
 
   const [tab, setTab] = useState("all");
   const [filters, setFilters] = useState<FleetFilters>(clearedFilters());
   usePlateFromUrl(setFilters);
   const [form, setForm] = useState(emptyInvoice([]));
+  const [dayRate, setDayRate] = useState(8500);
   const [printOnOpen, setPrintOnOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (screen.kind === "view" && printOnOpen) {
@@ -61,9 +70,14 @@ export default function InvoicesPage() {
   useEffect(() => {
     if (screen.kind === "edit") {
       const inv = items.find((x) => x.id === screen.id);
-      if (inv) setForm({ ...inv });
+      if (inv) {
+        setForm({ ...inv });
+        setDayRate(inv.days > 0 ? Math.round(inv.net / inv.days) : 8500);
+      }
     } else if (screen.kind === "create") {
-      setForm(emptyInvoice(items));
+      const blank = emptyInvoice(items);
+      setForm(blank);
+      setDayRate(8500);
     }
   }, [screen, items]);
 
@@ -81,27 +95,58 @@ export default function InvoicesPage() {
     [items],
   );
 
-  const setDaysRate = (rate: number, days: number) => {
+  const setRateDays = (rate: number, days: number) => {
     const b = calcBilling(rate, days);
+    setDayRate(rate);
     setForm((f) => ({ ...f, days, net: b.cost, vat: b.vat, total: b.total }));
   };
 
-  const onSubmit = async (ev: FormEvent) => {
+  const onEditSubmit = async (ev: FormEvent) => {
     ev.preventDefault();
+    if (screen.kind !== "edit") return;
     try {
-      if (screen.kind === "edit") {
-        await update(screen.id, form);
-        toast("Invoice updated");
-        setFilters(highlightSearch(form.plate || form.invoiceNo));
-      } else {
-        await create(form);
-        toast("Invoice created");
-        setTab("all");
-        setFilters(highlightSearch(form.plate || form.invoiceNo));
-      }
+      await update(screen.id, form);
+      toast("Invoice updated");
+      setFilters(highlightSearch(form.plate || form.invoiceNo));
       close();
     } catch {
       toast("Save failed");
+    }
+  };
+
+  const handleCreateSave = async (status: InvoiceStatus) => {
+    setSaving(true);
+    try {
+      await create({ ...form, status });
+      toast(status === "draft" ? "Invoice saved as draft" : "Invoice created and sent to G4S");
+      setTab("all");
+      setFilters(highlightSearch(form.plate || form.invoiceNo));
+      close();
+    } catch {
+      toast("Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const importInvoices = async (file: File) => {
+    try {
+      const rows = await parseInvoicesExcel(file);
+      if (!rows.length) {
+        toast("No invoice rows found — check column headers");
+        return;
+      }
+      const res = await fetch("/api/invoices/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows }),
+      });
+      if (!res.ok) throw new Error("Import failed");
+      const json = (await res.json()) as { imported?: number };
+      toast(`Imported ${json.imported ?? rows.length} invoices`);
+      await refresh();
+    } catch {
+      toast("Import failed — use Excel with Invoice #, Plate, Route, Net, Total columns");
     }
   };
 
@@ -119,19 +164,36 @@ export default function InvoicesPage() {
         title={`Invoice ${viewInvoice.invoiceNo}`}
         onBack={close}
       >
-        <InvoiceDocument invoice={viewInvoice} onPrint={printInvoice} />
+        <InvoiceDocument invoice={viewInvoice} profile={profile ?? undefined} onPrint={printInvoice} />
+        <EtimsValidationPanel invoiceId={viewInvoice.id} invoiceNo={viewInvoice.invoiceNo} />
       </RecordScreen>
     );
   }
 
-  if (screen.kind === "create" || screen.kind === "edit") {
+  if (screen.kind === "create") {
     return (
-      <RecordScreen
-        crumbs={[...crumbs, { label: screen.kind === "edit" ? "Edit" : "New invoice" }]}
-        title={screen.kind === "edit" ? "Edit invoice" : "New invoice"}
-        onBack={close}
-      >
-        <form onSubmit={onSubmit} className="card grid max-w-3xl grid-cols-2 gap-3">
+      <RecordScreen crumbs={[...crumbs, { label: "New invoice" }]} title="New invoice" onBack={close}>
+        <InvoiceCreateWizard
+          key={form.invoiceNo}
+          form={form}
+          setForm={setForm}
+          dayRate={dayRate}
+          setDayRate={setDayRate}
+          profile={profile}
+          profileLoading={profileLoading}
+          onSaveProfile={saveProfile}
+          onCancel={close}
+          onSave={handleCreateSave}
+          saving={saving}
+        />
+      </RecordScreen>
+    );
+  }
+
+  if (screen.kind === "edit") {
+    return (
+      <RecordScreen crumbs={[...crumbs, { label: "Edit" }]} title="Edit invoice" onBack={close}>
+        <form onSubmit={onEditSubmit} className="card grid max-w-3xl grid-cols-2 gap-3">
           <FormField label="Invoice No.">
             <input className="field-input bg-fleet-gray-50 font-mono" readOnly value={form.invoiceNo} />
           </FormField>
@@ -142,6 +204,14 @@ export default function InvoicesPage() {
               value={form.plate}
               onChange={(e) => setForm({ ...form, plate: e.target.value.toUpperCase() })}
             />
+          </FormField>
+          <FormField label="Vehicle class *">
+            <select className="field-input" value={form.cls} onChange={(e) => setForm({ ...form, cls: e.target.value })}>
+              <option>7T</option>
+              <option>15T</option>
+              <option>Canter</option>
+              <option>Van</option>
+            </select>
           </FormField>
           <FormField label="Service date">
             <input
@@ -167,7 +237,7 @@ export default function InvoicesPage() {
           <FormField label="Billing period">
             <input
               className="field-input"
-              placeholder="e.g. NOV 2025"
+              placeholder="e.g. Mar 2026"
               value={form.period ?? ""}
               onChange={(e) => setForm({ ...form, period: e.target.value })}
             />
@@ -182,16 +252,25 @@ export default function InvoicesPage() {
           <FormField label="Particulars (route / collection)" className="col-span-2">
             <input className="field-input" value={form.route} onChange={(e) => setForm({ ...form, route: e.target.value })} />
           </FormField>
-          <FormField label="Days">
+          <FormField label="Daily rate (KES) *">
+            <input
+              type="number"
+              min={1}
+              className="field-input"
+              value={dayRate}
+              onChange={(e) => setRateDays(Number(e.target.value), form.days)}
+            />
+          </FormField>
+          <FormField label="Days *">
             <input
               type="number"
               min={1}
               className="field-input"
               value={form.days}
-              onChange={(e) => setDaysRate(form.net / Math.max(form.days, 1), Number(e.target.value))}
+              onChange={(e) => setRateDays(dayRate, Number(e.target.value))}
             />
           </FormField>
-          <FormField label="Net (KES)">
+          <FormField label="Net (KES) — excl. VAT">
             <input
               type="number"
               className="field-input"
@@ -200,14 +279,26 @@ export default function InvoicesPage() {
                 const net = Number(e.target.value);
                 const vat = Math.round(net * 0.16);
                 setForm({ ...form, net, vat, total: net + vat });
+                setDayRate(form.days > 0 ? Math.round(net / form.days) : dayRate);
               }}
             />
           </FormField>
-          <div className="col-span-2 text-xs text-fleet-gray-400">
-            VAT: KES {form.vat.toLocaleString()} · Total: KES {form.total.toLocaleString()}
+          <div className="col-span-2 rounded-fleet-md bg-navy p-3 text-xs text-white/80">
+            <div className="flex justify-between">
+              <span>Net (excl. VAT)</span>
+              <span className="font-mono">KES {form.net.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>VAT @ 16%</span>
+              <span className="font-mono">KES {form.vat.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between font-semibold text-accent">
+              <span>Total incl. VAT</span>
+              <span className="font-mono">KES {form.total.toLocaleString()}</span>
+            </div>
           </div>
           <div className="col-span-2">
-            <FormActions onCancel={close} submitLabel={screen.kind === "edit" ? "Update invoice" : "Save invoice"} />
+            <FormActions onCancel={close} submitLabel="Update invoice" />
           </div>
         </form>
       </RecordScreen>
@@ -218,6 +309,8 @@ export default function InvoicesPage() {
 
   return (
     <>
+      <ApprovalWorkflowCard />
+
       <MetricsGrid>
         <MetricCard accent="navy" icon={IconFileText} label="Total invoices" value={String(totals.count)} sub="All statuses" />
         <MetricCard accent="teal" icon={IconFileText} label="Paid" value={String(totals.paid)} sub="Settled invoices" />
@@ -245,6 +338,7 @@ export default function InvoicesPage() {
         statusKind="invoice"
         resultCount={filtered.length}
       >
+        <ExcelImportButton label="Import Excel" onImport={importInvoices} />
         <button
           type="button"
           className="btn-accent btn-sm"

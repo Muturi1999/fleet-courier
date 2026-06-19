@@ -12,8 +12,11 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
-    "db:seed": "ts-node prisma/seed.ts",
-    "docker:up": "docker compose up -d"
+    "db:seed": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\"}' ts-node prisma/seed.ts",
+    "db:seed-demo": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\"}' ts-node prisma/seed-demo-data.ts",
+    "db:tenant-patches": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\"}' ts-node prisma/migrate-tenant-patches.ts",
+    "docker:up": "docker compose up -d",
+    "docker:stack": "docker compose -f ../docker-compose.yml up -d --build"
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.2",
