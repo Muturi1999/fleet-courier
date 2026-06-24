@@ -16,7 +16,7 @@ import { Badge, clsToBadgeVariant } from "@/components/ui/Badge";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { MetricCard, MetricsGrid } from "@/components/ui/MetricCard";
 import { Pagination } from "@/components/ui/Pagination";
-import { FormActions, FormField } from "@/components/ui/Modal";
+import { FormActions, FormField, FormNotice } from "@/components/ui/Modal";
 import { SearchSelect } from "@/components/ui/SearchSelect";
 import { RecordScreen } from "@/components/layout/RecordScreen";
 import { VehicleRecordView } from "@/components/vehicles/VehicleRecordView";
@@ -46,7 +46,13 @@ import { useCrud } from "@/hooks/useCrud";
 import { usePageScreen } from "@/hooks/usePageScreen";
 import { usePagination } from "@/hooks/usePagination";
 import { usePlateFromUrl } from "@/hooks/usePlateFromUrl";
-import { saveErrorMessage } from "@/lib/api-errors";
+import {
+  findVehicleByPlate,
+  vehicleAlreadyExistsMessage,
+  vehicleSaveFailureMessage,
+  vehicleSavedMessage,
+  vehicleUpdatedMessage,
+} from "@/lib/vehicle-messages";
 
 const PAGE = "Vehicles";
 
@@ -77,6 +83,14 @@ export default function VehiclesPage() {
   const [classInput, setClassInput] = useState(labelFromCls("7T"));
   const [exportModal, setExportModal] = useState<"template" | "fleet" | null>(null);
   const [saving, setSaving] = useState(false);
+  const [formNotice, setFormNotice] = useState<{ type: "success" | "error"; message: string } | null>(
+    null,
+  );
+
+  const showFormNotice = (type: "success" | "error", message: string) => {
+    setFormNotice({ type, message });
+    window.setTimeout(() => setFormNotice(null), 4000);
+  };
 
   const filtered = useMemo(() => filterVehicles(items, filters), [items, filters]);
   const filterKey = JSON.stringify(filters);
@@ -98,10 +112,12 @@ export default function VehiclesPage() {
       if (v) {
         setForm({ ...v });
         setClassInput(labelFromCls(v.cls));
+        setFormNotice(null);
       }
     } else if (screen.kind === "create") {
       setForm(emptyVehicle());
       setClassInput(labelFromCls("7T"));
+      setFormNotice(null);
     }
   }, [screen, items]);
 
@@ -118,19 +134,34 @@ export default function VehiclesPage() {
       total: Number(form.total) || 0,
     };
     setSaving(true);
+    setFormNotice(null);
     try {
       if (screen.kind === "edit") {
+        const duplicate = findVehicleByPlate(items, payload.plate, screen.id);
+        if (duplicate) {
+          showFormNotice("error", vehicleAlreadyExistsMessage());
+          return;
+        }
         await update(screen.id, payload);
-        toast("Vehicle updated");
-      } else {
-        await create(payload);
-        toast("Vehicle registered");
+        showFormNotice("success", vehicleUpdatedMessage(payload.plate));
+        setFilters(clearedFilters());
+        window.setTimeout(() => close(), 900);
+        void refresh().catch(() => {});
+        return;
       }
+
+      const duplicate = findVehicleByPlate(items, payload.plate);
+      if (duplicate) {
+        showFormNotice("error", vehicleAlreadyExistsMessage());
+        return;
+      }
+      await create(payload);
+      showFormNotice("success", vehicleSavedMessage(payload.plate));
       setFilters(clearedFilters());
-      close();
+      window.setTimeout(() => close(), 900);
       void refresh().catch(() => {});
     } catch (error) {
-      toast(saveErrorMessage(error));
+      showFormNotice("error", vehicleSaveFailureMessage(error, payload.plate));
     } finally {
       setSaving(false);
     }
@@ -311,6 +342,7 @@ export default function VehiclesPage() {
               )}
             </div>
           </details>
+          {formNotice && <FormNotice type={formNotice.type} message={formNotice.message} />}
           <FormActions onCancel={close} submitLabel={screen.kind === "edit" ? "Update vehicle" : "Register vehicle"} saving={saving} />
         </form>
       </RecordScreen>

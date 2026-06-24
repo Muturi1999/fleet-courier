@@ -63,6 +63,29 @@ export function FormField({
   );
 }
 
+export function FormNotice({
+  type,
+  message,
+}: {
+  type: "success" | "error";
+  message: string;
+}) {
+  const styles =
+    type === "success"
+      ? "border-teal/25 bg-teal/10 text-navy"
+      : "border-fleet-red/25 bg-fleet-red/10 text-fleet-red";
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`rounded-fleet-sm border px-3 py-2.5 text-sm font-medium ${styles}`}
+    >
+      {message}
+    </div>
+  );
+}
+
 export function FormActions({
   onCancel,
   submitLabel = "Save",

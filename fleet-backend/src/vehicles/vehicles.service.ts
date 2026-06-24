@@ -3,6 +3,7 @@ import { TenantDatabaseService } from "../common/database/tenant-database.servic
 import { CreateVehicleDto, UpdateVehicleDto } from "./dto/vehicle.dto";
 import { VehicleImportRowDto } from "./dto/vehicle-import.dto";
 import { normalizeCls, normalizePlate } from "./vehicle-fleet.helper";
+import { vehiclePlateConflict } from "./vehicle-messages";
 
 @Injectable()
 export class VehiclesService {
@@ -28,11 +29,11 @@ export class VehiclesService {
     const plate = normalizePlate(dto.plate);
     const cls = normalizeCls(dto.cls);
     const existing = await this.db.queryOne<{ id: string }>(
-      `SELECT id FROM vehicles WHERE LOWER(TRIM(plate)) = LOWER(TRIM($1))`,
+      `SELECT id FROM vehicles WHERE REPLACE(LOWER(TRIM(plate)), ' ', '') = REPLACE(LOWER(TRIM($1)), ' ', '')`,
       [plate],
     );
     if (existing) {
-      throw new ConflictException(`Vehicle ${plate} is already registered`);
+      throw vehiclePlateConflict(plate);
     }
     const row = await this.db.queryOne(
       `INSERT INTO vehicles (plate, cls, run_type, runs, days, total, dests, status, client)
@@ -55,6 +56,14 @@ export class VehiclesService {
 
   async update(id: string, dto: UpdateVehicleDto) {
     await this.findOne(id);
+    if (dto.plate !== undefined) {
+      const plate = normalizePlate(dto.plate);
+      const existing = await this.db.queryOne<{ id: string }>(
+        `SELECT id FROM vehicles WHERE REPLACE(LOWER(TRIM(plate)), ' ', '') = REPLACE(LOWER(TRIM($1)), ' ', '') AND id <> $2`,
+        [plate, id],
+      );
+      if (existing) throw vehiclePlateConflict(plate);
+    }
     const fields: string[] = [];
     const values: unknown[] = [];
     let i = 1;

@@ -8,9 +8,9 @@ describe("parseApiErrorBody", () => {
     );
   });
 
-  it("reads conflict messages", () => {
-    expect(parseApiErrorBody({ message: "Vehicle KAV 038N is already registered" })).toBe(
-      "Vehicle KAV 038N is already registered",
+  it("reads conflict messages with stable prefix", () => {
+    expect(parseApiErrorBody({ message: "VEHICLE_ALREADY_EXISTS: KAV 038N" })).toBe(
+      "VEHICLE_ALREADY_EXISTS: KAV 038N",
     );
   });
 
@@ -21,8 +21,8 @@ describe("parseApiErrorBody", () => {
 
 describe("saveErrorMessage", () => {
   it("surfaces Error.message from useCrud", () => {
-    expect(saveErrorMessage(new Error("Vehicle KAV 038N is already registered"))).toBe(
-      "Vehicle KAV 038N is already registered",
+    expect(saveErrorMessage(new Error("VEHICLE_ALREADY_EXISTS: KAV 038N"))).toBe(
+      "VEHICLE_ALREADY_EXISTS: KAV 038N",
     );
   });
 
