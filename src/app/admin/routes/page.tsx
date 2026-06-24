@@ -11,8 +11,9 @@ import { RecordScreen } from "@/components/layout/RecordScreen";
 import { clearedFilters, filterRoutes, highlightSearch } from "@/lib/filters";
 import type { FleetFilters } from "@/lib/filters";
 import type { RouteRecord } from "@/lib/types";
-import { fmtN } from "@/lib/utils";
+import { fmtN, formatCompactKes, sumBy, toNum } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
+import { saveErrorMessage } from "@/lib/api-errors";
 import { useCrud } from "@/hooks/useCrud";
 import { usePageScreen } from "@/hooks/usePageScreen";
 import { usePagination } from "@/hooks/usePagination";
@@ -40,19 +41,22 @@ export default function RoutesPage() {
   const filtered = useMemo(() => filterRoutes(items, filters), [items, filters]);
   const filterKey = JSON.stringify(filters);
   const { paginated, ...pagination } = usePagination(filtered, filterKey);
-  const grandTotal = filtered.reduce((s, d) => s + d.total, 0);
-  const maxTotal = Math.max(...filtered.map((d) => d.total), 1);
+  const grandTotal = sumBy(filtered, (d) => d.total);
+  const maxTotal = Math.max(...filtered.map((d) => toNum(d.total)), 1);
 
   const metrics = useMemo(() => {
     const nairobi = items.filter((d) => d.category === "nairobi");
     const upcountry = items.filter((d) => d.category === "upcountry");
-    const nairobiRev = nairobi.reduce((s, d) => s + d.total, 0);
-    const upcountryRev = upcountry.reduce((s, d) => s + d.total, 0);
-    const top = items.reduce<RouteRecord | null>((best, d) => (!best || d.total > best.total ? d : best), null);
+    const nairobiRev = sumBy(nairobi, (d) => d.total);
+    const upcountryRev = sumBy(upcountry, (d) => d.total);
+    const top = items.reduce<RouteRecord | null>(
+      (best, d) => (!best || toNum(d.total) > toNum(best.total) ? d : best),
+      null,
+    );
     return {
       destinations: items.length,
       nairobiRev,
-      nairobiTrips: nairobi.reduce((s, d) => s + d.trips, 0),
+      nairobiTrips: sumBy(nairobi, (d) => d.trips),
       upcountryRev,
       upcountryCount: upcountry.length,
       top,
@@ -81,8 +85,8 @@ export default function RoutesPage() {
         setFilters(highlightSearch(form.name));
       }
       close();
-    } catch {
-      toast("Save failed");
+    } catch (error) {
+      toast(saveErrorMessage(error));
     }
   };
 
@@ -141,9 +145,9 @@ export default function RoutesPage() {
     <>
       <MetricsGrid>
         <MetricCard accent="navy" icon={IconMap2} label="Destinations covered" value={String(metrics.destinations)} sub="Across Kenya" />
-        <MetricCard accent="teal" icon={IconHome} label="Nairobi revenue" value={`KES ${(metrics.nairobiRev / 1e6).toFixed(2)}M`} sub={`Morning + Afternoon · ${metrics.nairobiTrips} trips`} />
-        <MetricCard accent="amber" icon={IconRoad} label="Upcountry revenue" value={`KES ${(metrics.upcountryRev / 1e6).toFixed(2)}M`} sub={`${metrics.upcountryCount} destinations`} />
-        <MetricCard accent="red" icon={IconStar} label="Top route" value={metrics.top ? metrics.top.name.split(" ")[0] : "—"} sub={metrics.top ? `KES ${fmtN(metrics.top.total)} · ${metrics.top.trips} trips` : "No data"} />
+        <MetricCard accent="teal" icon={IconHome} label="Nairobi revenue" value={formatCompactKes(metrics.nairobiRev)} sub={`Morning + Afternoon · ${metrics.nairobiTrips} trips`} />
+        <MetricCard accent="amber" icon={IconRoad} label="Upcountry revenue" value={formatCompactKes(metrics.upcountryRev)} sub={`${metrics.upcountryCount} destinations`} />
+        <MetricCard accent="red" icon={IconStar} label="Top route" value={metrics.top ? metrics.top.name.split(" ")[0] : "—"} sub={metrics.top ? `${formatCompactKes(metrics.top.total)} · ${metrics.top.trips} trips` : "No data"} />
       </MetricsGrid>
 
       <FilterBar
@@ -183,9 +187,9 @@ export default function RoutesPage() {
                   <td>
                     <div className="flex items-center gap-2">
                       <div className="h-1 w-[68px] overflow-hidden rounded bg-fleet-gray-100">
-                        <div className="h-full rounded bg-teal" style={{ width: `${Math.round((d.total / maxTotal) * 100)}%` }} />
+                        <div className="h-full rounded bg-teal" style={{ width: `${Math.round((toNum(d.total) / maxTotal) * 100)}%` }} />
                       </div>
-                      <span className="text-[11px] text-fleet-gray-400">{grandTotal ? ((d.total / grandTotal) * 100).toFixed(1) : 0}%</span>
+                      <span className="text-[11px] tabular-nums text-fleet-gray-400">{grandTotal ? ((toNum(d.total) / grandTotal) * 100).toFixed(1) : 0}%</span>
                     </div>
                   </td>
                   <td><Badge variant={d.status === "active" ? "active" : "inactive"}>{d.status}</Badge></td>

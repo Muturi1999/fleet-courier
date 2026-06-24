@@ -1,6 +1,6 @@
 "use client";
 
-import { fmtN } from "@/lib/utils";
+import { fmtN, sumBy, toNum } from "@/lib/utils";
 
 export function BarChart({
   data,
@@ -13,13 +13,13 @@ export function BarChart({
   labelKey?: string;
   highlightLast?: boolean;
 }) {
-  const values = data.map((d) => Number(d[valueKey] ?? 0));
+  const values = data.map((d) => toNum(d[valueKey]));
   const max = Math.max(...values, 1);
 
   return (
     <div className="flex flex-col gap-3.5">
       {data.map((d, i) => {
-        const val = Number(d[valueKey] ?? 0);
+        const val = toNum(d[valueKey]);
         const pct = Math.round((val / max) * 100);
         const hi = highlightLast && i === data.length - 1;
         return (
@@ -79,7 +79,7 @@ export function DonutChart({
   segments: { label: string; value: number; color: string }[];
   size?: number;
 }) {
-  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+  const total = sumBy(segments, (x) => x.value) || 1;
   let offset = 0;
   const r = size / 2 - 8;
   const cx = size / 2;

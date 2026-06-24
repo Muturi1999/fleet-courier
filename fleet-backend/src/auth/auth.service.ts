@@ -13,6 +13,7 @@ export type JwtPayload = {
   tenantSchema: string;
   tenantName: string;
   displayName: string;
+  partnerId?: string | null;
 };
 
 @Injectable()
@@ -44,6 +45,7 @@ export class AuthService {
       tenantSchema: tenant.schema,
       tenantName: tenant.name,
       displayName: user.displayName,
+      partnerId: user.partnerId,
     };
 
     return {
@@ -53,6 +55,7 @@ export class AuthService {
         username: user.username,
         role: user.role,
         displayName: user.displayName,
+        partnerId: user.partnerId,
         tenant: {
           id: tenant.id,
           slug: tenant.slug,
@@ -63,6 +66,9 @@ export class AuthService {
   }
 
   async validateUser(payload: JwtPayload) {
+    if ((payload as { scope?: string }).scope === "platform") {
+      throw new UnauthorizedException("Use tenant login for workspace access");
+    }
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       include: { tenant: true },
@@ -78,6 +84,7 @@ export class AuthService {
       tenantSlug: user.tenant.slug,
       tenantSchema: user.tenant.schema,
       tenantName: user.tenant.name,
+      partnerId: user.partnerId,
     };
   }
 }

@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { TenantDatabaseService } from "../common/database/tenant-database.service";
 import { CreateVehicleDto, UpdateVehicleDto } from "./dto/vehicle.dto";
+import { VehicleImportRowDto } from "./dto/vehicle-import.dto";
+import { normalizeCls, normalizePlate } from "./vehicle-fleet.helper";
 
 @Injectable()
 export class VehiclesService {
@@ -9,11 +11,11 @@ export class VehiclesService {
   findAll(search?: string) {
     if (search?.trim()) {
       return this.db.queryAll(
-        `SELECT * FROM vehicles WHERE LOWER(plate) LIKE $1 ORDER BY plate`,
+        `SELECT * FROM vehicles WHERE LOWER(plate) LIKE $1 ORDER BY created_at DESC`,
         [`%${search.toLowerCase()}%`],
       );
     }
-    return this.db.queryAll(`SELECT * FROM vehicles ORDER BY plate`);
+    return this.db.queryAll(`SELECT * FROM vehicles ORDER BY created_at DESC`);
   }
 
   async findOne(id: string) {
@@ -22,13 +24,22 @@ export class VehiclesService {
     return row;
   }
 
-  create(dto: CreateVehicleDto) {
-    return this.db.queryOne(
+  async create(dto: CreateVehicleDto) {
+    const plate = normalizePlate(dto.plate);
+    const cls = normalizeCls(dto.cls);
+    const existing = await this.db.queryOne<{ id: string }>(
+      `SELECT id FROM vehicles WHERE LOWER(TRIM(plate)) = LOWER(TRIM($1))`,
+      [plate],
+    );
+    if (existing) {
+      throw new ConflictException(`Vehicle ${plate} is already registered`);
+    }
+    const row = await this.db.queryOne(
       `INSERT INTO vehicles (plate, cls, run_type, runs, days, total, dests, status, client)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
       [
-        dto.plate,
-        dto.cls,
+        plate,
+        cls,
         dto.runType,
         dto.runs ?? 0,
         dto.days ?? 0,
@@ -38,6 +49,8 @@ export class VehiclesService {
         dto.client ?? null,
       ],
     );
+    if (!row) throw new ConflictException(`Vehicle ${plate} could not be saved`);
+    return row;
   }
 
   async update(id: string, dto: UpdateVehicleDto) {
@@ -78,5 +91,41 @@ export class VehiclesService {
     await this.findOne(id);
     await this.db.query(`DELETE FROM vehicles WHERE id = $1`, [id]);
     return { ok: true };
+  }
+
+  async importBulk(rows: VehicleImportRowDto[]) {
+    if (!rows.length) return { imported: 0, inserted: 0, updated: 0, rows: [] as unknown[] };
+
+    let inserted = 0;
+    let updated = 0;
+    const saved: unknown[] = [];
+
+    for (const dto of rows) {
+      const plate = normalizePlate(dto.plate);
+      const cls = normalizeCls(dto.cls);
+      const row = await this.db.queryOne<{ inserted: boolean } & Record<string, unknown>>(
+        `INSERT INTO vehicles (plate, cls, run_type, runs, days, total, dests, status, client)
+         VALUES ($1, $2, $3, 0, 0, 0, '[]'::jsonb, $4, $5)
+         ON CONFLICT (plate) DO UPDATE SET
+           cls = EXCLUDED.cls,
+           run_type = EXCLUDED.run_type,
+           status = EXCLUDED.status,
+           client = COALESCE(EXCLUDED.client, vehicles.client),
+           updated_at = NOW()
+         RETURNING *, (xmax = 0) AS inserted`,
+        [
+          plate,
+          cls,
+          dto.runType ?? "Nairobi",
+          dto.status ?? "active",
+          dto.client ?? null,
+        ],
+      );
+      if (row?.inserted) inserted++;
+      else updated++;
+      saved.push(row);
+    }
+
+    return { imported: rows.length, inserted, updated, rows: saved };
   }
 }

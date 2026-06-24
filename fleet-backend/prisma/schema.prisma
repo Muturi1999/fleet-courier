@@ -14,31 +14,76 @@ enum UserRole {
 }
 
 model Tenant {
-  id        String   @id @default(uuid())
-  slug      String   @unique
+  id        String    @id @default(uuid())
+  slug      String    @unique
   name      String
-  schema    String   @unique // e.g. tenant_g4s_kenya
-  active    Boolean  @default(true)
+  schema    String    @unique // e.g. tenant_g4s_kenya
+  active    Boolean   @default(true)
   contract  String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
   users     User[]
+  partners  Partner[]
 
   @@map("tenants")
 }
 
+model Partner {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  slug      String
+  name      String
+  legalName String?  @map("legal_name")
+  email     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users     User[]
+
+  @@unique([tenantId, slug])
+  @@map("partners")
+}
+
 model User {
-  id           String   @id @default(uuid())
-  tenantId     String   @map("tenant_id")
-  username     String
-  passwordHash String   @map("password_hash")
-  displayName  String   @map("display_name")
-  role         UserRole
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                String             @id @default(uuid())
+  tenantId          String             @map("tenant_id")
+  partnerId         String?            @map("partner_id")
+  username          String
+  passwordHash      String             @map("password_hash")
+  displayName       String             @map("display_name")
+  role              UserRole
+  active            Boolean            @default(true)
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  partner           Partner?           @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  managedCredential ManagedCredential?
 
   @@unique([tenantId, username])
   @@map("users")
+}
+
+model PlatformUser {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String   @map("password_hash")
+  displayName  String   @map("display_name")
+  email        String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_users")
+}
+
+/// Encrypted recoverable password for super-admin support (reset / email to client)
+model ManagedCredential {
+  id                String   @id @default(uuid())
+  userId            String   @unique @map("user_id")
+  passwordEncrypted String   @map("password_encrypted")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("managed_credentials")
 }

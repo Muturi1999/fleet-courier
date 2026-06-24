@@ -22,20 +22,19 @@ export const VEHICLE_MAKE_BY_PLATE: Record<string, string> = {
 
 export const WORK_TICKET_SERIES_START = 1189100;
 
-export function generateWorkTicketSerial(existing: { serialNo: string }[]): string {
+export function generateWorkTicketSerial(existing: { serialNo: string }[], prefix = ""): string {
   let max = WORK_TICKET_SERIES_START - 1;
   for (const t of existing) {
     const n = parseInt(t.serialNo.replace(/\D/g, ""), 10);
     if (!isNaN(n) && n > max) max = n;
   }
-  return String(max + 1);
+  return `${prefix}${max + 1}`;
 }
 
+import { formatEATDisplay } from "./dates";
+
 export function formatG4sDate(iso?: string): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+  return formatEATDisplay(iso);
 }
 
 export function legDistance(leg: WorkTicketJourneyLeg): number {

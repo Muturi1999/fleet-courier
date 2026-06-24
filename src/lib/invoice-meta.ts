@@ -33,12 +33,15 @@ export const INVOICE_DEFAULTS = {
   etimsNote: "This invoice is generated in compliance with KRA eTIMS requirements.",
   /** First number in the series when no prior invoices exist */
   seriesStart: 17206,
+  /** Default particulars / route on new invoices */
+  defaultParticulars: "NBI Collection",
 } as const;
 
 /** Next sequential invoice number (stored as plain digits, e.g. "17207") */
 export function generateNextInvoiceNumber(existing: { invoiceNo: string }[]): string {
   let max = INVOICE_DEFAULTS.seriesStart - 1;
   for (const inv of existing) {
+    if (inv.invoiceNo.startsWith("WT-")) continue;
     const n = parseInt(inv.invoiceNo.replace(/\D/g, ""), 10);
     if (!isNaN(n) && n > max) max = n;
   }

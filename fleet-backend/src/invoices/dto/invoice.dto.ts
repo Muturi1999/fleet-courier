@@ -59,6 +59,11 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsString()
   clientNote?: string;
+
+  @ApiPropertyOptional({ description: "Partner organization this invoice belongs to" })
+  @IsOptional()
+  @IsString()
+  partnerId?: string;
 }
 
 export class UpdateInvoiceDto extends PartialType(CreateInvoiceDto) {}

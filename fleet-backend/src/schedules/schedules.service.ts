@@ -1,4 +1,16 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  addDateClause,
+  addDestinationClause,
+  addRunTypeClause,
+  addSearchClause,
+  addStatusClause,
+  wantsFullList,
+} from "../common/database/list-query.helper";
+import { bulkInsert } from "../common/database/bulk-import.helper";
+import { queryList } from "../common/database/pagination.helper";
+import { ListQueryDto } from "../common/dto/list-query.dto";
+import { PaginatedResult } from "../common/dto/pagination.dto";
 import { TenantDatabaseService } from "../common/database/tenant-database.service";
 import { CreateScheduleDto, UpdateScheduleDto } from "./dto/schedule.dto";
 
@@ -6,17 +18,51 @@ import { CreateScheduleDto, UpdateScheduleDto } from "./dto/schedule.dto";
 export class SchedulesService {
   constructor(private readonly db: TenantDatabaseService) {}
 
-  findAll(search?: string) {
-    if (search?.trim()) {
-      const q = `%${search.toLowerCase()}%`;
-      return this.db.queryAll(
-        `SELECT * FROM schedules
-         WHERE LOWER(plate) LIKE $1 OR LOWER(dest) LIKE $1
-         ORDER BY created_at DESC`,
-        [q],
-      );
+  findAll(query: ListQueryDto) {
+    const clauses: string[] = [];
+    const params: unknown[] = [];
+    let i = 1;
+
+    i = addSearchClause(clauses, params, i, ["plate", "dest", "cls"], query.search);
+    i = addDestinationClause(clauses, params, i, "dest", query.destination);
+    i = addDateClause(clauses, params, i, "service_date", query.date);
+    i = addRunTypeClause(clauses, params, i, query.runType);
+    i = addStatusClause(clauses, params, i, query.status);
+
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+
+    if (wantsFullList(query)) {
+      return this.db.queryAll(`SELECT * FROM schedules ${where} ORDER BY created_at DESC, id DESC`, params);
     }
-    return this.db.queryAll(`SELECT * FROM schedules ORDER BY created_at DESC`);
+
+    return queryList(this.db, query, {
+      table: "schedules",
+      where,
+      params,
+      orderBy: "created_at DESC, id DESC",
+    }) as Promise<PaginatedResult<Record<string, unknown>>>;
+  }
+
+  async summary() {
+    const row = await this.db.queryOne<{
+      count: string;
+      days: string;
+      cost: string;
+      draft: string;
+    }>(
+      `SELECT
+         COUNT(*)::text AS count,
+         COALESCE(SUM(days), 0)::text AS days,
+         COALESCE(SUM(cost), 0)::text AS cost,
+         COUNT(*) FILTER (WHERE status = 'draft')::text AS draft
+       FROM schedules`,
+    );
+    return {
+      count: parseInt(row?.count ?? "0", 10),
+      days: parseInt(row?.days ?? "0", 10),
+      cost: parseFloat(row?.cost ?? "0"),
+      draft: parseInt(row?.draft ?? "0", 10),
+    };
   }
 
   async findOne(id: string) {
@@ -88,10 +134,43 @@ export class SchedulesService {
   }
 
   async importBulk(rows: CreateScheduleDto[]) {
-    const created: unknown[] = [];
-    for (const dto of rows) {
-      created.push(await this.create(dto));
-    }
+    if (!rows.length) return { imported: 0, rows: [] as unknown[] };
+
+    const values = rows.map((dto) => [
+      dto.plate,
+      dto.cls,
+      dto.dest,
+      dto.runType,
+      dto.rate,
+      dto.days,
+      dto.cost,
+      dto.vat,
+      dto.total,
+      dto.month ?? null,
+      dto.serviceDate ?? null,
+      dto.status ?? "saved",
+    ]);
+
+    const created = await bulkInsert(this.db, {
+      table: "schedules",
+      columns: [
+        "plate",
+        "cls",
+        "dest",
+        "run_type",
+        "rate",
+        "days",
+        "cost",
+        "vat",
+        "total",
+        "month",
+        "service_date",
+        "status",
+      ],
+      rows: values,
+      chunkSize: 500,
+    });
+
     return { imported: created.length, rows: created };
   }
 }

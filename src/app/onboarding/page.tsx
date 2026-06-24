@@ -8,9 +8,12 @@ import {
   IconArrowRight,
   IconCheck,
   IconLoader2,
-  IconTruckDelivery,
   IconUsers,
 } from "@tabler/icons-react";
+import { PasswordInput } from "@/components/ui/PasswordInput";
+import { LogisticsPipeline } from "@/components/landing/LogisticsPipeline";
+import { PlatformWordmark } from "@/components/landing/PlatformWordmark";
+import { PLATFORM } from "@/lib/platform-brand";
 
 type Step = "operator" | "company" | "partner" | "admin" | "review";
 
@@ -32,6 +35,7 @@ type FormState = {
   partnerPin: string;
   partnerEmail: string;
   partnerContact: string;
+  partnerUsername: string;
   adminUsername: string;
   adminPassword: string;
   adminDisplayName: string;
@@ -57,10 +61,11 @@ const INITIAL: FormState = {
   partnerPin: "",
   partnerEmail: "",
   partnerContact: "Accounts Payable",
+  partnerUsername: "",
   adminUsername: "admin",
   adminPassword: "",
   adminDisplayName: "",
-  createPartnerPortal: true,
+  createPartnerPortal: false,
   partnerPassword: "",
 };
 
@@ -103,6 +108,15 @@ export default function OnboardingPage() {
   }, [form.name, slugManual]);
 
   useEffect(() => {
+    if (!form.partnerName.trim() && form.createPartnerPortal) {
+      set({ createPartnerPortal: false });
+    }
+    if (form.partnerName.trim() && !form.partnerUsername.trim()) {
+      set({ partnerUsername: slugify(form.partnerName).replace(/-/g, "") });
+    }
+  }, [form.partnerName, form.createPartnerPortal, form.partnerUsername]);
+
+  useEffect(() => {
     if (!form.slug || form.slug.length < 3) {
       setSlugStatus("idle");
       return;
@@ -124,8 +138,15 @@ export default function OnboardingPage() {
     if (step === "operator") {
       return form.name.trim().length >= 2 && form.slug.length >= 3 && slugStatus === "ok";
     }
+    if (step === "company") {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
+    }
     if (step === "admin") {
-      return form.adminUsername.length >= 3 && form.adminPassword.length >= 8;
+      const partnerOk =
+        !form.createPartnerPortal ||
+        !form.partnerName.trim() ||
+        (form.partnerUsername.length >= 3 && (form.partnerPassword.length >= 8 || form.partnerPassword.length === 0));
+      return form.adminUsername.length >= 3 && form.adminPassword.length >= 8 && partnerOk;
     }
     return true;
   }, [step, form, slugStatus]);
@@ -155,20 +176,21 @@ export default function OnboardingPage() {
             pin: form.pin,
             phone: form.phone,
             vatNo: form.vatNo,
-            email: form.email,
+            email: form.email.trim(),
           },
           partner: form.partnerName
             ? {
                 name: form.partnerName,
                 legalName: form.partnerLegalName || form.partnerName,
-                address: form.partnerAddress,
-                city: form.partnerCity,
-                pin: form.partnerPin,
-                email: form.partnerEmail,
-                contact: form.partnerContact,
+                address: form.partnerAddress || undefined,
+                city: form.partnerCity || undefined,
+                pin: form.partnerPin || undefined,
+                email: form.partnerEmail.trim() || undefined,
+                contact: form.partnerContact || undefined,
+                username: form.partnerUsername || undefined,
               }
             : undefined,
-          createPartnerPortal: form.createPartnerPortal,
+          createPartnerPortal: form.createPartnerPortal && Boolean(form.partnerName),
           partnerPassword: form.createPartnerPortal ? form.partnerPassword || undefined : undefined,
         }),
       });
@@ -204,9 +226,9 @@ export default function OnboardingPage() {
               Fleet operator workspace ready
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-fleet-gray-500">
-              <strong>{result.tenant.name}</strong> now has the same admin dashboard as Road Network
-              Transporters — configure rates, vehicles, and billing, then invite partners to approve
-              on their portal.
+              <strong>{result.tenant.name}</strong> is live on {PLATFORM.productName}{" "}
+              {PLATFORM.productLine}. Configure rates, vehicles, and billing, then invite partners to
+              review and approve on their portal.
             </p>
             <div className="mt-5 rounded-fleet-sm bg-fleet-gray-50 p-3 text-left text-sm xs:mt-6 xs:p-4">
               <p className="break-words text-fleet-gray-600">
@@ -215,8 +237,14 @@ export default function OnboardingPage() {
               </p>
               <p className="mt-2 break-words text-fleet-gray-600">
                 <span className="text-fleet-gray-400">Fleet operator login:</span>{" "}
-                <code className="font-mono text-xs xs:text-sm">{result.admin.username}</code> →{" "}
-                <code className="font-mono text-xs xs:text-sm">/admin</code>
+                <code className="font-mono text-xs xs:text-sm">{result.admin.username}</code>
+                {form.adminPassword ? (
+                  <>
+                    {" "}
+                    / <code className="font-mono text-xs xs:text-sm">{form.adminPassword}</code>
+                  </>
+                ) : null}{" "}
+                → <code className="font-mono text-xs xs:text-sm">/admin</code>
               </p>
               {result.partnerPortal && (
                 <p className="mt-2 break-words text-fleet-gray-600">
@@ -250,22 +278,24 @@ export default function OnboardingPage() {
           >
             <IconArrowLeft size={16} /> Back
           </Link>
-          <div className="flex min-w-0 items-center gap-2 text-fleet-gray-600">
-            <IconTruckDelivery size={20} className="shrink-0 text-accent" />
-            <span className="truncate text-sm font-semibold">Fleet Courier</span>
-          </div>
+          <PlatformWordmark variant="onboarding" />
         </div>
 
+        <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-accent-dark">
+          {PLATFORM.tagline}
+        </p>
         <h1 className="auth-title mb-2 text-xl font-semibold text-fleet-gray-800 xs:text-2xl">
-          Onboard your fleet operation
+          Onboard your fleet logistics workspace
         </h1>
-        <p className="mb-6 text-sm leading-relaxed text-fleet-gray-500 xs:mb-8">
-          You are the <strong>fleet operator</strong> (like Road Network Transporters). You get the admin
-          dashboard. Partners you bill — e.g. G4S — use a separate portal to approve invoices and work
-          tickets. Each fleet operator has an isolated database.
+        <p className="mb-4 text-sm leading-relaxed text-fleet-gray-500 xs:mb-5">
+          Set up your operator admin dashboard and optional partner portal. {PLATFORM.productName}{" "}
+          runs the full logistics lifecycle — schedule, dispatch, work tickets, billing, approvals,
+          and settlement — with an isolated database per tenant.
         </p>
 
-        <div className="mb-6 xs:mb-8">
+        <LogisticsPipeline variant="onboarding" />
+
+        <div className="mb-6 mt-6 xs:mb-8 xs:mt-8">
           <p className="mb-2 text-xs font-medium text-fleet-gray-500">
             Step {stepIndex + 1} of {steps.length}: {steps[stepIndex].label}
           </p>
@@ -292,7 +322,7 @@ export default function OnboardingPage() {
                 className="field-input"
                 value={form.name}
                 onChange={(e) => set({ name: e.target.value })}
-                placeholder="Road Network Transporters"
+                placeholder="Acme Couriers Ltd"
                 required
               />
               <p className="mt-1 text-xs text-fleet-gray-400">
@@ -310,7 +340,7 @@ export default function OnboardingPage() {
                     setSlugManual(true);
                     set({ slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") });
                   }}
-                  placeholder="road-network-transporters"
+                  placeholder="acme-couriers"
                   required
                 />
               </div>
@@ -332,7 +362,7 @@ export default function OnboardingPage() {
                 className="field-input"
                 value={form.contract}
                 onChange={(e) => set({ contract: e.target.value })}
-                placeholder="G4S-RNT-2026-001"
+                placeholder="CONTRACT-2026-001"
               />
             </div>
           </>
@@ -391,15 +421,29 @@ export default function OnboardingPage() {
                 <input className="field-input" value={form.phone} onChange={(e) => set({ phone: e.target.value })} />
               </div>
             </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-fleet-gray-600">Company email *</label>
+              <input
+                type="email"
+                className="field-input"
+                value={form.email}
+                onChange={(e) => set({ email: e.target.value })}
+                placeholder="accounts@yourcompany.co.ke"
+                required
+                autoComplete="email"
+              />
+              <p className="mt-1 text-xs text-fleet-gray-400">
+                Used on invoices and workspace correspondence
+              </p>
+            </div>
           </>
         )}
 
         {step === "partner" && (
           <>
             <p className="text-sm text-fleet-gray-500">
-              The organization you bill and send invoices to for approval — e.g.{" "}
-              <strong>G4S Courier</strong> for Road Network Transporters. You can add more partners
-              later in billing settings.
+              Optional — add the organization you bill now, or skip and configure partners later in
+              billing settings.
             </p>
             <div>
               <label className="mb-1 block text-xs font-medium text-fleet-gray-600">Partner name</label>
@@ -407,7 +451,7 @@ export default function OnboardingPage() {
                 className="field-input"
                 value={form.partnerName}
                 onChange={(e) => set({ partnerName: e.target.value })}
-                placeholder="G4S Courier"
+                placeholder="Partner organisation"
               />
             </div>
             <div>
@@ -416,7 +460,7 @@ export default function OnboardingPage() {
                 className="field-input"
                 value={form.partnerLegalName}
                 onChange={(e) => set({ partnerLegalName: e.target.value })}
-                placeholder="G4S Courier Services Kenya Ltd"
+                placeholder="Partner legal name Ltd"
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -435,7 +479,7 @@ export default function OnboardingPage() {
                   className="field-input"
                   value={form.partnerEmail}
                   onChange={(e) => set({ partnerEmail: e.target.value })}
-                  placeholder="accounts@g4s.co.ke"
+                  placeholder="accounts@partner.co.ke"
                 />
               </div>
             </div>
@@ -445,7 +489,7 @@ export default function OnboardingPage() {
                 className="field-input"
                 value={form.partnerAddress}
                 onChange={(e) => set({ partnerAddress: e.target.value })}
-                placeholder="G4S House, Waiyaki Way"
+                placeholder="Partner office address"
               />
             </div>
           </>
@@ -454,8 +498,7 @@ export default function OnboardingPage() {
         {step === "admin" && (
           <>
             <p className="text-sm text-fleet-gray-500">
-              Your fleet operator admin account — lands on the same dashboard Road Network
-              Transporters uses today.
+              Your fleet operator admin account for the full {PLATFORM.productLine} dashboard.
             </p>
             <div>
               <label className="mb-1 block text-xs font-medium text-fleet-gray-600">Admin username</label>
@@ -468,13 +511,12 @@ export default function OnboardingPage() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-fleet-gray-600">Password</label>
-              <input
-                type="password"
-                className="field-input"
+              <PasswordInput
                 value={form.adminPassword}
-                onChange={(e) => set({ adminPassword: e.target.value })}
+                onChange={(v) => set({ adminPassword: v })}
                 minLength={8}
                 required
+                autoComplete="new-password"
               />
             </div>
             <label className="flex cursor-pointer items-start gap-3 rounded-fleet-sm border border-fleet-gray-200 p-3 xs:p-3.5">
@@ -482,31 +524,47 @@ export default function OnboardingPage() {
                 type="checkbox"
                 checked={form.createPartnerPortal}
                 onChange={(e) => set({ createPartnerPortal: e.target.checked })}
-                className="mt-1 h-4 w-4 shrink-0"
+                disabled={!form.partnerName.trim()}
+                className="mt-1 h-4 w-4 shrink-0 disabled:opacity-40"
               />
               <span className="min-w-0">
                 <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-fleet-gray-700">
-                  <IconUsers size={16} className="shrink-0" /> Create partner portal login
+                  <IconUsers size={16} className="shrink-0" /> Create partner portal login (optional)
                 </span>
                 <span className="mt-0.5 block text-xs leading-relaxed text-fleet-gray-500">
-                  For {form.partnerName || "your partner"} to approve invoices &amp; work tickets
-                  (username: <code className="font-mono">client</code>)
+                  {form.partnerName.trim()
+                    ? `Give ${form.partnerName} their own portal login — they only see invoices and work tickets for their organisation.`
+                    : "Add a partner on the previous step to enable a partner portal login, or create one later from settings."}
                 </span>
               </span>
             </label>
-            {form.createPartnerPortal && (
-              <div>
-                <label className="mb-1 block text-xs font-medium text-fleet-gray-600">
-                  Partner portal password
-                </label>
-                <input
-                  type="password"
-                  className="field-input"
-                  value={form.partnerPassword}
-                  onChange={(e) => set({ partnerPassword: e.target.value })}
-                  placeholder="Leave blank to auto-generate"
-                  minLength={8}
-                />
+            {form.createPartnerPortal && form.partnerName.trim() && (
+              <div className="space-y-4 rounded-fleet-sm border border-fleet-gray-200 bg-fleet-gray-50/60 p-4">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-fleet-gray-600">
+                    Partner portal username
+                  </label>
+                  <input
+                    className="field-input font-mono"
+                    value={form.partnerUsername}
+                    onChange={(e) => set({ partnerUsername: e.target.value.toLowerCase() })}
+                    placeholder="e.g. g4s or enabled"
+                    minLength={3}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-fleet-gray-600">
+                    Partner portal password
+                  </label>
+                  <PasswordInput
+                    value={form.partnerPassword}
+                    onChange={(v) => set({ partnerPassword: v })}
+                    placeholder="Leave blank to auto-generate"
+                    minLength={8}
+                    autoComplete="new-password"
+                  />
+                </div>
               </div>
             )}
           </>
@@ -517,6 +575,7 @@ export default function OnboardingPage() {
             <div className="rounded-fleet-sm bg-fleet-gray-50 p-4">
               <p className="font-medium text-fleet-gray-800">{form.name}</p>
               <p className="text-xs text-fleet-gray-500">Fleet operator · workspace /{form.slug}</p>
+              <p className="text-xs text-fleet-gray-500">Company email: {form.email}</p>
               {form.partnerName && (
                 <p className="mt-2 text-fleet-gray-600">Partner: {form.partnerName}</p>
               )}
@@ -525,7 +584,7 @@ export default function OnboardingPage() {
               </p>
               {form.createPartnerPortal && (
                 <p className="text-fleet-gray-600">
-                  Partner portal: <code className="font-mono">client</code>
+                  Partner portal: <code className="font-mono">{form.partnerUsername}</code>
                 </p>
               )}
             </div>

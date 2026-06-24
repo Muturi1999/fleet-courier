@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { AUTH_TOKEN_COOKIE, parseAuthCookie } from "./auth-config";
+import { AUTH_TOKEN_COOKIE, PLATFORM_TOKEN_COOKIE, parseAuthCookie } from "./auth-config";
 
 function backendBaseUrl(): string | null {
   const raw = process.env.FLEET_BACKEND_URL ?? process.env.NEXT_PUBLIC_FLEET_BACKEND_URL;
@@ -49,7 +49,8 @@ async function serviceAccountToken(role: "admin" | "client"): Promise<string> {
 
 function roleFromRequest(req: NextRequest): "admin" | "client" {
   const user = parseAuthCookie(req.cookies.get("fc-auth")?.value);
-  return user?.role ?? "admin";
+  if (user?.role === "client") return "client";
+  return "admin";
 }
 
 export async function backendRequest(
@@ -79,6 +80,29 @@ export async function backendLogin(body: {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    cache: "no-store",
+  });
+}
+
+export async function platformLogin(body: { username: string; password: string }) {
+  return fetch(`${backendUrl()}/platform/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+}
+
+export async function platformRequest(req: NextRequest, path: string, init?: RequestInit) {
+  const token = req.cookies.get(PLATFORM_TOKEN_COOKIE)?.value;
+  if (!token) throw new Error("Platform session expired — sign in again");
+  return fetch(`${backendUrl()}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...(init?.headers ?? {}),
+    },
     cache: "no-store",
   });
 }

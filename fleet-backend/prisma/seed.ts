@@ -4,6 +4,25 @@ import { Pool } from "pg";
 import * as fs from "fs";
 import * as path from "path";
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { encryptPassword } = require("./credential-vault.js");
+
+function slugify(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48) || "partner";
+}
+
+async function storeCredential(userId: string, password: string) {
+  await prisma.managedCredential.upsert({
+    where: { userId },
+    create: { userId, passwordEncrypted: encryptPassword(password) },
+    update: { passwordEncrypted: encryptPassword(password) },
+  });
+}
+
 const prisma = new PrismaClient();
 
 function schemaName(slug: string) {
@@ -161,9 +180,22 @@ async function main() {
 
   await seedTenantData(pool, schema);
 
+  let partner = await prisma.partner.findFirst({ where: { tenantId: tenant.id } });
+  if (!partner) {
+    partner = await prisma.partner.create({
+      data: {
+        tenantId: tenant.id,
+        slug: "g4s",
+        name: "G4S COURIER",
+        legalName: "G4S Courier Services Kenya Ltd",
+        email: "accounts@g4s.co.ke",
+      },
+    });
+  }
+
   const users = [
-    { username: "admin", role: UserRole.admin, displayName: "RNT Fleet Admin", password: "admin123" },
-    { username: "client", role: UserRole.client, displayName: "G4S Partner", password: "client123" },
+    { username: "admin", role: UserRole.admin, displayName: "RNT Fleet Admin", password: "admin123", partnerId: null as string | null },
+    { username: "client", role: UserRole.client, displayName: "G4S Partner", password: "client123", partnerId: partner.id },
   ];
 
   for (const u of users) {
@@ -171,17 +203,34 @@ async function main() {
       where: { tenantId: tenant.id, username: u.username },
     });
     if (!exists) {
-      await prisma.user.create({
+      const created = await prisma.user.create({
         data: {
           tenantId: tenant.id,
+          partnerId: u.partnerId,
           username: u.username,
           displayName: u.displayName,
           role: u.role,
           passwordHash: await bcrypt.hash(u.password, 10),
         },
       });
+      await storeCredential(created.id, u.password);
       console.log(`Seeded user: ${u.username} / ${u.password}`);
     }
+  }
+
+  const platformPassword = process.env.PLATFORM_ADMIN_PASSWORD ?? "SwiftFleet2026!";
+  const platformUser = await prisma.platformUser.upsert({
+    where: { username: "superadmin" },
+    create: {
+      username: "superadmin",
+      displayName: "SwiftFleet Super Admin",
+      email: "admin@swiftfleet.africa",
+      passwordHash: await bcrypt.hash(platformPassword, 10),
+    },
+    update: {},
+  });
+  if (platformUser) {
+    console.log(`Platform super-admin: superadmin / ${platformPassword}`);
   }
 
   await pool.end();

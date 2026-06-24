@@ -1,8 +1,9 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
-import { ApiTags } from "@nestjs/swagger";
+import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { UserRole } from "@prisma/client";
 import { ApiTenantAuth } from "../common/decorators/api-tenant-auth.decorator";
 import { CreateVehicleDto, UpdateVehicleDto } from "./dto/vehicle.dto";
+import { VehicleImportDto } from "./dto/vehicle-import.dto";
 import { VehiclesService } from "./vehicles.service";
 
 @ApiTags("vehicles")
@@ -24,6 +25,12 @@ export class VehiclesController {
   @Post()
   create(@Body() dto: CreateVehicleDto) {
     return this.service.create(dto);
+  }
+
+  @Post("import")
+  @ApiOperation({ summary: "Bulk import vehicles from RNTL fleet list CSV/XLS" })
+  importBulk(@Body() body: VehicleImportDto) {
+    return this.service.importBulk(body.rows ?? []);
   }
 
   @Put(":id")

@@ -33,6 +33,7 @@ export class TenantFromJwtInterceptor implements NestInterceptor {
       slug: user.tenantSlug,
       schema: user.tenantSchema,
       name: user.tenantName,
+      partnerId: user.partnerId,
     };
 
     const existing = TenantContextStorage.get();

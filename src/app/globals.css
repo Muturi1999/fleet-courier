@@ -475,10 +475,13 @@
 
   /* Landing delivery hero */
   .delivery-hero {
-    @apply relative min-h-[220px] overflow-hidden rounded-fleet border border-white/10 bg-white/[0.04] p-4 xs:min-h-[260px] xs:p-5 sm:min-h-[300px] sm:p-6 md:min-h-[320px];
+    @apply relative min-h-[220px] overflow-hidden rounded-fleet border border-white/10 bg-white/[0.04] p-4 xs:min-h-[260px] xs:p-5 sm:min-h-[280px] sm:p-6 md:min-h-[300px];
   }
   .delivery-hero-map {
     @apply relative h-[140px] xs:h-[160px] sm:h-[180px] md:h-[200px];
+  }
+  .delivery-hero-map-only {
+    @apply h-[180px] xs:h-[200px] sm:h-[220px] md:h-[240px];
   }
   .delivery-hero-truck {
     @apply absolute text-accent;

@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { UserRole } from "@prisma/client";
 import { ApiTenantAuth } from "../common/decorators/api-tenant-auth.decorator";
-import { PaginationQueryDto } from "../common/dto/pagination.dto";
+import { ListQueryDto } from "../common/dto/list-query.dto";
 import { CreateInvoiceDto, UpdateInvoiceDto } from "./dto/invoice.dto";
 import { InvoicesService } from "./invoices.service";
 
@@ -13,9 +13,15 @@ export class InvoicesController {
 
   @Get()
   @ApiTenantAuth(UserRole.admin, UserRole.client)
-  @ApiOperation({ summary: "List invoices (?page=&limit= for pagination)" })
-  list(@Query() query: PaginationQueryDto, @Query("status") status?: string) {
+  @ApiOperation({ summary: "List invoices (paginated by default; ?all=true for legacy full list)" })
+  list(@Query() query: ListQueryDto, @Query("status") status?: string) {
     return this.service.findAll(query, status);
+  }
+
+  @Get("summary")
+  @ApiTenantAuth(UserRole.admin)
+  summary() {
+    return this.service.summary();
   }
 
   @Get("next-number")

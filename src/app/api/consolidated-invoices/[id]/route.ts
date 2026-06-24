@@ -79,3 +79,15 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   return Response.json({ error: "Invalid action" }, { status: 400 });
 }
+
+export async function DELETE(req: NextRequest, ctx: Ctx) {
+  const id = (await ctx.params).id;
+
+  if (backendEnabled()) {
+    const res = await backendRequest(req, `/consolidated-invoices/${id}`, { method: "DELETE" });
+    const json = await res.json().catch(() => ({ ok: res.ok }));
+    return NextResponse.json(json, { status: res.status });
+  }
+
+  return NextResponse.json({ error: "Delete requires backend API" }, { status: 503 });
+}

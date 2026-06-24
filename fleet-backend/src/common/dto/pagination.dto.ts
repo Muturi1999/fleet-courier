@@ -24,11 +24,25 @@ export class PaginationQueryDto {
   search?: string;
 }
 
+export const DEFAULT_PAGE = 1;
+export const DEFAULT_LIMIT = 50;
+
 export type PaginatedMeta = {
   page: number;
   limit: number;
   total: number;
   totalPages: number;
+  mode?: "offset" | "keyset";
+  hasMore?: boolean;
+  nextCursor?: string | null;
+  prevCursor?: string | null;
+};
+
+export type KeysetMeta = PaginatedMeta & {
+  mode: "keyset";
+  hasMore: boolean;
+  nextCursor: string | null;
+  prevCursor: string | null;
 };
 
 export type PaginatedResult<T> = {

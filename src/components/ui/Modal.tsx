@@ -66,17 +66,19 @@ export function FormField({
 export function FormActions({
   onCancel,
   submitLabel = "Save",
+  saving = false,
 }: {
   onCancel: () => void;
   submitLabel?: string;
+  saving?: boolean;
 }) {
   return (
     <div className="mt-5 flex gap-2">
-      <button type="button" className="btn-secondary flex-1" onClick={onCancel}>
+      <button type="button" className="btn-secondary flex-1" onClick={onCancel} disabled={saving}>
         Cancel
       </button>
-      <button type="submit" className="btn-accent flex-[2]">
-        {submitLabel}
+      <button type="submit" className="btn-accent flex-[2]" disabled={saving}>
+        {saving ? "Saving…" : submitLabel}
       </button>
     </div>
   );

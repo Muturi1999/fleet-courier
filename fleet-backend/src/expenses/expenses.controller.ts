@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/
 import { ApiTags } from "@nestjs/swagger";
 import { UserRole } from "@prisma/client";
 import { ApiTenantAuth } from "../common/decorators/api-tenant-auth.decorator";
+import { ListQueryDto } from "../common/dto/list-query.dto";
 import { CreateExpenseDto, UpdateExpenseDto } from "./dto/expense.dto";
 import { ExpensesService } from "./expenses.service";
 
@@ -12,8 +13,13 @@ export class ExpensesController {
   constructor(private readonly service: ExpensesService) {}
 
   @Get()
-  list(@Query("month") month?: string, @Query("category") category?: string) {
-    return this.service.findAll(month, category);
+  list(@Query() query: ListQueryDto) {
+    return this.service.findAll(query);
+  }
+
+  @Get("summary")
+  summary(@Query("month") month?: string) {
+    return this.service.summary(month);
   }
 
   @Get(":id")

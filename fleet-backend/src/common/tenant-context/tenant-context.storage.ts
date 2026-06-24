@@ -5,6 +5,7 @@ export type TenantInfo = {
   slug: string;
   schema: string;
   name: string;
+  partnerId?: string | null;
 };
 
 const storage = new AsyncLocalStorage<TenantInfo>();

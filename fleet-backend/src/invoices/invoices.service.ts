@@ -1,14 +1,21 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
-import { queryPaginated } from "../common/database/pagination.helper";
-import { PaginatedResult, PaginationQueryDto } from "../common/dto/pagination.dto";
+import {
+  addDateClause,
+  addDestinationClause,
+  addSearchClause,
+  addStatusClause,
+  wantsFullList,
+} from "../common/database/list-query.helper";
+import { queryList } from "../common/database/pagination.helper";
+import { SEQUENCE_KEYS, TenantSequenceService } from "../common/database/tenant-sequence.service";
+import { ListQueryDto } from "../common/dto/list-query.dto";
+import { PartnersService } from "../partners/partners.service";
 import { TenantDatabaseService } from "../common/database/tenant-database.service";
 import { TenantContextStorage } from "../common/tenant-context/tenant-context.storage";
 import { WorkflowsService } from "../workflows/workflows.service";
 import { CreateInvoiceDto, UpdateInvoiceDto } from "./dto/invoice.dto";
-
-const INVOICE_SERIES_START = 17206;
 
 type InvoiceRow = Record<string, unknown> & {
   id: string;
@@ -18,46 +25,74 @@ type InvoiceRow = Record<string, unknown> & {
   total: string | number;
   status: string;
   client_note?: string | null;
+  partner_id?: string | null;
 };
+
+type StatusCounts = Record<string, number>;
 
 @Injectable()
 export class InvoicesService {
   constructor(
     private readonly db: TenantDatabaseService,
     private readonly workflows: WorkflowsService,
+    private readonly partners: PartnersService,
+    private readonly sequences: TenantSequenceService,
     @InjectQueue("etims") private readonly etimsQueue: Queue,
   ) {}
 
-  async findAll(query: PaginationQueryDto, status?: string) {
+  private async resolvePartnerId(explicit?: string | null) {
+    if (explicit) return explicit;
+    const tenant = TenantContextStorage.getOrThrow();
+    return this.partners.defaultPartnerId(tenant.id);
+  }
+
+  private buildWhere(query: ListQueryDto, status?: string) {
     const clauses: string[] = [];
     const params: unknown[] = [];
     let i = 1;
-
-    if (query.search?.trim()) {
-      clauses.push(
-        `(LOWER(plate) LIKE $${i} OR LOWER(invoice_no) LIKE $${i} OR LOWER(route) LIKE $${i})`,
-      );
-      params.push(`%${query.search.toLowerCase()}%`);
-      i++;
-    }
-    if (status) {
-      clauses.push(`status = $${i++}`);
-      params.push(status);
-    }
-
+    i = addSearchClause(clauses, params, i, ["plate", "invoice_no", "route", "cls", "period"], query.search);
+    i = addDestinationClause(clauses, params, i, "route", query.destination);
+    i = addDateClause(clauses, params, i, "service_date", query.date);
+    i = addStatusClause(clauses, params, i, status);
     const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    return { where, params };
+  }
 
-    if (query.page === undefined && query.limit === undefined) {
-      return this.db.queryAll(`SELECT * FROM invoices ${where} ORDER BY created_at DESC`, params);
+  async findAll(query: ListQueryDto, status?: string) {
+    const { where, params } = this.buildWhere(query, status);
+
+    if (wantsFullList(query)) {
+      return this.db.queryAll(`SELECT * FROM invoices ${where} ORDER BY created_at DESC, id DESC`, params);
     }
 
-    return queryPaginated(this.db, {
+    return queryList<InvoiceRow>(this.db, query, {
       table: "invoices",
       where,
       params,
-      page: query.page ?? 1,
-      limit: query.limit ?? 50,
-    }) as Promise<PaginatedResult<InvoiceRow>>;
+      orderBy: "created_at DESC, id DESC",
+    });
+  }
+
+  async summary() {
+    const rows = await this.db.queryAll<{ status: string; count: string }>(
+      `SELECT status, COUNT(*)::text AS count FROM invoices GROUP BY status`,
+    );
+    const counts: StatusCounts = {};
+    let total = 0;
+    for (const row of rows) {
+      const n = parseInt(row.count, 10);
+      counts[row.status] = n;
+      total += n;
+    }
+    return {
+      total,
+      draft: counts.draft ?? 0,
+      sent: counts.sent ?? 0,
+      pending: counts.pending ?? 0,
+      approved: counts.approved ?? 0,
+      paid: counts.paid ?? 0,
+      rejected: counts.rejected ?? 0,
+    };
   }
 
   async findOne(id: string) {
@@ -67,17 +102,16 @@ export class InvoicesService {
   }
 
   async nextInvoiceNo(): Promise<string> {
-    const row = await this.db.queryOne<{ max: string | null }>(
-      `SELECT MAX(CAST(REGEXP_REPLACE(invoice_no, '\\D', '', 'g') AS BIGINT))::text AS max FROM invoices`,
-    );
-    const max = parseInt(row?.max ?? String(INVOICE_SERIES_START - 1), 10);
-    return String(Math.max(max, INVOICE_SERIES_START - 1) + 1);
+    const n = await this.sequences.next(SEQUENCE_KEYS.invoiceNo);
+    return String(n);
   }
 
-  create(dto: CreateInvoiceDto) {
+  async create(dto: CreateInvoiceDto) {
+    const partnerId = await this.resolvePartnerId(dto.partnerId);
+    const period = dto.period ? dto.period.slice(0, 120) : null;
     return this.db.queryOne(
-      `INSERT INTO invoices (invoice_no, plate, cls, route, days, net, vat, total, status, service_date, period, delivery_note_no, client_note)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+      `INSERT INTO invoices (invoice_no, plate, cls, route, days, net, vat, total, status, service_date, period, delivery_note_no, client_note, partner_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
       [
         dto.invoiceNo,
         dto.plate,
@@ -89,18 +123,57 @@ export class InvoicesService {
         dto.total,
         dto.status ?? "draft",
         dto.serviceDate ?? null,
-        dto.period ?? null,
+        period,
         dto.deliveryNoteNo ?? null,
         dto.clientNote ?? null,
+        partnerId,
       ],
     );
   }
 
   async importBulk(rows: CreateInvoiceDto[]) {
-    const created: unknown[] = [];
-    for (const dto of rows) {
-      created.push(await this.create(dto));
-    }
+    if (!rows.length) return { imported: 0, rows: [] as unknown[] };
+
+    const partnerId = await this.resolvePartnerId();
+    const created = await this.db.withTransaction(async (client) => {
+      const start = await this.sequences.nextN(client, SEQUENCE_KEYS.invoiceNo, rows.length);
+      const values: unknown[][] = rows.map((dto, idx) => {
+        const invoiceNo = dto.invoiceNo?.trim() || String(start + idx);
+        const period = dto.period ? dto.period.slice(0, 120) : null;
+        return [
+          invoiceNo,
+          dto.plate,
+          dto.cls,
+          dto.route,
+          dto.days,
+          dto.net,
+          dto.vat,
+          dto.total,
+          dto.status ?? "draft",
+          dto.serviceDate ?? null,
+          period,
+          dto.deliveryNoteNo ?? null,
+          dto.clientNote ?? null,
+          partnerId,
+        ];
+      });
+
+      const tuples: string[] = [];
+      const flat: unknown[] = [];
+      let p = 1;
+      for (const row of values) {
+        tuples.push(`(${row.map(() => `$${p++}`).join(", ")})`);
+        flat.push(...row);
+      }
+
+      const result = await client.query(
+        `INSERT INTO invoices (invoice_no, plate, cls, route, days, net, vat, total, status, service_date, period, delivery_note_no, client_note, partner_id)
+         VALUES ${tuples.join(", ")} RETURNING *`,
+        flat,
+      );
+      return result.rows;
+    });
+
     return { imported: created.length, rows: created };
   }
 
@@ -131,6 +204,15 @@ export class InvoicesService {
         values.push(val);
       }
     }
+
+    if (dto.status === "sent" && !before.partner_id) {
+      const partnerId = await this.resolvePartnerId();
+      if (partnerId) {
+        fields.push(`partner_id = $${i++}`);
+        values.push(partnerId);
+      }
+    }
+
     fields.push(`updated_at = NOW()`);
     values.push(id);
     const updated = (await this.db.queryOne(

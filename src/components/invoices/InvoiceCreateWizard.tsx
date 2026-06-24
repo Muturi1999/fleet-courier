@@ -4,10 +4,13 @@ import { useEffect, useState } from "react";
 import { IconArrowLeft, IconArrowRight, IconCheck, IconEdit, IconFileText } from "@tabler/icons-react";
 import { BillingPartyForm } from "@/components/billing/BillingPartyForm";
 import { FormField } from "@/components/ui/Modal";
+import { SearchSelect } from "@/components/ui/SearchSelect";
 import { InvoiceDocument } from "@/components/invoices/InvoiceDocument";
 import { calcBilling } from "@/lib/billing";
-import { DEFAULT_BILLING_PROFILE } from "@/lib/invoice-meta";
-import type { BillingProfile, Invoice, InvoiceStatus } from "@/lib/types";
+import { dateKey } from "@/lib/dates";
+import { syncBillingPeriod } from "@/lib/invoice-form";
+import { DEFAULT_BILLING_PROFILE, INVOICE_DEFAULTS } from "@/lib/invoice-meta";
+import type { BillingProfile, Invoice, InvoiceStatus, Rate, Vehicle } from "@/lib/types";
 import { useToast } from "@/context/ToastContext";
 
 const STEPS = [
@@ -97,6 +100,8 @@ export function InvoiceCreateWizard({
   setForm,
   dayRate,
   setDayRate,
+  vehicles,
+  rates,
   profile,
   profileLoading,
   onSaveProfile,
@@ -108,6 +113,8 @@ export function InvoiceCreateWizard({
   setForm: React.Dispatch<React.SetStateAction<Omit<Invoice, "id">>>;
   dayRate: number;
   setDayRate: (n: number) => void;
+  vehicles: Vehicle[];
+  rates: Rate[];
   profile: BillingProfile | null;
   profileLoading: boolean;
   onSaveProfile: (p: BillingProfile) => Promise<unknown>;
@@ -133,6 +140,36 @@ export function InvoiceCreateWizard({
     const b = calcBilling(rate, days);
     setDayRate(rate);
     setForm((f) => ({ ...f, days, net: b.cost, vat: b.vat, total: b.total }));
+  };
+
+  const syncPlate = (plate: string) => {
+    const vehicle = vehicles.find((v) => v.plate.toUpperCase() === plate.trim().toUpperCase());
+    setForm((f) => {
+      const next = { ...f, plate: plate.trim().toUpperCase(), cls: vehicle?.cls ?? f.cls };
+      if (vehicle && f.route) {
+        const rate = rates.find((r) => r.route === f.route && r.cls === vehicle.cls) ?? rates.find((r) => r.route === f.route);
+        if (rate) {
+          const b = calcBilling(rate.rate, f.days);
+          setDayRate(rate.rate);
+          return { ...next, net: b.cost, vat: b.vat, total: b.total };
+        }
+      }
+      return next;
+    });
+  };
+
+  const syncRoute = (routeName: string) => {
+    const vehicleCls = vehicles.find((v) => v.plate === form.plate)?.cls;
+    const rate =
+      rates.find((r) => r.route === routeName && (!vehicleCls || r.cls === vehicleCls)) ??
+      rates.find((r) => r.route === routeName);
+    if (!rate) {
+      setForm((f) => ({ ...f, route: routeName }));
+      return;
+    }
+    const b = calcBilling(rate.rate, form.days);
+    setDayRate(rate.rate);
+    setForm((f) => ({ ...f, route: routeName, cls: vehicleCls ?? rate.cls, net: b.cost, vat: b.vat, total: b.total }));
   };
 
   const validateStep1 = () => {
@@ -191,52 +228,76 @@ export function InvoiceCreateWizard({
       {step === 1 && (
         <div className="card grid grid-cols-2 gap-3">
           <p className="col-span-2 text-sm text-fleet-gray-500">
-            Enter trip and billing line details. Status is set on the final preview step.
+            Enter trip and billing line details. Save as draft anytime, or continue to billing settings before sending.
           </p>
           <FormField label="Invoice No.">
             <input className="field-input bg-fleet-gray-50 font-mono" readOnly value={form.invoiceNo} />
-          </FormField>
-          <FormField label="Vehicle plate *">
-            <input
-              className="field-input"
-              required
-              value={form.plate}
-              onChange={(e) => setForm({ ...form, plate: e.target.value.toUpperCase() })}
-            />
-          </FormField>
-          <FormField label="Vehicle class *">
-            <select className="field-input" value={form.cls} onChange={(e) => setForm({ ...form, cls: e.target.value })}>
-              <option>7T</option>
-              <option>15T</option>
-              <option>Canter</option>
-              <option>Van</option>
-            </select>
           </FormField>
           <FormField label="Service date">
             <input
               type="date"
               className="field-input"
-              value={form.serviceDate ?? ""}
+              value={dateKey(form.serviceDate)}
               onChange={(e) => setForm({ ...form, serviceDate: e.target.value })}
             />
           </FormField>
-          <FormField label="Billing period">
-            <input
-              className="field-input"
-              placeholder="e.g. Mar 2026"
-              value={form.period ?? ""}
-              onChange={(e) => setForm({ ...form, period: e.target.value })}
+          <FormField label="Vehicle plate *">
+            <SearchSelect
+              listId="inv-vehicle-plates"
+              mono
+              required
+              value={form.plate}
+              placeholder="Type or select plate"
+              options={vehicles.map((v) => ({ value: v.plate, label: `${v.plate} · ${v.cls}` }))}
+              onChange={syncPlate}
             />
           </FormField>
-          <FormField label="D/Note No.">
+          <FormField label="Vehicle class (tonnes) *">
+            <input className="field-input bg-fleet-gray-50 font-mono" readOnly value={form.cls} />
+          </FormField>
+          <FormField label="Billing period from">
             <input
+              type="date"
               className="field-input"
-              value={form.deliveryNoteNo ?? ""}
-              onChange={(e) => setForm({ ...form, deliveryNoteNo: e.target.value })}
+              value={dateKey(form.periodStart ?? form.serviceDate)}
+              onChange={(e) => setForm((f) => ({ ...f, ...syncBillingPeriod(f, { periodStart: e.target.value }) }))}
             />
           </FormField>
-          <FormField label="Particulars (route / collection)" className="col-span-2">
-            <input className="field-input" value={form.route} onChange={(e) => setForm({ ...form, route: e.target.value })} />
+          <FormField label="Billing period to">
+            <input
+              type="date"
+              className="field-input"
+              value={dateKey(form.periodEnd ?? form.periodStart ?? form.serviceDate)}
+              onChange={(e) => setForm((f) => ({ ...f, ...syncBillingPeriod(f, { periodEnd: e.target.value }) }))}
+            />
+          </FormField>
+          <div className="col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FormField label="D/Note No.">
+              <input
+                className="field-input"
+                placeholder="Delivery note number"
+                value={form.deliveryNoteNo ?? ""}
+                onChange={(e) => setForm({ ...form, deliveryNoteNo: e.target.value })}
+              />
+            </FormField>
+            <FormField label="Billing period">
+              <input
+                className="field-input bg-fleet-gray-50 text-right"
+                readOnly
+                value={form.period ?? ""}
+                placeholder="e.g. June 2026"
+              />
+            </FormField>
+          </div>
+          <FormField label="Particulars (route / collection) *" className="col-span-2">
+            <SearchSelect
+              listId="inv-route-options"
+              required
+              value={form.route}
+              placeholder={INVOICE_DEFAULTS.defaultParticulars}
+              options={rates.map((r) => ({ value: r.route, label: `${r.route} · ${r.cls} · KES ${r.rate}` }))}
+              onChange={syncRoute}
+            />
           </FormField>
           <FormField label="Daily rate (KES) *">
             <input
@@ -247,7 +308,7 @@ export function InvoiceCreateWizard({
               onChange={(e) => setRateDays(Number(e.target.value), form.days)}
             />
           </FormField>
-          <FormField label="Days *">
+          <FormField label="Days/Trip *">
             <input
               type="number"
               min={1}
@@ -287,9 +348,14 @@ export function InvoiceCreateWizard({
             <button type="button" className="btn-secondary" onClick={onCancel}>
               Cancel
             </button>
-            <button type="button" className="btn-accent" onClick={handleStep1Next}>
-              Next step <IconArrowRight size={16} />
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="btn-secondary" disabled={saving} onClick={() => validateStep1() && onSave("draft")}>
+                {saving ? "Saving…" : "Save as draft"}
+              </button>
+              <button type="button" className="btn-accent" onClick={handleStep1Next}>
+                Next step <IconArrowRight size={16} />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -339,20 +405,10 @@ export function InvoiceCreateWizard({
               <IconEdit size={16} /> Edit details
             </button>
             <div className="flex flex-1 flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={saving}
-                onClick={() => onSave("draft")}
-              >
+              <button type="button" className="btn-secondary" disabled={saving} onClick={() => onSave("draft")}>
                 Save as draft
               </button>
-              <button
-                type="button"
-                className="btn-accent"
-                disabled={saving}
-                onClick={() => onSave("sent")}
-              >
+              <button type="button" className="btn-accent" disabled={saving} onClick={() => onSave("sent")}>
                 {saving ? "Saving…" : "Create invoice"}
               </button>
             </div>

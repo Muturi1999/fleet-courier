@@ -3,17 +3,27 @@ import { UserRole } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 import { Pool } from "pg";
 import { PG_POOL } from "../common/database/postgres-pool.provider";
+import { ManagedCredentialService } from "../common/services/managed-credential.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateTenantDto } from "./dto/create-tenant.dto";
 import { OnboardTenantDto } from "./dto/onboard-tenant.dto";
 import { TenantProvisioningService, tenantSchemaName } from "./tenant-provisioning.service";
 import type { PatchRunResult } from "../common/database/tenant-patch.runner";
 
+function slugifyPartner(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48) || "partner";
+}
+
 @Injectable()
 export class TenantsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly provisioning: TenantProvisioningService,
+    private readonly credentials: ManagedCredentialService,
     @Inject(PG_POOL) private readonly pool: Pool,
   ) {}
 
@@ -78,7 +88,7 @@ export class TenantsService {
         },
       });
 
-      await this.prisma.user.create({
+      const adminUser = await this.prisma.user.create({
         data: {
           tenantId: tenant.id,
           username: dto.admin.username,
@@ -87,24 +97,51 @@ export class TenantsService {
           passwordHash: await bcrypt.hash(dto.admin.password, 10),
         },
       });
+      await this.credentials.store(adminUser.id, dto.admin.password);
 
-      let partnerCredentials: { username: string; password: string } | undefined;
-      if (dto.createPartnerPortal) {
-        const partnerPassword = dto.partnerPassword ?? `${dto.admin.password.slice(0, 4)}Partner1`;
-        const partnerLabel = dto.partner?.name ?? "Partner";
-        await this.prisma.user.create({
+      let partnerCredentials: { username: string; password: string; partnerId: string } | undefined;
+      let partnerId: string | undefined;
+
+      if (dto.partner?.name) {
+        const partnerSlug = slugifyPartner(dto.partner.name);
+        const partner = await this.prisma.partner.create({
           data: {
             tenantId: tenant.id,
-            username: "client",
-            displayName: `${partnerLabel} Partner`,
-            role: UserRole.client,
-            passwordHash: await bcrypt.hash(partnerPassword, 10),
+            slug: partnerSlug,
+            name: dto.partner.name,
+            legalName: dto.partner.legalName ?? dto.partner.name,
+            email: dto.partner.email ?? null,
           },
         });
-        partnerCredentials = { username: "client", password: partnerPassword };
+        partnerId = partner.id;
+
+        if (dto.createPartnerPortal) {
+          const partnerUsername =
+            dto.partner.username ?? slugifyPartner(dto.partner.name).replace(/-/g, "");
+          const partnerPassword = dto.partnerPassword ?? `${dto.admin.password.slice(0, 4)}Partner1`;
+          const partnerLabel = dto.partner.name;
+
+          const existingUser = await this.prisma.user.findFirst({
+            where: { tenantId: tenant.id, username: partnerUsername },
+          });
+          if (existingUser) throw new ConflictException("Partner username already taken");
+
+          const partnerUser = await this.prisma.user.create({
+            data: {
+              tenantId: tenant.id,
+              partnerId: partner.id,
+              username: partnerUsername,
+              displayName: `${partnerLabel} Partner`,
+              role: UserRole.client,
+              passwordHash: await bcrypt.hash(partnerPassword, 10),
+            },
+          });
+          await this.credentials.store(partnerUser.id, partnerPassword);
+          partnerCredentials = { username: partnerUsername, password: partnerPassword, partnerId: partner.id };
+        }
       }
 
-      await this.seedBillingProfile(schema, dto);
+      await this.seedBillingProfile(schema, dto, partnerId);
 
       return {
         tenant: {
@@ -139,7 +176,7 @@ export class TenantsService {
     return results;
   }
 
-  private async seedBillingProfile(schema: string, dto: OnboardTenantDto) {
+  private async seedBillingProfile(schema: string, dto: OnboardTenantDto, partnerId?: string) {
     const company = dto.company ?? {};
     const partner = dto.partner ?? {};
     const supplier = {
@@ -167,8 +204,8 @@ export class TenantsService {
     try {
       await db.query(`SET search_path TO "${schema}"`);
       await db.query(
-        `INSERT INTO billing_profiles (supplier, client) VALUES ($1::jsonb, $2::jsonb)`,
-        [JSON.stringify(supplier), JSON.stringify(clientParty)],
+        `INSERT INTO billing_profiles (supplier, client, partner_id) VALUES ($1::jsonb, $2::jsonb, $3::uuid)`,
+        [JSON.stringify(supplier), JSON.stringify(clientParty), partnerId ?? null],
       );
     } finally {
       db.release();

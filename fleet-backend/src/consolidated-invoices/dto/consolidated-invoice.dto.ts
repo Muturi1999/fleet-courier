@@ -2,10 +2,16 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsArray, IsOptional, IsString, IsUUID } from "class-validator";
 
 export class CreateConsolidatedInvoiceDto {
-  @ApiProperty({ type: [String] })
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
   @IsArray()
   @IsUUID("4", { each: true })
-  workTicketIds!: string[];
+  workTicketIds?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  plate?: string;
 
   @ApiProperty()
   @IsString()

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { IconClock, IconDownload, IconEdit, IconEye, IconFileText, IconPlus, IconTrash } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/Badge";
 import { FilterBar } from "@/components/ui/FilterBar";
@@ -13,14 +13,16 @@ import { InvoiceCreateWizard } from "@/components/invoices/InvoiceCreateWizard";
 import { ApprovalWorkflowCard } from "@/components/invoices/ApprovalWorkflowCard";
 import { EtimsValidationPanel } from "@/components/invoices/EtimsValidationPanel";
 import { calcBilling } from "@/lib/billing";
-import { generateNextInvoiceNumber } from "@/lib/invoice-meta";
-import { clearedFilters, filterInvoices, highlightSearch } from "@/lib/filters";
+import { clearedFilters, filtersAfterSave } from "@/lib/filters";
+import { dateKey, formatEATDisplay } from "@/lib/dates";
+import { emptyInvoiceForm, invoiceCreatePayload, syncBillingPeriod } from "@/lib/invoice-form";
 import type { FleetFilters } from "@/lib/filters";
-import type { Invoice, InvoiceStatus } from "@/lib/types";
+import type { Invoice, InvoiceStatus, Rate, Vehicle } from "@/lib/types";
+import { SearchSelect } from "@/components/ui/SearchSelect";
 import { useToast } from "@/context/ToastContext";
 import { useCrud } from "@/hooks/useCrud";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { usePageScreen } from "@/hooks/usePageScreen";
-import { usePagination } from "@/hooks/usePagination";
 import { usePlateFromUrl } from "@/hooks/usePlateFromUrl";
 import { useBillingProfile } from "@/hooks/useBillingProfile";
 import { ExcelImportButton } from "@/components/import/ExcelImportButton";
@@ -30,34 +32,83 @@ const PAGE = "Invoices";
 
 const statuses: InvoiceStatus[] = ["draft", "sent", "approved", "paid", "pending", "rejected"];
 
-const emptyInvoice = (existing: Invoice[]): Omit<Invoice, "id"> => ({
-  invoiceNo: generateNextInvoiceNumber(existing),
-  plate: "",
-  cls: "7T",
-  route: "NBI COLLECTION",
-  days: 1,
-  net: 8500,
-  vat: 1360,
-  total: 9860,
-  status: "draft",
-  serviceDate: new Date().toISOString().slice(0, 10),
-  period: "Mar 2026",
-  deliveryNoteNo: "",
-});
+type InvoiceSummary = {
+  total: number;
+  paid: number;
+  pending: number;
+  draft: number;
+  sent: number;
+  approved: number;
+  rejected: number;
+};
 
 export default function InvoicesPage() {
   const { toast } = useToast();
-  const { items, loading, create, update, remove, refresh } = useCrud<Invoice>("invoices");
+  const { items: vehicles } = useCrud<Vehicle>("vehicles");
+  const { items: rates } = useCrud<Rate>("rates");
   const { profile, loading: profileLoading, save: saveProfile } = useBillingProfile();
   const { screen, isList, openCreate, openEdit, openView, close } = usePageScreen();
 
   const [tab, setTab] = useState("all");
+  const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<FleetFilters>(clearedFilters());
   usePlateFromUrl(setFilters);
-  const [form, setForm] = useState(emptyInvoice([]));
+  const [form, setForm] = useState(emptyInvoiceForm([]));
   const [dayRate, setDayRate] = useState(8500);
   const [printOnOpen, setPrintOnOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [summary, setSummary] = useState<InvoiceSummary>({
+    total: 0,
+    paid: 0,
+    pending: 0,
+    draft: 0,
+    sent: 0,
+    approved: 0,
+    rejected: 0,
+  });
+  const [viewRecord, setViewRecord] = useState<Invoice | null>(null);
+
+  const effectiveStatus = tab !== "all" ? tab : filters.status || undefined;
+  const listKey = JSON.stringify({ filters, tab });
+  const {
+    items,
+    meta,
+    loading,
+    refreshPage,
+    fetchOne,
+    create,
+    update,
+    remove,
+    totalPages,
+    from,
+    to,
+  } = usePaginatedList<Invoice>("invoices", { page, filters, status: effectiveStatus });
+
+  useEffect(() => {
+    setPage(1);
+  }, [listKey]);
+
+  useEffect(() => {
+    fetch("/api/invoices/summary", { cache: "no-store", credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s: InvoiceSummary | null) => {
+        if (s) setSummary(s);
+      })
+      .catch(() => {});
+  }, [items.length, tab, filters]);
+
+  useEffect(() => {
+    if (screen.kind !== "view" && screen.kind !== "edit") {
+      setViewRecord(null);
+      return;
+    }
+    const found = items.find((x) => x.id === screen.id);
+    if (found) {
+      setViewRecord(found);
+      return;
+    }
+    fetchOne(screen.id).then((row) => setViewRecord(row));
+  }, [screen, items, fetchOne]);
 
   useEffect(() => {
     if (screen.kind === "view" && printOnOpen) {
@@ -68,32 +119,53 @@ export default function InvoicesPage() {
   }, [screen, printOnOpen]);
 
   useEffect(() => {
-    if (screen.kind === "edit") {
-      const inv = items.find((x) => x.id === screen.id);
-      if (inv) {
-        setForm({ ...inv });
-        setDayRate(inv.days > 0 ? Math.round(inv.net / inv.days) : 8500);
-      }
+    if (screen.kind === "edit" && viewRecord) {
+      setForm({ ...viewRecord });
+      setDayRate(viewRecord.days > 0 ? Math.round(viewRecord.net / viewRecord.days) : 8500);
     } else if (screen.kind === "create") {
-      const blank = emptyInvoice(items);
-      setForm(blank);
-      setDayRate(8500);
+      fetch("/api/invoices/next-number", { cache: "no-store", credentials: "same-origin" })
+        .then((r) => r.json())
+        .then((no) => {
+          const blank = emptyInvoiceForm([]);
+          setForm({ ...blank, invoiceNo: String(no) });
+          setDayRate(8500);
+        })
+        .catch(() => {
+          setForm(emptyInvoiceForm([]));
+          setDayRate(8500);
+        });
     }
-  }, [screen, items]);
+  }, [screen, viewRecord]);
 
-  const filtered = useMemo(() => filterInvoices(items, filters, tab), [items, filters, tab]);
-  const filterKey = JSON.stringify({ filters, tab });
-  const { paginated, ...pagination } = usePagination(filtered, filterKey);
+  const syncPlate = (plate: string) => {
+    const vehicle = vehicles.find((v) => v.plate.toUpperCase() === plate.trim().toUpperCase());
+    setForm((f) => {
+      const next = { ...f, plate: plate.trim().toUpperCase(), cls: vehicle?.cls ?? f.cls };
+      if (vehicle && f.route) {
+        const rate = rates.find((r) => r.route === f.route && r.cls === vehicle.cls) ?? rates.find((r) => r.route === f.route);
+        if (rate) {
+          const b = calcBilling(rate.rate, f.days);
+          setDayRate(rate.rate);
+          return { ...next, net: b.cost, vat: b.vat, total: b.total };
+        }
+      }
+      return next;
+    });
+  };
 
-  const totals = useMemo(
-    () => ({
-      count: items.length,
-      paid: items.filter((i) => i.status === "paid").length,
-      pending: items.filter((i) => i.status === "pending").length,
-      draft: items.filter((i) => i.status === "draft").length,
-    }),
-    [items],
-  );
+  const syncRoute = (routeName: string) => {
+    const vehicleCls = vehicles.find((v) => v.plate === form.plate)?.cls;
+    const rate =
+      rates.find((r) => r.route === routeName && (!vehicleCls || r.cls === vehicleCls)) ??
+      rates.find((r) => r.route === routeName);
+    if (!rate) {
+      setForm((f) => ({ ...f, route: routeName }));
+      return;
+    }
+    const b = calcBilling(rate.rate, form.days);
+    setDayRate(rate.rate);
+    setForm((f) => ({ ...f, route: routeName, cls: vehicleCls ?? rate.cls, net: b.cost, vat: b.vat, total: b.total }));
+  };
 
   const setRateDays = (rate: number, days: number) => {
     const b = calcBilling(rate, days);
@@ -105,25 +177,26 @@ export default function InvoicesPage() {
     ev.preventDefault();
     if (screen.kind !== "edit") return;
     try {
-      await update(screen.id, form);
+      await update(screen.id, invoiceCreatePayload(form, form.status));
       toast("Invoice updated");
-      setFilters(highlightSearch(form.plate || form.invoiceNo));
+      setFilters(filtersAfterSave(form.plate || form.invoiceNo));
       close();
-    } catch {
-      toast("Save failed");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Save failed");
     }
   };
 
   const handleCreateSave = async (status: InvoiceStatus) => {
     setSaving(true);
     try {
-      await create({ ...form, status });
+      const payload = invoiceCreatePayload(form, status);
+      const created = await create(payload as Omit<Invoice, "id">);
       toast(status === "draft" ? "Invoice saved as draft" : "Invoice created and sent to G4S");
       setTab("all");
-      setFilters(highlightSearch(form.plate || form.invoiceNo));
+      setFilters(filtersAfterSave(created.plate || created.invoiceNo || form.plate || form.invoiceNo));
       close();
-    } catch {
-      toast("Save failed");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Save failed");
     } finally {
       setSaving(false);
     }
@@ -144,7 +217,7 @@ export default function InvoicesPage() {
       if (!res.ok) throw new Error("Import failed");
       const json = (await res.json()) as { imported?: number };
       toast(`Imported ${json.imported ?? rows.length} invoices`);
-      await refresh();
+      await refreshPage();
     } catch {
       toast("Import failed — use Excel with Invoice #, Plate, Route, Net, Total columns");
     }
@@ -153,19 +226,21 @@ export default function InvoicesPage() {
   const crumbs = [{ label: PAGE, onClick: close }];
 
   if (screen.kind === "view") {
-    const viewInvoice = items.find((i) => i.id === screen.id);
-    if (!viewInvoice) {
-      close();
-      return null;
+    if (!viewRecord) {
+      return (
+        <RecordScreen crumbs={[...crumbs, { label: "…" }]} title="Invoice" onBack={close}>
+          <p className="py-8 text-center text-fleet-gray-400">Loading…</p>
+        </RecordScreen>
+      );
     }
     return (
       <RecordScreen
-        crumbs={[...crumbs, { label: viewInvoice.invoiceNo }]}
-        title={`Invoice ${viewInvoice.invoiceNo}`}
+        crumbs={[...crumbs, { label: viewRecord.invoiceNo }]}
+        title={`Invoice ${viewRecord.invoiceNo}`}
         onBack={close}
       >
-        <InvoiceDocument invoice={viewInvoice} profile={profile ?? undefined} onPrint={printInvoice} />
-        <EtimsValidationPanel invoiceId={viewInvoice.id} invoiceNo={viewInvoice.invoiceNo} />
+        <InvoiceDocument invoice={viewRecord} profile={profile ?? undefined} onPrint={printInvoice} />
+        <EtimsValidationPanel invoiceId={viewRecord.id} invoiceNo={viewRecord.invoiceNo} />
       </RecordScreen>
     );
   }
@@ -179,6 +254,8 @@ export default function InvoicesPage() {
           setForm={setForm}
           dayRate={dayRate}
           setDayRate={setDayRate}
+          vehicles={vehicles}
+          rates={rates}
           profile={profile}
           profileLoading={profileLoading}
           onSaveProfile={saveProfile}
@@ -198,26 +275,23 @@ export default function InvoicesPage() {
             <input className="field-input bg-fleet-gray-50 font-mono" readOnly value={form.invoiceNo} />
           </FormField>
           <FormField label="Vehicle plate *">
-            <input
-              className="field-input"
+            <SearchSelect
+              listId="inv-edit-plates"
+              mono
               required
               value={form.plate}
-              onChange={(e) => setForm({ ...form, plate: e.target.value.toUpperCase() })}
+              options={vehicles.map((v) => ({ value: v.plate, label: `${v.plate} · ${v.cls}` }))}
+              onChange={syncPlate}
             />
           </FormField>
-          <FormField label="Vehicle class *">
-            <select className="field-input" value={form.cls} onChange={(e) => setForm({ ...form, cls: e.target.value })}>
-              <option>7T</option>
-              <option>15T</option>
-              <option>Canter</option>
-              <option>Van</option>
-            </select>
+          <FormField label="Vehicle class (tonnes) *">
+            <input className="field-input bg-fleet-gray-50 font-mono" readOnly value={form.cls} />
           </FormField>
           <FormField label="Service date">
             <input
               type="date"
               className="field-input"
-              value={form.serviceDate ?? ""}
+              value={dateKey(form.serviceDate)}
               onChange={(e) => setForm({ ...form, serviceDate: e.target.value })}
             />
           </FormField>
@@ -234,23 +308,42 @@ export default function InvoicesPage() {
               ))}
             </select>
           </FormField>
-          <FormField label="Billing period">
+          <FormField label="Billing period from">
             <input
+              type="date"
               className="field-input"
-              placeholder="e.g. Mar 2026"
-              value={form.period ?? ""}
-              onChange={(e) => setForm({ ...form, period: e.target.value })}
+              value={dateKey(form.periodStart ?? form.serviceDate)}
+              onChange={(e) => setForm((f) => ({ ...f, ...syncBillingPeriod(f, { periodStart: e.target.value }) }))}
             />
           </FormField>
-          <FormField label="D/Note No.">
+          <FormField label="Billing period to">
             <input
+              type="date"
               className="field-input"
-              value={form.deliveryNoteNo ?? ""}
-              onChange={(e) => setForm({ ...form, deliveryNoteNo: e.target.value })}
+              value={dateKey(form.periodEnd ?? form.periodStart ?? form.serviceDate)}
+              onChange={(e) => setForm((f) => ({ ...f, ...syncBillingPeriod(f, { periodEnd: e.target.value }) }))}
             />
           </FormField>
+          <div className="col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FormField label="D/Note No.">
+              <input
+                className="field-input"
+                placeholder="Delivery note number"
+                value={form.deliveryNoteNo ?? ""}
+                onChange={(e) => setForm({ ...form, deliveryNoteNo: e.target.value })}
+              />
+            </FormField>
+            <FormField label="Billing period">
+              <input className="field-input bg-fleet-gray-50 text-right" readOnly value={form.period ?? ""} />
+            </FormField>
+          </div>
           <FormField label="Particulars (route / collection)" className="col-span-2">
-            <input className="field-input" value={form.route} onChange={(e) => setForm({ ...form, route: e.target.value })} />
+            <SearchSelect
+              listId="inv-edit-routes"
+              value={form.route}
+              options={rates.map((r) => ({ value: r.route, label: `${r.route} · ${r.cls} · KES ${r.rate}` }))}
+              onChange={syncRoute}
+            />
           </FormField>
           <FormField label="Daily rate (KES) *">
             <input
@@ -261,7 +354,7 @@ export default function InvoicesPage() {
               onChange={(e) => setRateDays(Number(e.target.value), form.days)}
             />
           </FormField>
-          <FormField label="Days *">
+          <FormField label="Days/Trip *">
             <input
               type="number"
               min={1}
@@ -312,10 +405,10 @@ export default function InvoicesPage() {
       <ApprovalWorkflowCard />
 
       <MetricsGrid>
-        <MetricCard accent="navy" icon={IconFileText} label="Total invoices" value={String(totals.count)} sub="All statuses" />
-        <MetricCard accent="teal" icon={IconFileText} label="Paid" value={String(totals.paid)} sub="Settled invoices" />
-        <MetricCard accent="amber" icon={IconClock} label="Pending" value={String(totals.pending)} sub="Awaiting payment" />
-        <MetricCard accent="red" icon={IconFileText} label="Draft" value={String(totals.draft)} sub="Not yet sent" />
+        <MetricCard accent="navy" icon={IconFileText} label="Total invoices" value={String(summary.total)} sub="All statuses" />
+        <MetricCard accent="teal" icon={IconFileText} label="Paid" value={String(summary.paid)} sub="Settled invoices" />
+        <MetricCard accent="amber" icon={IconClock} label="Pending" value={String(summary.pending)} sub="Awaiting payment" />
+        <MetricCard accent="red" icon={IconFileText} label="Draft" value={String(summary.draft)} sub="Not yet sent" />
       </MetricsGrid>
 
       <div className="mb-3 flex flex-wrap gap-2">
@@ -326,7 +419,9 @@ export default function InvoicesPage() {
             className={tab === s ? "filter-tab filter-tab-active" : "filter-tab"}
             onClick={() => setTab(s)}
           >
-            {s === "all" ? `All (${items.length})` : s.charAt(0).toUpperCase() + s.slice(1)}
+            {s === "all"
+              ? `All (${summary.total})`
+              : `${s.charAt(0).toUpperCase() + s.slice(1)} (${(summary as Record<string, number>)[s] ?? 0})`}
           </button>
         ))}
       </div>
@@ -336,16 +431,13 @@ export default function InvoicesPage() {
         onChange={setFilters}
         fields={["search", "destination", "date", "status"]}
         statusKind="invoice"
-        resultCount={filtered.length}
+        resultCount={meta.total}
       >
         <ExcelImportButton label="Import Excel" onImport={importInvoices} />
         <button
           type="button"
           className="btn-accent btn-sm"
-          onClick={() => {
-            setForm(emptyInvoice(items));
-            openCreate();
-          }}
+          onClick={() => openCreate()}
         >
           <IconPlus size={14} /> New invoice
         </button>
@@ -360,7 +452,8 @@ export default function InvoicesPage() {
               <th>Class</th>
               <th>Route</th>
               <th>Date</th>
-              <th>Days</th>
+              <th>Period</th>
+              <th>Days/Trip</th>
               <th>Total</th>
               <th>Status</th>
               <th>Actions</th>
@@ -369,18 +462,18 @@ export default function InvoicesPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={9} className="py-8 text-center text-fleet-gray-400">
+                <td colSpan={10} className="py-8 text-center text-fleet-gray-400">
                   Loading…
                 </td>
               </tr>
-            ) : paginated.length === 0 ? (
+            ) : items.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-8 text-center text-fleet-gray-400">
+                <td colSpan={10} className="py-8 text-center text-fleet-gray-400">
                   No invoices match filters
                 </td>
               </tr>
             ) : (
-              paginated.map((inv) => (
+              items.map((inv) => (
                 <tr key={inv.id}>
                   <td className="font-mono font-medium">{inv.invoiceNo}</td>
                   <td className="font-mono">{inv.plate}</td>
@@ -388,7 +481,8 @@ export default function InvoicesPage() {
                     <Badge variant="draft">{inv.cls}</Badge>
                   </td>
                   <td className="text-xs">{inv.route}</td>
-                  <td className="text-xs text-fleet-gray-400">{inv.serviceDate ?? inv.period}</td>
+                  <td className="whitespace-nowrap text-xs">{formatEATDisplay(inv.serviceDate) || "—"}</td>
+                  <td className="text-xs text-fleet-gray-500">{inv.period || "—"}</td>
                   <td className="text-center">{inv.days}</td>
                   <td className="font-mono font-medium">{inv.total.toLocaleString()}</td>
                   <td>
@@ -440,7 +534,7 @@ export default function InvoicesPage() {
         </table>
       </div>
 
-      <Pagination {...pagination} onPage={pagination.setPage} />
+      <Pagination page={page} totalPages={totalPages} total={meta.total} from={from} to={to} onPage={setPage} />
     </>
   );
 }

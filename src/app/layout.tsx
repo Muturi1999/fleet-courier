@@ -18,7 +18,7 @@ const dmMono = DM_Mono({
 
 export const metadata: Metadata = {
   title: "Fleet Courier Management System — Fleet Travel Ltd",
-  description: "Fleet operator billing and operations platform — Road Network Transporters with G4S partner portal",
+  description: "Multi-tenant fleet billing and operations — schedules, invoices, work tickets, client portal, eTIMS, and reports for courier operators.",
   icons: {
     icon: [
       { url: "/icon.svg", type: "image/svg+xml" },

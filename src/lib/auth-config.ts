@@ -2,6 +2,7 @@ import type { AuthUser, UserRole } from "./types";
 
 export const AUTH_COOKIE = "fc-auth";
 export const AUTH_TOKEN_COOKIE = "fc-token";
+export const PLATFORM_TOKEN_COOKIE = "fc-platform-token";
 
 export const CREDENTIALS: Record<string, { password: string; role: UserRole; displayName: string }> = {
   admin: { password: "admin123", role: "admin", displayName: "Fleet Admin" },
@@ -22,7 +23,7 @@ export function parseAuthCookie(value: string | undefined): AuthUser | null {
   if (!value) return null;
   try {
     const user = JSON.parse(decodeURIComponent(value)) as AuthUser;
-    if (user.role !== "admin" && user.role !== "client") return null;
+    if (user.role !== "admin" && user.role !== "client" && user.role !== "platform_admin") return null;
     return user;
   } catch {
     return null;

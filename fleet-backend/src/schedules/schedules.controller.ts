@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { UserRole } from "@prisma/client";
 import { ApiTenantAuth } from "../common/decorators/api-tenant-auth.decorator";
+import { ListQueryDto } from "../common/dto/list-query.dto";
 import { CreateScheduleDto, UpdateScheduleDto } from "./dto/schedule.dto";
 import { SchedulesService } from "./schedules.service";
 
@@ -12,9 +13,14 @@ export class SchedulesController {
   constructor(private readonly service: SchedulesService) {}
 
   @Get()
-  @ApiOperation({ summary: "List schedule entries (tenant schema)" })
-  list(@Query("search") search?: string) {
-    return this.service.findAll(search);
+  @ApiOperation({ summary: "List schedule entries (paginated by default; ?all=true for full list)" })
+  list(@Query() query: ListQueryDto) {
+    return this.service.findAll(query);
+  }
+
+  @Get("summary")
+  summary() {
+    return this.service.summary();
   }
 
   @Get(":id")

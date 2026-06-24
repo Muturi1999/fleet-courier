@@ -1,12 +1,22 @@
-/** Monthly contract totals (actual Excel / SOA data) */
+/** Monthly contract totals (legacy demo snapshots — prefer live invoice data) */
 import type { Invoice, ScheduleEntry, Vehicle, Expense } from "./types";
+import { dateKey, formatEATIso } from "./dates";
+import { sumBy, toNum } from "./utils";
 
 export const REPORT_MONTHS = [
   { key: "2026-01", label: "January 2026", short: "Jan 2026", period: "Jan 2026" },
   { key: "2026-02", label: "February 2026", short: "Feb 2026", period: "Feb 2026" },
   { key: "2026-03", label: "March 2026", short: "Mar 2026", period: "Mar 2026" },
-  { key: "ytd", label: "YTD Jan–Mar 2026", short: "YTD", period: "YTD" },
+  { key: "2026-06", label: "June 2026", short: "Jun 2026", period: "Jun 2026" },
+  { key: "ytd", label: "YTD 2026", short: "YTD", period: "YTD" },
 ] as const;
+
+/** Default reports month from current East Africa date */
+export function currentReportMonthKey(): ReportMonthKey {
+  const prefix = formatEATIso(new Date()).slice(0, 7);
+  const match = REPORT_MONTHS.find((m) => m.key === prefix);
+  return match?.key ?? "2026-06";
+}
 
 export type ReportMonthKey = (typeof REPORT_MONTHS)[number]["key"];
 
@@ -54,9 +64,30 @@ export function periodForMonth(key: ReportMonthKey): string | null {
 }
 
 export function monthKeysForFilter(key: ReportMonthKey): string[] | null {
-  if (key === "ytd") return ["Jan 2026", "Feb 2026", "Mar 2026"];
+  if (key === "ytd") return REPORT_MONTHS.filter((m) => m.key !== "ytd").map((m) => m.period);
   const p = periodForMonth(key);
   return p ? [p] : null;
+}
+
+function invoiceInMonthKey(invoice: Invoice, monthKey: ReportMonthKey): boolean {
+  const serviceKey = dateKey(invoice.serviceDate);
+  if (monthKey === "ytd") {
+    const year = serviceKey.slice(0, 4) || "2026";
+    return serviceKey.startsWith(year);
+  }
+  const [y, m] = monthKey.split("-");
+  if (serviceKey.startsWith(`${y}-${m}`)) return true;
+  const months = monthKeysForFilter(monthKey);
+  return months ? inMonth(invoice.period, months) : false;
+}
+
+function scheduleInMonthKey(schedule: ScheduleEntry, monthKey: ReportMonthKey): boolean {
+  if (monthKey === "ytd") {
+    const mk = schedule.month ?? "";
+    return mk.includes("2026");
+  }
+  const months = monthKeysForFilter(monthKey);
+  return months ? inMonth(schedule.month, months) : false;
 }
 
 export type RevenueTrendPoint = { label: string; total: number; net: number; vat: number };
@@ -114,46 +145,43 @@ function inMonth(period: string | undefined, months: string[] | null): boolean {
 }
 
 export function filterInvoicesByMonth(invoices: Invoice[], monthKey: ReportMonthKey): Invoice[] {
-  const months = monthKeysForFilter(monthKey);
-  if (monthKey === "2026-03" || monthKey === "ytd") {
-    return invoices.filter((i) => inMonth(i.period, months));
-  }
-  // Jan/Feb: scale live invoice sample for demo line items
-  const ratio = monthKey === "2026-01" ? 0.896 : 0.972;
-  return invoices.slice(0, Math.floor(invoices.length * ratio)).map((i) => ({
-    ...i,
-    net: Math.round(i.net * ratio),
-    vat: Math.round(i.vat * ratio),
-    total: Math.round(i.total * ratio),
-    period: monthKey === "2026-01" ? "Jan 2026" : "Feb 2026",
-  }));
+  return invoices.filter((i) => invoiceInMonthKey(i, monthKey));
 }
 
 export function filterSchedulesByMonth(schedules: ScheduleEntry[], monthKey: ReportMonthKey): ScheduleEntry[] {
-  const months = monthKeysForFilter(monthKey);
-  if (monthKey === "2026-03" || monthKey === "ytd") {
-    return schedules.filter((s) => inMonth(s.month, months));
-  }
-  const ratio = monthKey === "2026-01" ? 0.896 : 0.972;
-  return schedules.slice(0, Math.floor(schedules.length * ratio)).map((s) => ({
-    ...s,
-    cost: Math.round(s.cost * ratio),
-    vat: Math.round(s.vat * ratio),
-    total: Math.round(s.total * ratio),
-    month: monthKey === "2026-01" ? "Jan 2026" : "Feb 2026",
-  }));
+  return schedules.filter((s) => scheduleInMonthKey(s, monthKey));
 }
 
 export function computeVatSummary(invoices: Invoice[], monthKey: ReportMonthKey) {
   const filtered = filterInvoicesByMonth(invoices, monthKey);
-  if (monthKey !== "2026-03" && monthKey !== "ytd") {
-    const snap = snapshotForMonth(monthKey);
-    return { lines: filtered, net: snap.net, vat: snap.vat, total: snap.total, count: snap.invoices };
-  }
-  const net = filtered.reduce((s, i) => s + i.net, 0);
-  const vat = filtered.reduce((s, i) => s + i.vat, 0);
-  const total = filtered.reduce((s, i) => s + i.total, 0);
+  const net = sumBy(filtered, (i) => i.net);
+  const vat = sumBy(filtered, (i) => i.vat);
+  const total = sumBy(filtered, (i) => i.total);
   return { lines: filtered, net, vat, total, count: filtered.length };
+}
+
+export function computeLiveOverviewMetrics(
+  invoices: Invoice[],
+  vehicles: Vehicle[],
+  schedules: ScheduleEntry[],
+  monthKey: ReportMonthKey,
+) {
+  const vat = computeVatSummary(invoices, monthKey);
+  const sch = filterSchedulesByMonth(schedules, monthKey);
+  const platesFromSchedules = new Set(sch.map((s) => s.plate));
+  const platesFromInvoices = new Set(filterInvoicesByMonth(invoices, monthKey).map((i) => i.plate));
+  const fleetCount =
+    platesFromSchedules.size ||
+    platesFromInvoices.size ||
+    vehicles.filter((v) => v.status !== "inactive").length;
+  return {
+    total: vat.total,
+    net: vat.net,
+    vat: vat.vat,
+    invoiceCount: vat.count,
+    vehicles: fleetCount,
+    runs: sch.length,
+  };
 }
 
 export function computeClassBreakdown(
@@ -166,9 +194,9 @@ export function computeClassBreakdown(
 
   for (const s of sch) {
     const cur = byCls.get(s.cls) ?? { cls: s.cls, vehicles: 0, net: 0, vat: 0, total: 0 };
-    cur.net += s.cost;
-    cur.vat += s.vat;
-    cur.total += s.total;
+    cur.net += toNum(s.cost);
+    cur.vat += toNum(s.vat);
+    cur.total += toNum(s.total);
     byCls.set(s.cls, cur);
   }
 
@@ -185,7 +213,7 @@ export function computeClassBreakdown(
   if (byCls.size === 0) {
     return ["7T", "15T", "CANTER", "VAN"].map((cls) => {
       const v = vehicles.filter((x) => x.cls === cls);
-      const total = v.reduce((s, x) => s + x.total, 0);
+      const total = sumBy(v, (x) => x.total);
       const net = Math.round(total / 1.16);
       return { cls, vehicles: v.length, net, vat: total - net, total };
     }).filter((x) => x.total > 0);
@@ -214,10 +242,10 @@ export function computeFleetRanking(
       routes: [],
     };
     cur.runs += 1;
-    cur.days += s.days;
-    cur.net += s.cost;
-    cur.vat += s.vat;
-    cur.total += s.total;
+    cur.days += toNum(s.days);
+    cur.net += toNum(s.cost);
+    cur.vat += toNum(s.vat);
+    cur.total += toNum(s.total);
     if (!cur.routes.includes(s.dest)) cur.routes.push(s.dest);
     byPlate.set(s.plate, cur);
   }
@@ -225,17 +253,20 @@ export function computeFleetRanking(
   if (byPlate.size === 0) {
     const ratio = monthKey === "2026-01" ? 0.896 : monthKey === "2026-02" ? 0.972 : monthKey === "ytd" ? 1 : 1;
     return vehicles
-      .filter((v) => v.total > 0)
-      .map((v) => ({
+      .filter((v) => toNum(v.total) > 0)
+      .map((v) => {
+        const vTotal = toNum(v.total);
+        return {
         plate: v.plate,
         cls: v.cls,
         runs: v.runs,
         days: v.days,
-        net: Math.round((v.total / 1.16) * (monthKey === "ytd" ? 1 : ratio)),
-        vat: Math.round((v.total - v.total / 1.16) * (monthKey === "ytd" ? 1 : ratio)),
-        total: Math.round(v.total * (monthKey === "ytd" ? 1 : ratio)),
+        net: Math.round((vTotal / 1.16) * (monthKey === "ytd" ? 1 : ratio)),
+        vat: Math.round((vTotal - vTotal / 1.16) * (monthKey === "ytd" ? 1 : ratio)),
+        total: Math.round(vTotal * (monthKey === "ytd" ? 1 : ratio)),
         routes: v.dests,
-      }))
+      };
+      })
       .sort((a, b) => b.total - a.total);
   }
 
@@ -280,10 +311,10 @@ export function computeVehicleReport(
     plate,
     cls: rows[0]!.cls,
     runs: rows.length,
-    days: rows.reduce((s, r) => s + r.days, 0),
-    net: rows.reduce((s, r) => s + r.net, 0),
-    vat: rows.reduce((s, r) => s + r.vat, 0),
-    total: rows.reduce((s, r) => s + r.total, 0),
+    days: sumBy(rows, (r) => r.days),
+    net: sumBy(rows, (r) => r.net),
+    vat: sumBy(rows, (r) => r.vat),
+    total: sumBy(rows, (r) => r.total),
     routes: [...new Set(rows.map((r) => r.route))],
   };
 
@@ -297,9 +328,9 @@ export function computeDestBreakdown(schedules: ScheduleEntry[], monthKey: Repor
   for (const s of sch) {
     const cur = byDest.get(s.dest) ?? { dest: s.dest, trips: 0, net: 0, vat: 0, total: 0 };
     cur.trips += 1;
-    cur.net += s.cost;
-    cur.vat += s.vat;
-    cur.total += s.total;
+    cur.net += toNum(s.cost);
+    cur.vat += toNum(s.vat);
+    cur.total += toNum(s.total);
     byDest.set(s.dest, cur);
   }
 
@@ -330,21 +361,21 @@ export type PnlReport = {
   byCategory: { category: string; amount: number }[];
 };
 
-export function computePnL(expenses: Expense[], monthKey: ReportMonthKey): PnlReport {
-  const snap = snapshotForMonth(monthKey);
-  const revenue = snap.net;
+export function computePnL(expenses: Expense[], monthKey: ReportMonthKey, invoices: Invoice[] = []): PnlReport {
+  const filtered = filterInvoicesByMonth(invoices, monthKey);
+  const revenue = filtered.length ? sumBy(filtered, (i) => i.net) : snapshotForMonth(monthKey).net;
   const period = periodForMonth(monthKey);
   const monthExpenses = period
     ? expenses.filter((e) => e.month === period)
-    : expenses.filter((e) => ["Jan 2026", "Feb 2026", "Mar 2026"].includes(e.month));
+    : expenses.filter((e) => REPORT_MONTHS.some((m) => m.key !== "ytd" && e.month === m.period));
 
-  const expenseTotal = monthExpenses.reduce((s, e) => s + e.amount, 0);
+  const expenseTotal = sumBy(monthExpenses, (e) => e.amount);
   const grossProfit = revenue - expenseTotal;
   const marginPct = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
 
   const byCat = new Map<string, number>();
   for (const e of monthExpenses) {
-    byCat.set(e.category, (byCat.get(e.category) ?? 0) + e.amount);
+    byCat.set(e.category, (byCat.get(e.category) ?? 0) + toNum(e.amount));
   }
 
   const lines: PnlLine[] = [

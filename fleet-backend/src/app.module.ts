@@ -17,6 +17,8 @@ import { RateCardsModule } from "./rate-cards/rate-cards.module";
 import { ReportsModule } from "./reports/reports.module";
 import { RoutesModule } from "./routes/routes.module";
 import { SchedulesModule } from "./schedules/schedules.module";
+import { PartnersModule } from "./partners/partners.module";
+import { PlatformModule } from "./platform/platform.module";
 import { TenantsModule } from "./tenants/tenants.module";
 import { VehiclesModule } from "./vehicles/vehicles.module";
 import { WorkTicketsModule } from "./work-tickets/work-tickets.module";
@@ -39,6 +41,8 @@ import { TenantContextModule } from "./common/tenant-context/tenant-context.modu
     PrismaModule,
     TenantContextModule,
     TenantsModule,
+    PlatformModule,
+    PartnersModule,
     WorkflowsModule,
     HealthModule,
     AuthModule,
@@ -65,6 +69,8 @@ export class AppModule implements NestModule {
       .apply(TenantMiddleware)
       .exclude(
         "api/v1/auth/login",
+        "api/v1/platform/auth/login",
+        "api/v1/platform/(.*)",
         "api/v1/tenants",
         "api/v1/tenants/(.*)",
         "api/v1/health",

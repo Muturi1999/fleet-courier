@@ -1,4 +1,12 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  addDateClause,
+  addSearchClause,
+  wantsFullList,
+} from "../common/database/list-query.helper";
+import { queryList } from "../common/database/pagination.helper";
+import { ListQueryDto } from "../common/dto/list-query.dto";
+import { PaginatedResult } from "../common/dto/pagination.dto";
 import { TenantDatabaseService } from "../common/database/tenant-database.service";
 import { CreateExpenseDto, UpdateExpenseDto } from "./dto/expense.dto";
 
@@ -6,20 +14,65 @@ import { CreateExpenseDto, UpdateExpenseDto } from "./dto/expense.dto";
 export class ExpensesService {
   constructor(private readonly db: TenantDatabaseService) {}
 
-  findAll(month?: string, category?: string) {
+  findAll(query: ListQueryDto) {
     const clauses: string[] = [];
     const params: unknown[] = [];
     let i = 1;
-    if (month?.trim()) {
+
+    if (query.month?.trim()) {
       clauses.push(`month = $${i++}`);
+      params.push(query.month);
+    }
+    if (query.category?.trim()) {
+      clauses.push(`category = $${i++}`);
+      params.push(query.category);
+    }
+    i = addDateClause(clauses, params, i, "expense_date", query.date);
+    i = addSearchClause(clauses, params, i, ["description", "category", "vehicle_plate"], query.search);
+
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+
+    if (wantsFullList(query)) {
+      return this.db.queryAll(
+        `SELECT * FROM expenses ${where} ORDER BY expense_date DESC, created_at DESC, id DESC`,
+        params,
+      );
+    }
+
+    return queryList(this.db, query, {
+      table: "expenses",
+      where,
+      params,
+      orderBy: "expense_date DESC, created_at DESC, id DESC",
+      timeColumn: "expense_date",
+    }) as Promise<PaginatedResult<Record<string, unknown>>>;
+  }
+
+  async summary(month?: string) {
+    const clauses: string[] = [];
+    const params: unknown[] = [];
+    if (month?.trim()) {
+      clauses.push(`month = $1`);
       params.push(month);
     }
-    if (category?.trim()) {
-      clauses.push(`category = $${i++}`);
-      params.push(category);
-    }
     const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-    return this.db.queryAll(`SELECT * FROM expenses ${where} ORDER BY expense_date DESC, created_at DESC`, params);
+    const row = await this.db.queryOne<{
+      count: string;
+      total: string;
+      all_total: string;
+    }>(
+      `SELECT
+         COUNT(*)::text AS count,
+         COALESCE(SUM(amount), 0)::text AS total,
+         (SELECT COALESCE(SUM(amount), 0)::text FROM expenses) AS all_total
+       FROM expenses ${where}`,
+      params,
+    );
+    return {
+      count: parseInt(row?.count ?? "0", 10),
+      monthTotal: parseFloat(row?.total ?? "0"),
+      allTotal: parseFloat(row?.all_total ?? "0"),
+    };
   }
 
   async findOne(id: string) {

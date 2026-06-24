@@ -10,11 +10,13 @@ import { FormActions, FormField } from "@/components/ui/Modal";
 import { RecordScreen } from "@/components/layout/RecordScreen";
 import { VehicleRecordView } from "@/components/vehicles/VehicleRecordView";
 import { calcLocalBilling } from "@/lib/billing";
-import { clearedFilters, filterLocalDeliveries, highlightSearch } from "@/lib/filters";
+import { defaultFilters, filterLocalDeliveries, highlightSearch } from "@/lib/filters";
+import { formatEATDisplay } from "@/lib/dates";
 import type { FleetFilters } from "@/lib/filters";
 import type { Invoice, LocalDelivery, SafariEntry, ScheduleEntry } from "@/lib/types";
-import { shiftOf } from "@/lib/utils";
+import { shiftOf, sumBy, toNum } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
+import { saveErrorMessage } from "@/lib/api-errors";
 import { useCrud } from "@/hooks/useCrud";
 import { usePageScreen } from "@/hooks/usePageScreen";
 import { usePagination } from "@/hooks/usePagination";
@@ -39,7 +41,7 @@ export default function LocalDeliveriesPage() {
   const { items: invoices } = useCrud<Invoice>("invoices");
   const { screen, isList, openCreate, openEdit, openVehicle, close } = usePageScreen();
 
-  const [filters, setFilters] = useState<FleetFilters>(clearedFilters());
+  const [filters, setFilters] = useState<FleetFilters>(defaultFilters());
   usePlateFromUrl(setFilters);
   const [form, setForm] = useState(empty());
 
@@ -48,14 +50,14 @@ export default function LocalDeliveriesPage() {
   const { paginated, ...pagination } = usePagination(filtered, filterKey);
 
   const metrics = useMemo(() => {
-    const morning = items.reduce((s, r) => s + r.m, 0);
-    const afternoon = items.reduce((s, r) => s + r.a, 0);
-    const bothCount = items.filter((r) => r.m > 0 && r.a > 0).length;
+    const morning = sumBy(items, (r) => r.m);
+    const afternoon = sumBy(items, (r) => r.a);
+    const bothCount = items.filter((r) => toNum(r.m) > 0 && toNum(r.a) > 0).length;
     return {
       vehicles: items.length,
       morning,
       afternoon,
-      total: items.reduce((s, r) => s + r.total, 0),
+      total: sumBy(items, (r) => r.total),
       bothCount,
     };
   }, [items]);
@@ -93,8 +95,8 @@ export default function LocalDeliveriesPage() {
         setFilters(highlightSearch(form.reg));
       }
       close();
-    } catch {
-      toast("Save failed");
+    } catch (error) {
+      toast(saveErrorMessage(error));
     }
   };
 
@@ -185,7 +187,7 @@ export default function LocalDeliveriesPage() {
                 return (
                   <tr key={r.id}>
                     <td className="font-mono font-semibold">{r.reg}</td>
-                    <td className="text-xs text-fleet-gray-400">{r.serviceDate ?? r.period}</td>
+                    <td className="text-xs text-fleet-gray-400">{formatEATDisplay(r.serviceDate) || r.period}</td>
                     <td className="text-center font-mono">{r.m || "—"}</td>
                     <td className="text-center font-mono">{r.a || "—"}</td>
                     <td className="text-center font-mono font-bold">{r.total}</td>

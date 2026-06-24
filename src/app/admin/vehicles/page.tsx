@@ -5,6 +5,7 @@ import {
   IconCalendarStats,
   IconCircleCheck,
   IconCircleX,
+  IconDownload,
   IconEdit,
   IconEye,
   IconPlus,
@@ -16,17 +17,36 @@ import { FilterBar } from "@/components/ui/FilterBar";
 import { MetricCard, MetricsGrid } from "@/components/ui/MetricCard";
 import { Pagination } from "@/components/ui/Pagination";
 import { FormActions, FormField } from "@/components/ui/Modal";
+import { SearchSelect } from "@/components/ui/SearchSelect";
 import { RecordScreen } from "@/components/layout/RecordScreen";
 import { VehicleRecordView } from "@/components/vehicles/VehicleRecordView";
-import { clearedFilters, filterVehicles, highlightSearch } from "@/lib/filters";
+import { ExcelImportButton } from "@/components/import/ExcelImportButton";
+import { ExportFormatModal, type ExportFormat } from "@/components/export/ExportFormatModal";
+import { clearedFilters, filterVehicles } from "@/lib/filters";
 import type { FleetFilters } from "@/lib/filters";
+import { parseVehiclesExcel } from "@/lib/excel-import";
 import type { Invoice, LocalDelivery, SafariEntry, ScheduleEntry, Vehicle } from "@/lib/types";
-import { fmtN } from "@/lib/utils";
+import {
+  downloadVehicleListCsv,
+  downloadVehicleListXls,
+  downloadVehicleTemplateCsv,
+  downloadVehicleTemplateXls,
+} from "@/lib/vehicle-export";
+import {
+  VEHICLE_CLASSIFICATIONS,
+  clsFromLabel,
+  formatPlateInput,
+  labelFromCls,
+  normalizeCls,
+  normalizePlate,
+} from "@/lib/vehicle-fleet";
+import { fmtN, sumBy } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
 import { useCrud } from "@/hooks/useCrud";
 import { usePageScreen } from "@/hooks/usePageScreen";
 import { usePagination } from "@/hooks/usePagination";
 import { usePlateFromUrl } from "@/hooks/usePlateFromUrl";
+import { saveErrorMessage } from "@/lib/api-errors";
 
 const PAGE = "Vehicles";
 
@@ -44,7 +64,7 @@ const emptyVehicle = (): Omit<Vehicle, "id"> => ({
 
 export default function VehiclesPage() {
   const { toast } = useToast();
-  const { items, loading, create, update, remove } = useCrud<Vehicle>("vehicles");
+  const { items, loading, create, update, remove, refresh } = useCrud<Vehicle>("vehicles");
   const { items: schedules } = useCrud<ScheduleEntry>("schedules");
   const { items: localDeliveries } = useCrud<LocalDelivery>("local-deliveries");
   const { items: safari } = useCrud<SafariEntry>("safari");
@@ -54,6 +74,9 @@ export default function VehiclesPage() {
   const [filters, setFilters] = useState<FleetFilters>(clearedFilters());
   usePlateFromUrl(setFilters);
   const [form, setForm] = useState(emptyVehicle());
+  const [classInput, setClassInput] = useState(labelFromCls("7T"));
+  const [exportModal, setExportModal] = useState<"template" | "fleet" | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const filtered = useMemo(() => filterVehicles(items, filters), [items, filters]);
   const filterKey = JSON.stringify(filters);
@@ -64,7 +87,7 @@ export default function VehiclesPage() {
       count: items.length,
       active: items.filter((v) => v.status === "active").length,
       inactive: items.filter((v) => v.status === "inactive" || v.status === "suspended").length,
-      revenue: items.reduce((s, v) => s + v.total, 0),
+      revenue: sumBy(items, (v) => v.total),
     }),
     [items],
   );
@@ -72,30 +95,98 @@ export default function VehiclesPage() {
   useEffect(() => {
     if (screen.kind === "edit") {
       const v = items.find((x) => x.id === screen.id);
-      if (v) setForm({ ...v });
+      if (v) {
+        setForm({ ...v });
+        setClassInput(labelFromCls(v.cls));
+      }
     } else if (screen.kind === "create") {
       setForm(emptyVehicle());
+      setClassInput(labelFromCls("7T"));
     }
   }, [screen, items]);
 
   const onSubmit = async (ev: FormEvent) => {
     ev.preventDefault();
-    const payload = { ...form, dests: form.dests.length ? form.dests : ["NAIROBI"] };
+    if (saving) return;
+    const payload = {
+      ...form,
+      plate: normalizePlate(form.plate),
+      cls: normalizeCls(clsFromLabel(classInput)),
+      dests: form.dests.length ? form.dests : ["NAIROBI"],
+      runs: Math.max(0, Math.floor(form.runs || 0)),
+      days: Math.max(0, Math.floor(form.days || 0)),
+      total: Number(form.total) || 0,
+    };
+    setSaving(true);
     try {
       if (screen.kind === "edit") {
         await update(screen.id, payload);
         toast("Vehicle updated");
-        setFilters(highlightSearch(form.plate));
       } else {
         await create(payload);
         toast("Vehicle registered");
-        setFilters(highlightSearch(form.plate));
       }
+      setFilters(clearedFilters());
       close();
-    } catch {
-      toast("Save failed");
+      void refresh().catch(() => {});
+    } catch (error) {
+      toast(saveErrorMessage(error));
+    } finally {
+      setSaving(false);
     }
   };
+
+  const importVehicles = async (file: File) => {
+    try {
+      const rows = await parseVehiclesExcel(file);
+      if (!rows.length) {
+        toast("No vehicle rows found — use No., License Plate, Vehicle Classification columns");
+        return;
+      }
+      const res = await fetch("/api/vehicles/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows }),
+      });
+      if (!res.ok) throw new Error("Import failed");
+      const json = (await res.json()) as { imported?: number; inserted?: number; updated?: number };
+      const parts = [
+        json.imported != null ? `${json.imported} processed` : null,
+        json.inserted != null ? `${json.inserted} new` : null,
+        json.updated != null ? `${json.updated} updated` : null,
+      ].filter(Boolean);
+      toast(`Fleet import complete — ${parts.join(", ")}`);
+      await refresh();
+    } catch {
+      toast("Import failed — use CSV or XLS with RNTL fleet list columns");
+    }
+  };
+
+  const exportRows = useMemo(
+    () =>
+      [...items]
+        .sort((a, b) => {
+          const da = a.createdAt ?? "";
+          const db = b.createdAt ?? "";
+          if (da && db) return db.localeCompare(da);
+          return a.plate.localeCompare(b.plate);
+        })
+        .map((v, i) => [i + 1, v.plate, labelFromCls(v.cls)] as [number, string, string]),
+    [items],
+  );
+
+  const handleExport = (kind: "template" | "fleet", format: ExportFormat) => {
+    if (kind === "template") {
+      if (format === "csv") downloadVehicleTemplateCsv();
+      else void downloadVehicleTemplateXls();
+      return;
+    }
+    if (!exportRows.length) return;
+    if (format === "csv") downloadVehicleListCsv("rntl-fleet-list", exportRows);
+    else void downloadVehicleListXls("rntl-fleet-list.xls", exportRows);
+  };
+
+  const classificationOptions = VEHICLE_CLASSIFICATIONS.map((c) => ({ value: c.label }));
 
   const crumbs = [{ label: PAGE, onClick: close }];
 
@@ -131,22 +222,28 @@ export default function VehiclesPage() {
         onBack={close}
       >
         <form onSubmit={onSubmit} className="card max-w-3xl space-y-3">
-          <FormField label="Plate *">
+          <p className="text-xs text-fleet-gray-400">
+            Matches RNTL fleet list format — License Plate and Vehicle Classification (e.g. 7 Tonnes Truck).
+          </p>
+          <FormField label="License Plate *">
             <input
-              className="field-input"
+              className="field-input font-mono uppercase"
               required
+              placeholder="KBH 667W"
               value={form.plate}
-              onChange={(e) => setForm({ ...form, plate: e.target.value.toUpperCase() })}
+              onChange={(e) => setForm({ ...form, plate: formatPlateInput(e.target.value) })}
             />
           </FormField>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="Class">
-              <select className="field-input" value={form.cls} onChange={(e) => setForm({ ...form, cls: e.target.value })}>
-                <option>7T</option>
-                <option>15T</option>
-                <option>CANTER</option>
-                <option>VAN</option>
-              </select>
+            <FormField label="Vehicle Classification *">
+              <SearchSelect
+                listId="vehicle-classification"
+                value={classInput}
+                onChange={setClassInput}
+                options={classificationOptions}
+                placeholder="7 Tonnes Truck"
+                required
+              />
             </FormField>
             <FormField label="Status">
               <select
@@ -160,51 +257,61 @@ export default function VehiclesPage() {
               </select>
             </FormField>
           </div>
-          <FormField label="Run type">
-            <input className="field-input" value={form.runType} onChange={(e) => setForm({ ...form, runType: e.target.value })} />
-          </FormField>
-          <FormField label="Destinations (comma-separated)">
-            <input
-              className="field-input"
-              value={form.dests.join(", ")}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  dests: e.target.value
-                    .split(",")
-                    .map((s) => s.trim())
-                    .filter(Boolean),
-                })
-              }
-            />
-          </FormField>
-          <div className="grid grid-cols-3 gap-3">
-            <FormField label="Runs">
-              <input
-                type="number"
-                className="field-input"
-                value={form.runs}
-                onChange={(e) => setForm({ ...form, runs: Number(e.target.value) })}
-              />
-            </FormField>
-            <FormField label="Days">
-              <input
-                type="number"
-                className="field-input"
-                value={form.days}
-                onChange={(e) => setForm({ ...form, days: Number(e.target.value) })}
-              />
-            </FormField>
-            <FormField label="Revenue">
-              <input
-                type="number"
-                className="field-input"
-                value={form.total}
-                onChange={(e) => setForm({ ...form, total: Number(e.target.value) })}
-              />
-            </FormField>
-          </div>
-          <FormActions onCancel={close} submitLabel={screen.kind === "edit" ? "Update vehicle" : "Register vehicle"} />
+          <details className="rounded-lg border border-fleet-gray-100 p-3">
+            <summary className="cursor-pointer text-xs font-semibold text-fleet-gray-500">Optional fields</summary>
+            <div className="mt-3 space-y-3">
+              <FormField label="Run type">
+                <input className="field-input" value={form.runType} onChange={(e) => setForm({ ...form, runType: e.target.value })} />
+              </FormField>
+              <FormField label="Client">
+                <input className="field-input" value={form.client ?? ""} onChange={(e) => setForm({ ...form, client: e.target.value })} />
+              </FormField>
+              <FormField label="Destinations (comma-separated)">
+                <input
+                  className="field-input"
+                  value={form.dests.join(", ")}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      dests: e.target.value
+                        .split(",")
+                        .map((s) => s.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                />
+              </FormField>
+              {screen.kind === "edit" && (
+                <div className="grid grid-cols-3 gap-3">
+                  <FormField label="Runs">
+                    <input
+                      type="number"
+                      className="field-input"
+                      value={form.runs}
+                      onChange={(e) => setForm({ ...form, runs: Number(e.target.value) })}
+                    />
+                  </FormField>
+                  <FormField label="Days">
+                    <input
+                      type="number"
+                      className="field-input"
+                      value={form.days}
+                      onChange={(e) => setForm({ ...form, days: Number(e.target.value) })}
+                    />
+                  </FormField>
+                  <FormField label="Revenue">
+                    <input
+                      type="number"
+                      className="field-input"
+                      value={form.total}
+                      onChange={(e) => setForm({ ...form, total: Number(e.target.value) })}
+                    />
+                  </FormField>
+                </div>
+              )}
+            </div>
+          </details>
+          <FormActions onCancel={close} submitLabel={screen.kind === "edit" ? "Update vehicle" : "Register vehicle"} saving={saving} />
         </form>
       </RecordScreen>
     );
@@ -234,6 +341,15 @@ export default function VehiclesPage() {
         statusKind="vehicle"
         resultCount={filtered.length}
       >
+        <ExcelImportButton label="Import CSV/XLS" onImport={importVehicles} />
+        <button type="button" className="btn-secondary btn-sm" onClick={() => setExportModal("template")}>
+          <IconDownload size={14} /> Export template
+        </button>
+        {exportRows.length > 0 && (
+          <button type="button" className="btn-secondary btn-sm" onClick={() => setExportModal("fleet")}>
+            <IconDownload size={14} /> Export
+          </button>
+        )}
         <button
           type="button"
           className="btn-accent btn-sm"
@@ -278,7 +394,7 @@ export default function VehiclesPage() {
                 <tr key={v.id}>
                   <td className="font-mono font-semibold">{v.plate}</td>
                   <td>
-                    <Badge variant={clsToBadgeVariant(v.cls)}>{v.cls}</Badge>
+                    <Badge variant={clsToBadgeVariant(v.cls)}>{normalizeCls(v.cls)}</Badge>
                   </td>
                   <td className="text-xs">{v.runType}</td>
                   <td className="text-center font-mono">{v.runs}</td>
@@ -297,6 +413,7 @@ export default function VehiclesPage() {
                         className="btn-secondary btn-sm"
                         onClick={() => {
                           setForm({ ...v });
+                          setClassInput(labelFromCls(v.cls));
                           openEdit(v.id);
                         }}
                       >
@@ -324,6 +441,16 @@ export default function VehiclesPage() {
       </div>
 
       <Pagination {...pagination} onPage={pagination.setPage} />
+
+      <ExportFormatModal
+        open={exportModal !== null}
+        title={exportModal === "template" ? "Download template" : "Export fleet"}
+        onClose={() => setExportModal(null)}
+        onConfirm={(format) => {
+          if (exportModal) handleExport(exportModal, format);
+          setExportModal(null);
+        }}
+      />
     </>
   );
 }

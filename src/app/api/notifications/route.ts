@@ -8,9 +8,11 @@ export async function GET(req: NextRequest) {
 
   if (backendEnabled()) {
     const qs = new URLSearchParams();
+    const audience = req.nextUrl.searchParams.get("audience");
     if (audience) qs.set("audience", audience);
     const unread = req.nextUrl.searchParams.get("unread");
     if (unread) qs.set("unread", unread);
+    if (req.nextUrl.searchParams.get("all") === "true") qs.set("all", "true");
     const res = await backendRequest(req, `/notifications${qs.size ? `?${qs}` : ""}`);
     const json = await res.json();
     const items = Array.isArray(json?.data) ? json.data : json;

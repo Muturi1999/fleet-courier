@@ -19,12 +19,13 @@ import {
   computeClassBreakdown,
   computeDestBreakdown,
   computeFleetRanking,
+  computeLiveOverviewMetrics,
   computePnL,
   computeVatSummary,
   computeVehicleReport,
+  currentReportMonthKey,
   invoiceStatusBreakdown,
   revenueTrend,
-  snapshotForMonth,
   type ReportMonthKey,
 } from "@/lib/reports";
 import { fmtN } from "@/lib/utils";
@@ -49,12 +50,15 @@ export function ReportsDashboard({ role }: { role: "admin" | "client" }) {
   const { items: vehicles, loading: vehLoading } = useCrud<Vehicle>("vehicles");
   const { items: expenses, loading: expLoading } = useCrud<Expense>("expenses");
 
-  const [month, setMonth] = useState<ReportMonthKey>("2026-03");
+  const [month, setMonth] = useState<ReportMonthKey>(currentReportMonthKey());
   const [tab, setTab] = useState<ReportTab>("overview");
   const [vehiclePlate, setVehiclePlate] = useState("");
 
   const loading = invLoading || schLoading || vehLoading || expLoading;
-  const snap = snapshotForMonth(month);
+  const liveOverview = useMemo(
+    () => computeLiveOverviewMetrics(invoices, vehicles, schedules, month),
+    [invoices, vehicles, schedules, month],
+  );
 
   const vat = useMemo(() => computeVatSummary(invoices, month), [invoices, month]);
   const classBreakdown = useMemo(
@@ -64,7 +68,7 @@ export function ReportsDashboard({ role }: { role: "admin" | "client" }) {
   const fleet = useMemo(() => computeFleetRanking(vehicles, schedules, month), [vehicles, schedules, month]);
   const destinations = useMemo(() => computeDestBreakdown(schedules, month), [schedules, month]);
   const statusBreakdown = useMemo(() => invoiceStatusBreakdown(invoices, month), [invoices, month]);
-  const pnl = useMemo(() => computePnL(expenses, month), [expenses, month]);
+  const pnl = useMemo(() => computePnL(expenses, month, invoices), [expenses, month, invoices]);
 
   const plates = useMemo(() => fleet.map((f) => f.plate), [fleet]);
   const selectedPlate = vehiclePlate || plates[0] || "";
@@ -73,15 +77,30 @@ export function ReportsDashboard({ role }: { role: "admin" | "client" }) {
     [selectedPlate, invoices, schedules, month],
   );
 
+  const monthLabel = REPORT_MONTHS.find((m) => m.key === month)?.label ?? "";
+  const monthShort = REPORT_MONTHS.find((m) => m.key === month)?.short ?? "";
+
   const trend = revenueTrend();
-  const displayTrend =
-    month === "ytd"
-      ? trend
-      : month === "2026-01"
-        ? trend.filter((t) => t.label.startsWith("Jan"))
-        : month === "2026-02"
-          ? trend.filter((t) => t.label.startsWith("Feb"))
-          : trend.filter((t) => t.label.startsWith("Mar"));
+  const displayTrend = useMemo(() => {
+    if (month === "ytd") {
+      const monthLabel = REPORT_MONTHS.find((m) => m.key === month)?.label;
+      const fromSnap = trend.filter((t) => REPORT_MONTHS.some((m) => m.key !== "ytd" && m.label === t.label));
+      if (liveOverview.total > 0) {
+        const junLabel = REPORT_MONTHS.find((m) => m.key === "2026-06")?.label ?? "June 2026";
+        if (!fromSnap.some((t) => t.label === junLabel)) {
+          return [
+            ...fromSnap,
+            { label: junLabel, total: liveOverview.total, net: liveOverview.net, vat: liveOverview.vat },
+          ];
+        }
+      }
+      return fromSnap.length ? fromSnap : [{ label: monthShort, ...liveOverview, total: liveOverview.total }];
+    }
+    const monthLabel = REPORT_MONTHS.find((m) => m.key === month)?.label;
+    const fromSnap = monthLabel ? trend.find((t) => t.label === monthLabel) : undefined;
+    if (fromSnap) return [fromSnap];
+    return [{ label: monthShort, total: liveOverview.total, net: liveOverview.net, vat: liveOverview.vat }];
+  }, [month, trend, liveOverview, monthShort]);
 
   const fleetFilterKey = `${month}-${tab}`;
   const { paginated: fleetPage, ...fleetPagination } = usePagination(fleet, fleetFilterKey);
@@ -104,8 +123,6 @@ export function ReportsDashboard({ role }: { role: "admin" | "client" }) {
   ];
 
   const visibleTabs = tabs.filter((t) => role === "admin" || !t.adminOnly);
-  const monthLabel = REPORT_MONTHS.find((m) => m.key === month)?.label ?? "";
-  const monthShort = REPORT_MONTHS.find((m) => m.key === month)?.short ?? "";
 
   return (
     <>
@@ -140,12 +157,12 @@ export function ReportsDashboard({ role }: { role: "admin" | "client" }) {
               accent="teal"
               icon={IconCoin}
               label={`Revenue · ${monthShort}`}
-              value={`${(snap.total / 1_000_000).toFixed(2)}M`}
-              sub={`KES ${fmtN(snap.total)} incl. VAT`}
+              value={liveOverview.total >= 1_000_000 ? `${(liveOverview.total / 1_000_000).toFixed(2)}M` : fmtN(liveOverview.total)}
+              sub={`KES ${fmtN(liveOverview.total)} incl. VAT · live data`}
             />
-            <MetricCard accent="amber" icon={IconReceiptTax} label="VAT @ 16%" value={`${(snap.vat / 1_000_000).toFixed(2)}M`} sub={`Net KES ${fmtN(snap.net)}`} />
-            <MetricCard accent="navy" icon={IconTruck} label="Active fleet" value={String(snap.vehicles)} sub={`${snap.invoices} invoice lines`} />
-            <MetricCard accent="red" icon={IconMap2} label="Schedule runs" value={String(snap.runs)} sub={`${destinations.length} destinations`} />
+            <MetricCard accent="amber" icon={IconReceiptTax} label="VAT @ 16%" value={liveOverview.vat >= 1_000_000 ? `${(liveOverview.vat / 1_000_000).toFixed(2)}M` : fmtN(liveOverview.vat)} sub={`Net KES ${fmtN(liveOverview.net)}`} />
+            <MetricCard accent="navy" icon={IconTruck} label="Active fleet" value={String(liveOverview.vehicles)} sub={`${liveOverview.invoiceCount} invoice lines`} />
+            <MetricCard accent="red" icon={IconMap2} label="Schedule runs" value={String(liveOverview.runs)} sub={`${destinations.length} destinations`} />
           </MetricsGrid>
 
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">

@@ -8,6 +8,7 @@ import {
   IsString,
   Matches,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from "class-validator";
 
@@ -62,6 +63,7 @@ export class OnboardCompanyDto {
 
   @ApiPropertyOptional({ example: "accounts@rnt.co.ke" })
   @IsOptional()
+  @ValidateIf((_, value) => value != null && String(value).trim() !== "")
   @IsEmail()
   email?: string;
 }
@@ -94,6 +96,7 @@ export class OnboardPartnerDto {
 
   @ApiPropertyOptional({ example: "accounts@g4s.co.ke" })
   @IsOptional()
+  @ValidateIf((_, value) => value != null && String(value).trim() !== "")
   @IsEmail()
   email?: string;
 
@@ -101,6 +104,12 @@ export class OnboardPartnerDto {
   @IsOptional()
   @IsString()
   contact?: string;
+
+  @ApiPropertyOptional({ example: "g4s", description: "Partner portal login username" })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-z0-9._-]+$/)
+  username?: string;
 }
 
 export class OnboardTenantDto {

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { IconEdit, IconPlus, IconReceipt, IconTrash } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/Badge";
 import { MetricCard, MetricsGrid } from "@/components/ui/MetricCard";
@@ -8,17 +8,21 @@ import { Pagination } from "@/components/ui/Pagination";
 import { FormActions, FormField } from "@/components/ui/Modal";
 import { RecordScreen } from "@/components/layout/RecordScreen";
 import type { Expense, ExpenseCategory } from "@/lib/types";
+import { FilterBar } from "@/components/ui/FilterBar";
+import { clearedFilters, highlightSearch } from "@/lib/filters";
+import type { FleetFilters } from "@/lib/filters";
+import { formatEATDisplay, todayEAT } from "@/lib/dates";
 import { fmtN } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
-import { useCrud } from "@/hooks/useCrud";
+import { saveErrorMessage } from "@/lib/api-errors";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { usePageScreen } from "@/hooks/usePageScreen";
-import { usePagination } from "@/hooks/usePagination";
 
 const PAGE = "Expenses";
 const CATEGORIES: ExpenseCategory[] = ["fuel", "maintenance", "insurance", "salaries", "tolls", "other"];
 
 const emptyExpense = (): Omit<Expense, "id"> => ({
-  date: new Date().toISOString().slice(0, 10),
+  date: todayEAT(),
   category: "fuel",
   description: "",
   amount: 0,
@@ -27,36 +31,67 @@ const emptyExpense = (): Omit<Expense, "id"> => ({
   status: "recorded",
 });
 
+type ExpenseSummary = { count: number; monthTotal: number; allTotal: number };
+
 export default function ExpensesPage() {
   const { toast } = useToast();
-  const { items, loading, create, update, remove } = useCrud<Expense>("expenses");
   const { screen, isList, openCreate, openEdit, close } = usePageScreen();
+  const [page, setPage] = useState(1);
   const [form, setForm] = useState(emptyExpense());
+  const [filters, setFilters] = useState<FleetFilters>(clearedFilters());
   const [monthFilter, setMonthFilter] = useState("all");
+  const [summary, setSummary] = useState<ExpenseSummary>({ count: 0, monthTotal: 0, allTotal: 0 });
+  const [viewRecord, setViewRecord] = useState<Expense | null>(null);
+
+  const listKey = JSON.stringify({ filters, monthFilter });
+  const {
+    items,
+    meta,
+    loading,
+    create,
+    update,
+    remove,
+    fetchOne,
+    refreshPage,
+    totalPages,
+    from,
+    to,
+  } = usePaginatedList<Expense>("expenses", { page, filters, month: monthFilter });
 
   useEffect(() => {
-    if (screen.kind === "edit") {
-      const e = items.find((x) => x.id === screen.id);
-      if (e) setForm({ ...e });
+    setPage(1);
+  }, [listKey]);
+
+  useEffect(() => {
+    const qs = monthFilter !== "all" ? `?month=${encodeURIComponent(monthFilter)}` : "";
+    fetch(`/api/expenses/summary${qs}`, { cache: "no-store", credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s: ExpenseSummary | null) => {
+        if (s) setSummary(s);
+      })
+      .catch(() => {});
+  }, [monthFilter, meta.total]);
+
+  useEffect(() => {
+    if (screen.kind !== "edit") {
+      setViewRecord(null);
+      return;
+    }
+    const found = items.find((x) => x.id === screen.id);
+    if (found) {
+      setViewRecord(found);
+      return;
+    }
+    fetchOne(screen.id).then((row) => setViewRecord(row));
+  }, [screen, items, fetchOne]);
+
+  useEffect(() => {
+    if (screen.kind === "edit" && viewRecord) {
+      setForm({ ...viewRecord });
     } else if (screen.kind === "create") {
       setForm(emptyExpense());
     }
-  }, [screen, items]);
-
-  const filtered = useMemo(
-    () => (monthFilter === "all" ? items : items.filter((e) => e.month === monthFilter)),
-    [items, monthFilter],
-  );
-  const { paginated, ...pagination } = usePagination(filtered, monthFilter);
-
-  const totals = useMemo(() => {
-    const mar = items.filter((e) => e.month === "Mar 2026");
-    return {
-      month: mar.reduce((s, e) => s + e.amount, 0),
-      all: items.reduce((s, e) => s + e.amount, 0),
-      count: items.length,
-    };
-  }, [items]);
+  }, [screen, viewRecord]);
 
   const onSubmit = async (ev: FormEvent) => {
     ev.preventDefault();
@@ -67,10 +102,12 @@ export default function ExpensesPage() {
       } else {
         await create(form);
         toast("Expense recorded");
+        setFilters(highlightSearch(form.description));
       }
+      await refreshPage();
       close();
-    } catch {
-      toast("Save failed");
+    } catch (error) {
+      toast(saveErrorMessage(error));
     }
   };
 
@@ -127,22 +164,33 @@ export default function ExpensesPage() {
 
   if (!isList) return null;
 
+  const monthLabel = monthFilter === "all" ? "all months" : monthFilter;
+
   return (
     <>
       <MetricsGrid>
-        <MetricCard accent="navy" icon={IconReceipt} label="Total expenses (Mar)" value={`KES ${fmtN(totals.month)}`} sub="Operating costs" />
-        <MetricCard accent="amber" icon={IconReceipt} label="YTD expenses" value={`KES ${fmtN(totals.all)}`} sub="Jan–Mar 2026" />
-        <MetricCard accent="teal" icon={IconReceipt} label="Expense lines" value={String(totals.count)} sub="All categories" />
+        <MetricCard
+          accent="navy"
+          icon={IconReceipt}
+          label={monthFilter === "all" ? "Filtered total" : `Total (${monthFilter})`}
+          value={`KES ${fmtN(summary.monthTotal)}`}
+          sub="Operating costs"
+        />
+        <MetricCard accent="amber" icon={IconReceipt} label="YTD expenses" value={`KES ${fmtN(summary.allTotal)}`} sub="All recorded" />
+        <MetricCard accent="teal" icon={IconReceipt} label="Expense lines" value={String(summary.count)} sub={monthLabel} />
       </MetricsGrid>
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <select className="field-input h-[38px] w-auto" value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}>
-          <option value="all">All months</option>
-          <option value="Jan 2026">Jan 2026</option>
-          <option value="Feb 2026">Feb 2026</option>
-          <option value="Mar 2026">Mar 2026</option>
-        </select>
-        <button type="button" className="btn-accent btn-sm" onClick={() => { setForm(emptyExpense()); openCreate(); }}>
+        <div className="flex flex-wrap items-center gap-2">
+          <select className="field-input h-[38px] w-auto" value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}>
+            <option value="all">All months</option>
+            <option value="Jan 2026">Jan 2026</option>
+            <option value="Feb 2026">Feb 2026</option>
+            <option value="Mar 2026">Mar 2026</option>
+          </select>
+          <FilterBar filters={filters} onChange={setFilters} fields={["search", "date"]} resultCount={meta.total} />
+        </div>
+        <button type="button" className="btn-accent btn-sm" onClick={() => openCreate()}>
           <IconPlus size={14} /> Record expense
         </button>
       </div>
@@ -164,12 +212,12 @@ export default function ExpensesPage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={8} className="py-8 text-center text-fleet-gray-400">Loading…</td></tr>
-            ) : paginated.length === 0 ? (
+            ) : items.length === 0 ? (
               <tr><td colSpan={8} className="py-8 text-center text-fleet-gray-400">No expenses recorded</td></tr>
             ) : (
-              paginated.map((e) => (
+              items.map((e) => (
                 <tr key={e.id}>
-                  <td className="text-xs">{e.date}</td>
+                  <td className="text-xs">{formatEATDisplay(e.date)}</td>
                   <td><Badge variant="draft">{e.category}</Badge></td>
                   <td className="max-w-[200px] truncate text-xs">{e.description}</td>
                   <td className="font-mono text-xs">{e.vehiclePlate || "—"}</td>
@@ -178,8 +226,20 @@ export default function ExpensesPage() {
                   <td><Badge variant={e.status === "paid" ? "paid" : e.status === "approved" ? "approved" : "pending"}>{e.status}</Badge></td>
                   <td>
                     <div className="flex gap-1">
-                      <button type="button" className="btn-secondary btn-sm" onClick={() => { setForm({ ...e }); openEdit(e.id); }}><IconEdit size={14} /></button>
-                      <button type="button" className="btn-secondary btn-sm text-fleet-red" onClick={async () => { if (confirm("Delete?")) { await remove(e.id); toast("Deleted"); } }}><IconTrash size={14} /></button>
+                      <button type="button" className="btn-secondary btn-sm" onClick={() => openEdit(e.id)}><IconEdit size={14} /></button>
+                      <button
+                        type="button"
+                        className="btn-secondary btn-sm text-fleet-red"
+                        onClick={async () => {
+                          if (confirm("Delete?")) {
+                            await remove(e.id);
+                            await refreshPage();
+                            toast("Deleted");
+                          }
+                        }}
+                      >
+                        <IconTrash size={14} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -188,7 +248,7 @@ export default function ExpensesPage() {
           </tbody>
         </table>
       </div>
-      <Pagination {...pagination} onPage={pagination.setPage} />
+      <Pagination page={page} totalPages={totalPages} total={meta.total} from={from} to={to} onPage={setPage} />
     </>
   );
 }

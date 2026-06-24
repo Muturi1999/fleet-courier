@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   IconArrowBackUp,
   IconCheck,
+  IconClock,
   IconEye,
 } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/Badge";
 import { FilterBar } from "@/components/ui/FilterBar";
+import { MetricCard, MetricsGrid } from "@/components/ui/MetricCard";
 import { Pagination } from "@/components/ui/Pagination";
 import {
   ConsolidatedInvoiceDocument,
@@ -17,81 +19,147 @@ import { SoaBreakdownDocument } from "@/components/consolidated/SoaBreakdownDocu
 import { ClientInvoiceReview } from "@/components/client/ClientInvoiceReview";
 import { SoaApprovalCard } from "@/components/client/SoaApprovalCard";
 import { RecordScreen } from "@/components/layout/RecordScreen";
-import { clearedFilters, filterInvoices } from "@/lib/filters";
+import { clearedFilters } from "@/lib/filters";
 import type { FleetFilters } from "@/lib/filters";
+import { buildListQuery, normalizeListJson } from "@/lib/list-query";
+import { formatEATDisplay } from "@/lib/dates";
 import type { ConsolidatedInvoice, Invoice, WorkTicket } from "@/lib/types";
 import { fmtN } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
-import { useCrud } from "@/hooks/useCrud";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { useNotifications } from "@/hooks/useNotifications";
-import { usePagination } from "@/hooks/usePagination";
 
 type ClientTab = "awaiting" | "approved" | "returned" | "all";
 type ReviewState = { id: string; mode: "view" | "reject" } | null;
 
-const CLIENT_STATUSES: Record<ClientTab, string[]> = {
-  awaiting: ["pending", "sent"],
-  approved: ["approved"],
-  returned: ["rejected"],
-  all: ["pending", "sent", "approved", "rejected"],
-};
-
 export default function ClientPortalPage() {
   const { toast } = useToast();
-  const { items, update, loading } = useCrud<Invoice>("invoices");
-  const { refresh: refreshNotifications } = useNotifications("client");
+  const { items: notifications, refresh: refreshNotifications } = useNotifications("client");
+  const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<FleetFilters>(clearedFilters());
   const [tab, setTab] = useState<ClientTab>("awaiting");
   const [review, setReview] = useState<ReviewState>(null);
+  const [reviewInvoice, setReviewInvoice] = useState<Invoice | null>(null);
+  const [tabCounts, setTabCounts] = useState({ awaiting: 0, approved: 0, returned: 0, all: 0 });
   const [pendingConsolidated, setPendingConsolidated] = useState<ConsolidatedInvoice | null>(null);
   const [consolidatedView, setConsolidatedView] = useState<{
     invoice: ConsolidatedInvoice;
     tickets: WorkTicket[];
   } | null>(null);
 
+  const listKey = JSON.stringify({ filters, tab });
+  const {
+    items,
+    meta,
+    loading,
+    refreshPage,
+    fetchOne,
+    totalPages,
+    from,
+    to,
+  } = usePaginatedList<Invoice>("clients/invoices", { page, filters, tab });
+
   useEffect(() => {
-    fetch("/api/consolidated-invoices", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list: ConsolidatedInvoice[]) => {
-        const pending = list.find((i) => i.status === "pending_approval");
-        setPendingConsolidated(pending ?? null);
-      });
+    setPage(1);
+  }, [listKey]);
+
+  useEffect(() => {
+    const tabs: ClientTab[] = ["awaiting", "approved", "returned", "all"];
+    Promise.all(
+      tabs.map(async (t) => {
+        const qs = buildListQuery({ page: 1, limit: 1, filters, tab: t });
+        const res = await fetch(`/api/clients/invoices?${qs}`, { cache: "no-store", credentials: "same-origin" });
+        if (!res.ok) return [t, 0] as const;
+        const parsed = normalizeListJson<Invoice>(await res.json());
+        return [t, parsed.meta.total] as const;
+      }),
+    ).then((pairs) => {
+      const next = { awaiting: 0, approved: 0, returned: 0, all: 0 };
+      for (const [t, n] of pairs) next[t] = n;
+      setTabCounts(next);
+    });
+  }, [filters]);
+
+  useEffect(() => {
+    if (!review) {
+      setReviewInvoice(null);
+      return;
+    }
+    const found = items.find((i) => i.id === review.id);
+    if (found) {
+      setReviewInvoice(found);
+      return;
+    }
+    fetchOne(review.id).then(setReviewInvoice);
+  }, [review, items, fetchOne]);
+
+  const refreshPendingConsolidated = useCallback(async () => {
+    const res = await fetch("/api/consolidated-invoices?status=pending_approval&limit=5", { cache: "no-store" });
+    if (!res.ok) return;
+    const parsed = normalizeListJson<ConsolidatedInvoice>(await res.json());
+    const pending =
+      parsed.data
+        .filter((i) => i.status === "pending_approval")
+        .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))[0] ?? null;
+    setPendingConsolidated(pending);
   }, []);
 
-  const clientItems = useMemo(
-    () => items.filter((i) => CLIENT_STATUSES.all.includes(i.status)),
-    [items],
-  );
+  useEffect(() => {
+    refreshPendingConsolidated();
+    const interval = window.setInterval(refreshPendingConsolidated, 15000);
+    const onFocus = () => refreshPendingConsolidated();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [refreshPendingConsolidated]);
 
-  const tabItems = useMemo(() => {
-    const byTab = clientItems.filter((i) => CLIENT_STATUSES[tab].includes(i.status));
-    return filterInvoices(byTab, filters, "all");
-  }, [clientItems, filters, tab]);
+  useEffect(() => {
+    if (notifications.some((n) => n.type === "consolidated_sent")) {
+      refreshPendingConsolidated();
+    }
+  }, [notifications, refreshPendingConsolidated]);
 
-  const counts = useMemo(
+  const summary = useMemo(
     () => ({
-      awaiting: clientItems.filter((i) => CLIENT_STATUSES.awaiting.includes(i.status)).length,
-      approved: clientItems.filter((i) => i.status === "approved").length,
-      returned: clientItems.filter((i) => i.status === "rejected").length,
-      all: clientItems.length,
+      awaiting: tabCounts.awaiting,
+      approved: tabCounts.approved,
     }),
-    [clientItems],
+    [tabCounts],
   );
 
-  const filterKey = JSON.stringify({ filters, tab });
-  const { paginated, ...pagination } = usePagination(tabItems, filterKey);
-
-  const reviewInvoice = review ? items.find((i) => i.id === review.id) : undefined;
+  const counts = tabCounts;
 
   const approveInvoice = async (inv: Invoice, note?: string) => {
-    await update(inv.id, { status: "approved", clientNote: note?.trim() || undefined });
+    const res = await fetch(`/api/clients/invoices/${inv.id}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ clientNote: note?.trim() || undefined }),
+    });
+    if (!res.ok) {
+      toast("Approval failed");
+      return;
+    }
+    await refreshPage();
     await refreshNotifications();
     toast(`Invoice ${inv.invoiceNo} approved`);
     setReview(null);
   };
 
   const sendBackInvoice = async (inv: Invoice, note: string) => {
-    await update(inv.id, { status: "rejected", clientNote: note });
+    const res = await fetch(`/api/clients/invoices/${inv.id}/reject`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ clientNote: note }),
+    });
+    if (!res.ok) {
+      toast("Send back failed");
+      return;
+    }
+    await refreshPage();
     await refreshNotifications();
     toast(`Invoice ${inv.invoiceNo} sent back to Fleet Admin`);
     setReview(null);
@@ -157,9 +225,29 @@ export default function ClientPortalPage() {
     <>
       <SoaApprovalCard
         invoice={pendingConsolidated}
-        onApprove={approveSoa}
+        onApprove={async () => {
+          await approveSoa();
+          await refreshPendingConsolidated();
+        }}
         onView={openConsolidatedView}
       />
+
+      <MetricsGrid>
+        <MetricCard
+          accent="amber"
+          icon={IconClock}
+          label="Awaiting review"
+          value={String(summary.awaiting)}
+          sub={summary.awaiting > 0 ? `${summary.awaiting} pending review` : "No pending invoices"}
+        />
+        <MetricCard
+          accent="teal"
+          icon={IconCheck}
+          label="Approved"
+          value={String(summary.approved)}
+          sub="Live from invoice register"
+        />
+      </MetricsGrid>
 
       <div className="section-header">
         <div>
@@ -195,7 +283,7 @@ export default function ClientPortalPage() {
         filters={filters}
         onChange={setFilters}
         fields={["search", "destination", "date"]}
-        resultCount={tabItems.length}
+        resultCount={meta.total}
       />
 
       {/* Scrollable table — all breakpoints */}
@@ -215,10 +303,10 @@ export default function ClientPortalPage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={7} className="py-8 text-center text-fleet-gray-400">Loading…</td></tr>
-            ) : paginated.length === 0 ? (
+            ) : items.length === 0 ? (
               <tr><td colSpan={7} className="py-8 text-center text-fleet-gray-400">No invoices match filters</td></tr>
             ) : (
-              paginated.map((inv) => (
+              items.map((inv) => (
                 <InvoiceRow
                   key={inv.id}
                   inv={inv}
@@ -233,7 +321,7 @@ export default function ClientPortalPage() {
         </table>
       </div>
 
-      <Pagination {...pagination} onPage={pagination.setPage} />
+      <Pagination page={page} totalPages={totalPages} total={meta.total} from={from} to={to} onPage={setPage} />
     </>
   );
 }
@@ -256,7 +344,9 @@ function InvoiceRow({
       <td className="whitespace-nowrap font-mono font-semibold">{inv.invoiceNo}</td>
       <td className="whitespace-nowrap font-mono">{inv.plate}</td>
       <td className="max-w-[140px] truncate text-xs">{inv.route}</td>
-      <td className="whitespace-nowrap text-xs text-fleet-gray-400">{inv.serviceDate ?? inv.period ?? "—"}</td>
+      <td className="whitespace-nowrap text-xs text-fleet-gray-400">
+        {formatEATDisplay(inv.serviceDate) || inv.period || "—"}
+      </td>
       <td className="whitespace-nowrap font-mono font-medium">{fmtN(inv.total)}</td>
       <td className="whitespace-nowrap"><Badge variant={inv.status}>{inv.status}</Badge></td>
       <td>

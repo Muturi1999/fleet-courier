@@ -1,4 +1,5 @@
 import { calcBilling } from "./billing";
+import { clsFromLabel, normalizeCls, normalizePlate, type VehicleImportRow } from "./vehicle-fleet";
 
 type Row = Record<string, unknown>;
 
@@ -166,6 +167,45 @@ export async function parseInvoicesExcel(file: File): Promise<InvoiceImportRow[]
       status: cellStr(row, "status").toLowerCase() || "draft",
       period: cellStr(row, "period", "month") || undefined,
       serviceDate: cellStr(row, "servicedate", "date") || undefined,
+    });
+  }
+
+  return rows;
+}
+
+export async function parseVehiclesExcel(file: File): Promise<VehicleImportRow[]> {
+  const json = await readWorkbook(file);
+  const rows: VehicleImportRow[] = [];
+  const seen = new Set<string>();
+
+  for (const raw of json) {
+    const row = rowMap(raw);
+    const plate = normalizePlate(
+      cellStr(row, "licenseplate", "plate", "registration", "reg", "vehicle"),
+    );
+    if (!plate) continue;
+
+    const key = plate.replace(/\s/g, "");
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const classRaw = cellStr(
+      row,
+      "vehicleclassification",
+      "classification",
+      "class",
+      "cls",
+      "vehicleclass",
+      "type",
+    );
+    const cls = classRaw ? normalizeCls(clsFromLabel(classRaw)) : "7T";
+
+    rows.push({
+      plate,
+      cls,
+      runType: cellStr(row, "runtype", "run") || "Nairobi",
+      status: (cellStr(row, "status").toLowerCase() as VehicleImportRow["status"]) || "active",
+      client: cellStr(row, "client") || undefined,
     });
   }
 

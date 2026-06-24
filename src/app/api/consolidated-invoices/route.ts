@@ -3,12 +3,23 @@ import { jsonList } from "@/lib/api-helpers";
 import { backendEnabled, backendRequest } from "@/lib/backend-client";
 import { createConsolidatedInvoice, listUnbilledTickets } from "@/lib/consolidation-service";
 import { localCollection, proxyCreate, proxyGetList } from "@/lib/api-proxy";
+import { normalizeListJson } from "@/lib/list-query";
 import type { ConsolidatedInvoice } from "@/lib/types";
 
 const RESOURCE = "consolidated-invoices";
 
 export async function GET(req: NextRequest) {
   if (backendEnabled()) {
+    const sp = req.nextUrl.searchParams;
+    const special = sp.get("vehicles") === "true" || sp.get("unbilled") === "true";
+    if (special) {
+      const query = req.nextUrl.search || "";
+      const res = await backendRequest(req, `/consolidated-invoices${query}`);
+      const json = await res.json();
+      if (!res.ok) return NextResponse.json(json, { status: res.status });
+      const body = Array.isArray(json) ? json : normalizeListJson(json).data;
+      return NextResponse.json(body, { status: res.status });
+    }
     const proxied = await proxyGetList(req, RESOURCE);
     if (proxied) return proxied;
   }

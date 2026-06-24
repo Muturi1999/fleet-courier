@@ -38,9 +38,11 @@ export function ConsolidatedInvoiceDocument({
           <p className="consolidated-doc-meta">V.A.T No: {BILLING_PARTIES.supplier.vatNo}</p>
         </div>
         <div className="text-right text-[12px]">
-          <div><span className="text-fleet-gray-400">Invoice No.</span> <strong className="font-mono">{invoice.invoiceNo}</strong></div>
-          <div className="mt-1"><span className="text-fleet-gray-400">SOA Ref</span> <strong className="font-mono">{invoice.refNo}</strong></div>
+          <div><span className="text-fleet-gray-400">Serial No.</span> <strong className="font-mono">{invoice.invoiceNo}</strong></div>
           <div className="mt-1"><span className="text-fleet-gray-400">Date</span> <strong>{formatDocDate(invoice.invoiceDate)}</strong></div>
+          {invoice.plate && (
+            <div className="mt-1"><span className="text-fleet-gray-400">Vehicle</span> <strong className="font-mono">{invoice.plate}</strong></div>
+          )}
         </div>
       </div>
 

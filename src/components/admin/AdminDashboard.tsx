@@ -5,38 +5,33 @@ import { useMemo } from "react";
 import {
   IconClock,
   IconCurrencyDollar,
-  IconExternalLink,
   IconFileInvoice,
   IconTruck,
 } from "@tabler/icons-react";
-import { Badge } from "@/components/ui/Badge";
 import { MetricCard, MetricsGrid } from "@/components/ui/MetricCard";
-import type { Invoice, RouteRecord, Vehicle } from "@/lib/types";
-import { fmtN } from "@/lib/utils";
+import type { Invoice, Vehicle } from "@/lib/types";
+import { dateKey, formatEATDisplay, todayEAT } from "@/lib/dates";
+import { fmtN, formatMillions, sumBy, toNum } from "@/lib/utils";
 import { useCrud } from "@/hooks/useCrud";
-
-function formatMillions(n: number) {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-  return String(Math.round(n));
-}
 
 export function AdminDashboard() {
   const { items: invoices, loading: invLoading } = useCrud<Invoice>("invoices");
   const { items: vehicles, loading: vehLoading } = useCrud<Vehicle>("vehicles");
   const { items: schedules, loading: schLoading } = useCrud<{ id: string }>("schedules");
-  const { items: routes, loading: routeLoading } = useCrud<RouteRecord>("routes");
 
-  const loading = invLoading || vehLoading || schLoading || routeLoading;
+  const loading = invLoading || vehLoading || schLoading;
 
   const stats = useMemo(() => {
-    const marInvoices = invoices.filter((i) => (i.period ?? "").toLowerCase().includes("mar"));
-    const scoped = marInvoices.length > 0 ? marInvoices : invoices;
-    const totalInclVat = scoped.reduce((s, i) => s + i.total, 0);
-    const totalNet = scoped.reduce((s, i) => s + i.net, 0);
-    const totalVat = scoped.reduce((s, i) => s + i.vat, 0);
+    const today = todayEAT();
+    const todayInvoices = invoices.filter(
+      (i) => dateKey(i.serviceDate) === today || dateKey(i.createdAt) === today,
+    );
+    const scoped = todayInvoices.length > 0 ? todayInvoices : invoices;
+    const totalInclVat = sumBy(scoped, (i) => i.total);
+    const totalNet = sumBy(scoped, (i) => i.net);
+    const totalVat = sumBy(scoped, (i) => i.vat);
     const pending = invoices.filter((i) => i.status === "sent" || i.status === "pending");
-    const periodLabel = scoped[0]?.period ?? "All periods";
+    const periodLabel = scoped.length && todayInvoices.length ? `Today · ${formatEATDisplay(today)}` : "All time";
     const plates = new Set(scoped.map((i) => i.plate));
 
     return {
@@ -52,16 +47,19 @@ export function AdminDashboard() {
     };
   }, [invoices, vehicles, schedules]);
 
-  const topVehicles = useMemo(
-    () => [...vehicles].sort((a, b) => b.total - a.total).slice(0, 10),
-    [vehicles],
-  );
-
-  const topRoutes = useMemo(
-    () => [...routes].sort((a, b) => b.total - a.total).slice(0, 10),
-    [routes],
-  );
-  const maxRoute = topRoutes[0]?.total ?? 1;
+  const topRoutes = useMemo(() => {
+    const byRoute = new Map<string, number>();
+    for (const inv of invoices) {
+      const key = inv.route.trim();
+      if (!key) continue;
+      byRoute.set(key, (byRoute.get(key) ?? 0) + toNum(inv.total));
+    }
+    return [...byRoute.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([name, total]) => ({ id: name, name, total }));
+  }, [invoices]);
+  const maxRoute = toNum(topRoutes[0]?.total) || 1;
 
   const workflowSteps = useMemo(
     () => [
@@ -107,12 +105,18 @@ export function AdminDashboard() {
 
   const recentActivity = useMemo(() => {
     return [...invoices]
-      .sort((a, b) => (b.serviceDate ?? "").localeCompare(a.serviceDate ?? ""))
+      .sort((a, b) => {
+        const ca = a.createdAt ?? "";
+        const cb = b.createdAt ?? "";
+        if (ca && cb) return cb.localeCompare(ca);
+        return dateKey(b.serviceDate).localeCompare(dateKey(a.serviceDate));
+      })
       .slice(0, 5)
       .map((inv) => ({
+        id: inv.id,
         dot: inv.status === "paid" ? "teal" : inv.status === "sent" || inv.status === "pending" ? "amber" : "blue",
         text: `Invoice ${inv.invoiceNo} · ${inv.plate} — ${inv.route}`,
-        time: inv.serviceDate ?? inv.period ?? "—",
+        time: formatEATDisplay(inv.serviceDate) || "—",
       }));
   }, [invoices]);
 
@@ -187,36 +191,37 @@ export function AdminDashboard() {
             <div className="section-header">
               <h2 className="text-[15px] font-semibold">Revenue summary · {stats.periodLabel}</h2>
             </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="rounded-fleet-sm bg-fleet-gray-50 p-3">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <div className="min-w-0 rounded-fleet-sm bg-fleet-gray-50 p-3">
                 <div className="mb-1 text-[10px] uppercase tracking-wide text-fleet-gray-400">Net (excl. VAT)</div>
-                <div className="font-mono text-[15px] font-semibold">KES {fmtN(stats.totalNet)}</div>
+                <div className="truncate font-mono text-sm font-semibold tabular-nums sm:text-[15px]">KES {fmtN(stats.totalNet)}</div>
               </div>
-              <div className="rounded-fleet-sm bg-accent-light p-3">
+              <div className="min-w-0 rounded-fleet-sm bg-accent-light p-3">
                 <div className="mb-1 text-[10px] uppercase tracking-wide text-accent-dark">VAT @ 16%</div>
-                <div className="font-mono text-[15px] font-semibold text-accent-dark">KES {fmtN(stats.totalVat)}</div>
+                <div className="truncate font-mono text-sm font-semibold tabular-nums text-accent-dark sm:text-[15px]">KES {fmtN(stats.totalVat)}</div>
               </div>
-              <div className="col-span-2 rounded-fleet-sm bg-navy p-3 text-white">
+              <div className="min-w-0 rounded-fleet-sm bg-navy p-3 text-white sm:col-span-2">
                 <div className="mb-1 text-[10px] uppercase tracking-wide text-white/60">Total incl. VAT</div>
-                <div className="font-mono text-[15px] font-semibold text-accent">KES {fmtN(stats.totalInclVat)}</div>
+                <div className="truncate font-mono text-sm font-semibold tabular-nums text-accent sm:text-[15px]">KES {fmtN(stats.totalInclVat)}</div>
               </div>
             </div>
           </div>
           <div className="card">
             <div className="section-header">
               <h2 className="text-[15px] font-semibold">Top destinations by revenue</h2>
+              <p className="text-xs text-fleet-gray-400">From live invoices</p>
             </div>
             <div className="flex flex-col">
               {topRoutes.length === 0 ? (
-                <p className="py-4 text-center text-xs text-fleet-gray-400">No route data yet</p>
+                <p className="py-4 text-center text-xs text-fleet-gray-400">No invoice data yet</p>
               ) : (
                 topRoutes.map((d) => (
                   <div key={d.id} className="flex items-center gap-2.5 border-b border-fleet-gray-50 py-1.5 last:border-0">
                     <span className="w-[115px] truncate text-[11px] capitalize text-fleet-gray-600">{d.name.toLowerCase()}</span>
                     <div className="h-1 flex-1 overflow-hidden rounded bg-fleet-gray-100">
-                      <div className="h-full rounded bg-navy" style={{ width: `${Math.round((d.total / maxRoute) * 100)}%` }} />
+                      <div className="h-full rounded bg-navy" style={{ width: `${Math.round((toNum(d.total) / maxRoute) * 100)}%` }} />
                     </div>
-                    <span className="min-w-[65px] text-right font-mono text-[11px] font-medium">{(d.total / 1000).toFixed(0)}K</span>
+                    <span className="min-w-[65px] text-right font-mono text-[11px] font-medium tabular-nums">{(toNum(d.total) / 1000).toFixed(0)}K</span>
                   </div>
                 ))
               )}
@@ -229,7 +234,7 @@ export function AdminDashboard() {
             <div className="section-header">
               <div>
                 <h2 className="text-[15px] font-semibold">Recent invoices</h2>
-                <p className="text-xs text-fleet-gray-400">Live from database</p>
+                <p className="text-xs text-fleet-gray-400">Newest first · live from database</p>
               </div>
               <Link href="/admin/invoices" className="btn-secondary btn-sm">
                 View all
@@ -239,7 +244,7 @@ export function AdminDashboard() {
               <p className="py-4 text-center text-xs text-fleet-gray-400">No invoices yet</p>
             ) : (
               recentActivity.map((a) => (
-                <div key={a.text} className="dashboard-activity-row">
+                <div key={a.id} className="dashboard-activity-row">
                   <div className="flex min-w-0 flex-1 gap-3">
                     <div
                       className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
@@ -254,59 +259,6 @@ export function AdminDashboard() {
             )}
           </div>
         </div>
-      </div>
-
-      <div className="section-header">
-        <h2 className="min-w-0 text-sm font-semibold xs:text-[15px]">Top vehicles by revenue</h2>
-        <Link href="/admin/vehicles" className="btn-secondary btn-sm w-full justify-center xs:w-auto">
-          <IconExternalLink size={14} /> All vehicles
-        </Link>
-      </div>
-      <div className="table-wrap">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Vehicle</th>
-              <th>Class</th>
-              <th>Runs</th>
-              <th>Days</th>
-              <th>Routes</th>
-              <th>Net (KES)</th>
-              <th>VAT</th>
-              <th>Total (KES)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {topVehicles.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="py-8 text-center text-fleet-gray-400">
-                  No vehicles yet
-                </td>
-              </tr>
-            ) : (
-              topVehicles.map((v) => {
-                const net = Math.round(v.total / 1.16);
-                const vat = v.total - net;
-                return (
-                  <tr key={v.plate}>
-                    <td className="font-mono font-semibold">{v.plate}</td>
-                    <td>
-                      <Badge variant={v.cls === "15T" ? "sent" : v.cls === "Canter" ? "pending" : "draft"}>{v.cls}</Badge>
-                    </td>
-                    <td className="text-center font-semibold">{v.runs}</td>
-                    <td className="font-mono text-[11px]">{v.days}</td>
-                    <td className="max-w-[160px] truncate text-[11px] text-fleet-gray-600">
-                      {Array.isArray(v.dests) ? v.dests.slice(0, 3).join(" · ") : "—"}
-                    </td>
-                    <td className="font-mono">{fmtN(net)}</td>
-                    <td className="font-mono text-fleet-gray-400">{fmtN(vat)}</td>
-                    <td className="font-mono font-semibold text-navy">{fmtN(v.total)}</td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
       </div>
     </>
   );

@@ -6,6 +6,7 @@ import { BillingPartyForm } from "@/components/billing/BillingPartyForm";
 import { DEFAULT_BILLING_PROFILE } from "@/lib/invoice-meta";
 import type { BillingProfile } from "@/lib/types";
 import { useToast } from "@/context/ToastContext";
+import { saveErrorMessage } from "@/lib/api-errors";
 import { useBillingProfile } from "@/hooks/useBillingProfile";
 
 export default function BillingSettingsPage() {
@@ -22,8 +23,8 @@ export default function BillingSettingsPage() {
     try {
       await save(form);
       toast("Billing profile saved — invoices will use updated client & supplier details");
-    } catch {
-      toast("Save failed");
+    } catch (error) {
+      toast(saveErrorMessage(error));
     }
   };
 

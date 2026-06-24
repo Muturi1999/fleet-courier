@@ -4,6 +4,7 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -60,10 +61,10 @@ export class JourneyLegDto {
 }
 
 export class CreateWorkTicketDto {
-  @ApiPropertyOptional({ example: "1189105" })
-  @IsOptional()
+  @ApiProperty({ example: "1189105", description: "Work ticket serial number (entered by user)" })
   @IsString()
-  serialNo?: string;
+  @IsNotEmpty()
+  serialNo!: string;
 
   @ApiProperty({ default: "Embakasi" })
   @IsString()

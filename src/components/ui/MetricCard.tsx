@@ -37,7 +37,7 @@ export function MetricCard({
         <Icon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" stroke={1.75} />
       </div>
       <div className="mb-1.5 pr-8 text-[10px] font-medium uppercase leading-tight tracking-wide text-fleet-gray-400 sm:mb-2 sm:pr-0 sm:text-[11px]">{label}</div>
-      <div className="mb-1 text-xl font-semibold leading-none text-fleet-gray-800 sm:mb-1.5 sm:text-[26px]">{value}</div>
+      <div className="mb-1 truncate text-xl font-semibold tabular-nums leading-none text-fleet-gray-800 sm:mb-1.5 sm:text-[26px]">{value}</div>
       <div className="line-clamp-2 text-[10px] leading-snug text-fleet-gray-400 sm:line-clamp-none sm:text-xs">{sub}</div>
     </div>
   );

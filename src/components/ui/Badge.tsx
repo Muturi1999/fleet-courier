@@ -44,9 +44,10 @@ export function Badge({
 }
 
 export function clsToBadgeVariant(cls: string): BadgeVariant {
-  if (cls === "15T") return "sent";
-  if (cls === "CANTER") return "pending";
-  if (cls === "VAN") return "approved";
+  const c = cls.trim().toUpperCase();
+  if (c === "15T") return "sent";
+  if (c === "CANTER") return "pending";
+  if (c === "VAN") return "approved";
   return "draft";
 }
 

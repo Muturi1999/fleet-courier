@@ -12,6 +12,7 @@ import type { FleetFilters } from "@/lib/filters";
 import type { Rate } from "@/lib/types";
 import { fmtN } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
+import { saveErrorMessage } from "@/lib/api-errors";
 import { useCrud } from "@/hooks/useCrud";
 import { usePagination } from "@/hooks/usePagination";
 import { ExcelImportButton } from "@/components/import/ExcelImportButton";
@@ -63,8 +64,8 @@ export default function RatesPage() {
         setFilters(highlightSearch(form.route));
       }
       setModal(null);
-    } catch {
-      toast("Save failed");
+    } catch (error) {
+      toast(saveErrorMessage(error));
     }
   };
 

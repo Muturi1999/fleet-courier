@@ -8,6 +8,7 @@ import {
 } from "./api-helpers";
 import { type StoreCollection } from "./data-store";
 import { backendEnabled, backendRequest } from "./backend-client";
+import { normalizeListJson } from "./list-query";
 
 /** Frontend `/api/*` segment → NestJS path under `/api/v1` */
 export const API_BACKEND_PATHS: Record<string, string> = {
@@ -23,6 +24,8 @@ export const API_BACKEND_PATHS: Record<string, string> = {
   notifications: "/notifications",
   expenses: "/expenses",
   "billing-profile": "/billing-profile",
+  "clients/invoices": "/clients/invoices",
+  "clients/work-tickets": "/clients/work-tickets",
 };
 
 const LOCAL_COLLECTION: Record<string, StoreCollection> = {
@@ -58,14 +61,6 @@ function jsonResponse(body: unknown, status: number) {
   });
 }
 
-/** Unwrap `{ data, meta }` pagination envelopes for the UI hooks. */
-function unwrapList(json: unknown): unknown {
-  if (json && typeof json === "object" && "data" in json && Array.isArray((json as { data: unknown }).data)) {
-    return (json as { data: unknown }).data;
-  }
-  return json;
-}
-
 function normalizeExpense(row: Record<string, unknown>) {
   if (!row || typeof row !== "object") return row;
   return {
@@ -79,13 +74,24 @@ function normalizeExpenses(json: unknown) {
   return json;
 }
 
+/** Normalize list responses — preserve pagination envelope when present */
+function normalizeListBody(json: unknown, resource: string) {
+  if (resource === "expenses") {
+    if (json && typeof json === "object" && "data" in json && Array.isArray((json as { data: unknown }).data)) {
+      const env = json as { data: unknown[]; meta: unknown };
+      return { data: normalizeExpenses(env.data), meta: env.meta };
+    }
+    return normalizeExpenses(json);
+  }
+  return normalizeListJson(json);
+}
+
 export async function proxyGetList(req: NextRequest, resource: string) {
   if (!backendEnabled()) return null;
   const query = req.nextUrl.search || "";
   const { res, json } = await readBackend(await backendRequest(req, backendPath(resource, undefined, query)));
   if (!res.ok) return jsonResponse(json, res.status);
-  const body = resource === "expenses" ? normalizeExpenses(unwrapList(json)) : unwrapList(json);
-  return jsonResponse(body, res.status);
+  return jsonResponse(normalizeListBody(json, resource), res.status);
 }
 
 export async function proxyGetOne(req: NextRequest, resource: string, id: string) {

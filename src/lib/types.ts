@@ -1,4 +1,20 @@
-export type UserRole = "admin" | "client";
+export type PaginatedMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  mode?: "offset" | "keyset";
+  hasMore?: boolean;
+  nextCursor?: string | null;
+  prevCursor?: string | null;
+};
+
+export type PaginatedResponse<T> = {
+  data: T[];
+  meta: PaginatedMeta;
+};
+
+export type UserRole = "admin" | "client" | "platform_admin";
 
 export type AuthUser = {
   username: string;
@@ -6,6 +22,7 @@ export type AuthUser = {
   displayName: string;
   tenantSlug?: string;
   tenantName?: string;
+  email?: string;
 };
 
 export type ScheduleEntry = {
@@ -35,6 +52,7 @@ export type Vehicle = {
   dests: string[];
   status: "active" | "inactive" | "suspended";
   client: string;
+  createdAt?: string;
 };
 
 export type InvoiceStatus = "draft" | "sent" | "approved" | "paid" | "pending" | "rejected";
@@ -52,8 +70,13 @@ export type Invoice = {
   status: InvoiceStatus;
   serviceDate?: string;
   period?: string;
+  periodStart?: string;
+  periodEnd?: string;
   deliveryNoteNo?: string;
   clientNote?: string;
+  workTicketId?: string;
+  consolidatedInvoiceId?: string;
+  createdAt?: string;
 };
 
 export type Rate = {
@@ -159,9 +182,11 @@ export type ConsolidatedInvoice = {
   total: number;
   status: ConsolidatedInvoiceStatus;
   workTicketIds: string[];
+  plate?: string;
   clientNote?: string;
   approvedAt?: string;
   paidAt?: string;
+  createdAt?: string;
 };
 
 export type RouteRecord = {

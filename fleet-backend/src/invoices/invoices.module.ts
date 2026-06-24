@@ -1,10 +1,11 @@
 import { BullModule } from "@nestjs/bullmq";
 import { Module } from "@nestjs/common";
+import { PartnersModule } from "../partners/partners.module";
 import { InvoicesController } from "./invoices.controller";
 import { InvoicesService } from "./invoices.service";
 
 @Module({
-  imports: [BullModule.registerQueue({ name: "etims" })],
+  imports: [BullModule.registerQueue({ name: "etims" }), PartnersModule],
   controllers: [InvoicesController],
   providers: [InvoicesService],
   exports: [InvoicesService],

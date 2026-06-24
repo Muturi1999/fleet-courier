@@ -1,12 +1,22 @@
 import { randomUUID } from "crypto";
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { queryPaginated } from "../common/database/pagination.helper";
-import { PaginatedResult, PaginationQueryDto } from "../common/dto/pagination.dto";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  addDateClause,
+  addDestinationClause,
+  addSearchClause,
+  addStatusClause,
+  wantsFullList,
+} from "../common/database/list-query.helper";
+import { queryList } from "../common/database/pagination.helper";
+import { SEQUENCE_KEYS, TenantSequenceService } from "../common/database/tenant-sequence.service";
+import { ListQueryDto } from "../common/dto/list-query.dto";
+import { PaginatedResult } from "../common/dto/pagination.dto";
+import { PartnersService } from "../partners/partners.service";
+import { TenantContextStorage } from "../common/tenant-context/tenant-context.storage";
 import { TenantDatabaseService } from "../common/database/tenant-database.service";
 import { WorkflowsService } from "../workflows/workflows.service";
+import { WorkTicketInvoiceService } from "./work-ticket-invoice.service";
 import { CreateWorkTicketDto, JourneyLegDto, UpdateWorkTicketDto } from "./dto/work-ticket.dto";
-
-const WORK_TICKET_SERIES_START = 1189100;
 
 type WorkTicketRow = Record<string, unknown> & {
   id: string;
@@ -15,9 +25,12 @@ type WorkTicketRow = Record<string, unknown> & {
   driver_name: string;
   route: string;
   trip_date: string;
+  net: string | number;
+  vat: string | number;
   total: string | number;
   status: string;
   legs: JourneyLegDto[];
+  partner_id?: string | null;
 };
 
 @Injectable()
@@ -25,41 +38,66 @@ export class WorkTicketsService {
   constructor(
     private readonly db: TenantDatabaseService,
     private readonly workflows: WorkflowsService,
+    private readonly partners: PartnersService,
+    private readonly ticketInvoices: WorkTicketInvoiceService,
+    private readonly sequences: TenantSequenceService,
   ) {}
 
-  async findAll(
-    query: PaginationQueryDto,
-    status?: string,
-  ): Promise<PaginatedResult<WorkTicketRow> | WorkTicketRow[]> {
+  private buildWhere(query: ListQueryDto, status?: string) {
     const clauses: string[] = [];
     const params: unknown[] = [];
     let i = 1;
-
-    if (query.search?.trim()) {
-      clauses.push(
-        `(LOWER(serial_no) LIKE $${i} OR LOWER(plate) LIKE $${i} OR LOWER(driver_name) LIKE $${i} OR LOWER(route) LIKE $${i})`,
-      );
-      params.push(`%${query.search.toLowerCase()}%`);
-      i++;
-    }
-    if (status) {
-      clauses.push(`status = $${i++}`);
-      params.push(status);
-    }
-
+    i = addSearchClause(
+      clauses,
+      params,
+      i,
+      ["serial_no", "plate", "driver_name", "route"],
+      query.search,
+    );
+    i = addDestinationClause(clauses, params, i, "route", query.destination);
+    i = addDateClause(clauses, params, i, "trip_date", query.date);
+    i = addStatusClause(clauses, params, i, status);
     const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    return { where, params };
+  }
 
-    if (query.page === undefined && query.limit === undefined) {
-      return this.db.queryAll(`SELECT * FROM work_tickets ${where} ORDER BY created_at DESC`, params);
+  async findAll(
+    query: ListQueryDto,
+    status?: string,
+  ): Promise<PaginatedResult<WorkTicketRow> | WorkTicketRow[]> {
+    const { where, params } = this.buildWhere(query, status);
+
+    if (wantsFullList(query)) {
+      return this.db.queryAll(`SELECT * FROM work_tickets ${where} ORDER BY created_at DESC, id DESC`, params);
     }
 
-    return queryPaginated<WorkTicketRow>(this.db, {
+    return queryList<WorkTicketRow>(this.db, query, {
       table: "work_tickets",
       where,
       params,
-      page: query.page ?? 1,
-      limit: query.limit ?? 50,
+      orderBy: "created_at DESC, id DESC",
     });
+  }
+
+  async summary() {
+    const rows = await this.db.queryAll<{ status: string; count: string }>(
+      `SELECT status, COUNT(*)::text AS count FROM work_tickets GROUP BY status`,
+    );
+    const counts: Record<string, number> = {};
+    let total = 0;
+    for (const row of rows) {
+      const n = parseInt(row.count, 10);
+      counts[row.status] = n;
+      total += n;
+    }
+    return {
+      total,
+      draft: counts.draft ?? 0,
+      sent: counts.sent ?? 0,
+      approved: counts.approved ?? 0,
+      rejected: counts.rejected ?? 0,
+      invoiced: counts.invoiced ?? 0,
+    };
   }
 
   async findOne(id: string) {
@@ -69,11 +107,8 @@ export class WorkTicketsService {
   }
 
   async nextSerial(): Promise<string> {
-    const row = await this.db.queryOne<{ max: string | null }>(
-      `SELECT MAX(CAST(serial_no AS BIGINT))::text AS max FROM work_tickets`,
-    );
-    const max = parseInt(row?.max ?? String(WORK_TICKET_SERIES_START - 1), 10);
-    return String(Math.max(max, WORK_TICKET_SERIES_START - 1) + 1);
+    const n = await this.sequences.next(SEQUENCE_KEYS.workTicketSerial);
+    return String(n);
   }
 
   private normalizeLegs(legs: JourneyLegDto[]) {
@@ -91,36 +126,47 @@ export class WorkTicketsService {
   }
 
   async create(dto: CreateWorkTicketDto) {
-    const serialNo = dto.serialNo ?? (await this.nextSerial());
+    const serialNo = dto.serialNo.trim();
+    if (!serialNo) throw new BadRequestException("Serial number is required");
+
+    const duplicate = await this.db.queryOne(`SELECT id FROM work_tickets WHERE serial_no = $1`, [serialNo]);
+    if (duplicate) throw new ConflictException(`Work ticket serial ${serialNo} already exists`);
+
     const legs = this.normalizeLegs(dto.legs);
-    return this.db.queryOne(
-      `INSERT INTO work_tickets (
+
+    return this.db.withTransaction(async (client) => {
+      const res = await client.query(
+        `INSERT INTO work_tickets (
         serial_no, branch, trip_date, plate, make, driver_name, route,
         rate_type, agreed_rate, gate_pass_ref, header_notes, legs,
         private_km, official_km, net, vat, total, attachment_name, status
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
-      [
-        serialNo,
-        dto.branch,
-        dto.tripDate,
-        dto.plate,
-        dto.make,
-        dto.driverName ?? "",
-        dto.route,
-        dto.rateType ?? "fixed",
-        dto.agreedRate,
-        dto.gatePassRef ?? null,
-        dto.headerNotes ?? null,
-        JSON.stringify(legs),
-        dto.privateKm ?? 0,
-        dto.officialKm ?? 0,
-        dto.net,
-        dto.vat,
-        dto.total,
-        dto.attachmentName ?? null,
-        dto.status ?? "draft",
-      ],
-    );
+        [
+          serialNo,
+          dto.branch,
+          dto.tripDate,
+          dto.plate,
+          dto.make,
+          dto.driverName ?? "",
+          dto.route,
+          dto.rateType ?? "fixed",
+          dto.agreedRate,
+          dto.gatePassRef ?? null,
+          dto.headerNotes ?? null,
+          JSON.stringify(legs),
+          dto.privateKm ?? 0,
+          dto.officialKm ?? 0,
+          dto.net,
+          dto.vat,
+          dto.total,
+          dto.attachmentName ?? null,
+          dto.status ?? "draft",
+        ],
+      );
+      const ticket = res.rows[0] as WorkTicketRow;
+      await this.ticketInvoices.createForWorkTicket(ticket, client);
+      return ticket;
+    });
   }
 
   async update(id: string, dto: UpdateWorkTicketDto) {
@@ -154,14 +200,32 @@ export class WorkTicketsService {
     for (const [key, col] of Object.entries(map)) {
       const val = (dto as Record<string, unknown>)[key];
       if (val !== undefined) {
+        if (key === "serialNo" && typeof val === "string") {
+          const serialNo = val.trim();
+          if (!serialNo) throw new BadRequestException("Serial number is required");
+          const duplicate = await this.db.queryOne(
+            `SELECT id FROM work_tickets WHERE serial_no = $1 AND id <> $2`,
+            [serialNo, id],
+          );
+          if (duplicate) throw new ConflictException(`Work ticket serial ${serialNo} already exists`);
+        }
         fields.push(`${col} = $${i++}`);
-        values.push(val);
+        values.push(key === "serialNo" && typeof val === "string" ? val.trim() : val);
       }
     }
 
     if (dto.legs !== undefined) {
       fields.push(`legs = $${i++}`);
       values.push(JSON.stringify(this.normalizeLegs(dto.legs)));
+    }
+
+    if (dto.status === "sent" && !(before as WorkTicketRow).partner_id) {
+      const tenant = TenantContextStorage.getOrThrow();
+      const partnerId = await this.partners.defaultPartnerId(tenant.id);
+      if (partnerId) {
+        fields.push(`partner_id = $${i++}`);
+        values.push(partnerId);
+      }
     }
 
     fields.push(`updated_at = NOW()`);
@@ -173,6 +237,9 @@ export class WorkTicketsService {
     )) as WorkTicketRow;
 
     await this.workflows.processWorkTicketStatusChange(before, updated);
+    if (before.status === "draft") {
+      await this.ticketInvoices.syncFromWorkTicket(updated as WorkTicketRow);
+    }
     return updated;
   }
 
@@ -197,7 +264,10 @@ export class WorkTicketsService {
     if (ticket.status !== "draft") {
       throw new BadRequestException("Only draft work tickets can be deleted");
     }
-    await this.db.query(`DELETE FROM work_tickets WHERE id = $1`, [id]);
+    await this.db.withTransaction(async (client) => {
+      await this.ticketInvoices.deleteForWorkTicket(id, client);
+      await client.query(`DELETE FROM work_tickets WHERE id = $1`, [id]);
+    });
     return { ok: true };
   }
 }

@@ -12,7 +12,9 @@ import { VehicleRecordView } from "@/components/vehicles/VehicleRecordView";
 import { clearedFilters, filterSafari, highlightSearch } from "@/lib/filters";
 import type { FleetFilters } from "@/lib/filters";
 import type { Invoice, LocalDelivery, SafariEntry, SafariFlag, ScheduleEntry } from "@/lib/types";
+import { sumBy, toNum } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
+import { saveErrorMessage } from "@/lib/api-errors";
 import { useCrud } from "@/hooks/useCrud";
 import { usePageScreen } from "@/hooks/usePageScreen";
 import { usePagination } from "@/hooks/usePagination";
@@ -46,8 +48,11 @@ export default function SafariPage() {
   const { paginated, ...pagination } = usePagination(filtered, filterKey);
 
   const metrics = useMemo(() => {
-    const tripTotal = items.reduce((s, r) => s + r.total, 0);
-    const top = items.reduce<SafariEntry | null>((best, r) => (!best || r.total > best.total ? r : best), null);
+    const tripTotal = sumBy(items, (r) => r.total);
+    const top = items.reduce<SafariEntry | null>(
+      (best, r) => (!best || toNum(r.total) > toNum(best.total) ? r : best),
+      null,
+    );
     const flagged = items.filter((r) => r.flag === "VERIFY").length;
     return { tripTotal, entries: items.length, top, flagged };
   }, [items]);
@@ -74,8 +79,8 @@ export default function SafariPage() {
         setFilters(highlightSearch(form.reg));
       }
       close();
-    } catch {
-      toast("Save failed");
+    } catch (error) {
+      toast(saveErrorMessage(error));
     }
   };
 

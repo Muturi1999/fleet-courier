@@ -10,12 +10,10 @@ export const CONSOLIDATED_PAYMENT_TERMS = {
 export const CONSOLIDATED_DESCRIPTION =
   "Provision of Lease Vehicles & Courier Services";
 
+import { formatEATDisplay } from "./dates";
+
 export function formatDocDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = d.toLocaleString("en-GB", { month: "short" });
-  return `${dd}-${mm}-${d.getFullYear()}`;
+  return formatEATDisplay(iso);
 }
 
 export function formatPeriodRange(start: string, end: string): string {
@@ -52,10 +50,12 @@ export function calcPaymentWindow(approvedAt: string): { from: string; to: strin
   };
 }
 
+import { sumBy } from "./utils";
+
 export function sumTickets(tickets: WorkTicket[]) {
-  const net = tickets.reduce((s, t) => s + t.net, 0);
-  const vat = tickets.reduce((s, t) => s + t.vat, 0);
-  const total = tickets.reduce((s, t) => s + t.total, 0);
+  const net = sumBy(tickets, (t) => t.net);
+  const vat = sumBy(tickets, (t) => t.vat);
+  const total = sumBy(tickets, (t) => t.total);
   return { net, vat, total, totalTrips: tickets.length };
 }
 

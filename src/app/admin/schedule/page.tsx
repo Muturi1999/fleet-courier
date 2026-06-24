@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { IconDownload, IconEdit, IconEye, IconPlus, IconTrash } from "@tabler/icons-react";
 import { IconCalendarStats, IconChartLine, IconClockExclamation, IconListCheck } from "@tabler/icons-react";
 import { Badge, clsToBadgeVariant } from "@/components/ui/Badge";
@@ -11,19 +11,22 @@ import { FormActions, FormField } from "@/components/ui/Modal";
 import { RecordScreen } from "@/components/layout/RecordScreen";
 import { VehicleRecordView } from "@/components/vehicles/VehicleRecordView";
 import { calcBilling } from "@/lib/billing";
-import { clearedFilters, filterSchedules, highlightSearch } from "@/lib/filters";
+import { clearedFilters, highlightSearch } from "@/lib/filters";
 import type { FleetFilters } from "@/lib/filters";
+import { normalizeListJson } from "@/lib/list-query";
 import type { Invoice, LocalDelivery, SafariEntry, ScheduleEntry } from "@/lib/types";
 import { fmtN, formatRoute } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
 import { useCrud } from "@/hooks/useCrud";
+import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { usePageScreen } from "@/hooks/usePageScreen";
-import { usePagination } from "@/hooks/usePagination";
 import { usePlateFromUrl } from "@/hooks/usePlateFromUrl";
 import { ExcelImportButton } from "@/components/import/ExcelImportButton";
 import { parseScheduleExcel } from "@/lib/excel-import";
 
 const PAGE = "Schedule entry";
+
+type ScheduleSummary = { count: number; days: number; cost: number; draft: number };
 
 const emptyForm = (): Omit<ScheduleEntry, "id"> => ({
   plate: "",
@@ -42,37 +45,82 @@ const emptyForm = (): Omit<ScheduleEntry, "id"> => ({
 
 export default function SchedulePage() {
   const { toast } = useToast();
-  const { items, loading, create, update, remove, refresh } = useCrud<ScheduleEntry>("schedules");
   const { items: localDeliveries } = useCrud<LocalDelivery>("local-deliveries");
   const { items: safari } = useCrud<SafariEntry>("safari");
   const { items: invoices } = useCrud<Invoice>("invoices");
   const { screen, isList, openCreate, openEdit, openVehicle, close } = usePageScreen();
 
+  const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<FleetFilters>(clearedFilters());
   usePlateFromUrl(setFilters);
   const [form, setForm] = useState(emptyForm());
+  const [summary, setSummary] = useState<ScheduleSummary>({ count: 0, days: 0, cost: 0, draft: 0 });
+  const [viewRecord, setViewRecord] = useState<ScheduleEntry | null>(null);
+  const [vehicleSchedules, setVehicleSchedules] = useState<ScheduleEntry[]>([]);
 
-  const filtered = useMemo(() => filterSchedules(items, filters), [items, filters]);
-  const filterKey = JSON.stringify(filters);
-  const { paginated, ...pagination } = usePagination(filtered, filterKey);
-
-  const totals = useMemo(() => ({
-    count: items.length,
-    days: items.reduce((s, e) => s + e.days, 0),
-    cost: items.reduce((s, e) => s + e.cost, 0),
-    draft: items.filter((e) => e.status === "draft").length,
-  }), [items]);
-
-  const editEntry = screen.kind === "edit" ? items.find((e) => e.id === screen.id) : null;
+  const listKey = JSON.stringify({ filters });
+  const {
+    items,
+    meta,
+    loading,
+    create,
+    update,
+    remove,
+    fetchOne,
+    refreshPage,
+    totalPages,
+    from,
+    to,
+  } = usePaginatedList<ScheduleEntry>("schedules", { page, filters });
 
   useEffect(() => {
-    if (screen.kind === "edit") {
-      const e = items.find((x) => x.id === screen.id);
-      if (e) setForm({ ...e });
+    setPage(1);
+  }, [listKey]);
+
+  useEffect(() => {
+    fetch("/api/schedules/summary", { cache: "no-store", credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s: ScheduleSummary | null) => {
+        if (s) setSummary(s);
+      })
+      .catch(() => {});
+  }, [meta.total]);
+
+  useEffect(() => {
+    if (screen.kind !== "view" && screen.kind !== "edit") {
+      setViewRecord(null);
+      return;
+    }
+    const found = items.find((x) => x.id === screen.id);
+    if (found) {
+      setViewRecord(found);
+      return;
+    }
+    fetchOne(screen.id).then(setViewRecord);
+  }, [screen, items, fetchOne]);
+
+  useEffect(() => {
+    if (screen.kind === "edit" && viewRecord) {
+      setForm({ ...viewRecord });
     } else if (screen.kind === "create") {
       setForm(emptyForm());
     }
-  }, [screen, items]);
+  }, [screen, viewRecord]);
+
+  useEffect(() => {
+    if (screen.kind !== "vehicle") {
+      setVehicleSchedules([]);
+      return;
+    }
+    const plate = screen.plate;
+    fetch(`/api/schedules?all=true&search=${encodeURIComponent(plate)}`, { cache: "no-store", credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        const parsed = normalizeListJson<ScheduleEntry>(json);
+        setVehicleSchedules(parsed.data.filter((e) => e.plate.toUpperCase() === plate.toUpperCase()));
+      })
+      .catch(() => setVehicleSchedules([]));
+  }, [screen]);
 
   const setRateDays = (rate: number, days: number) => {
     const bill = calcBilling(rate, days);
@@ -91,6 +139,7 @@ export default function SchedulePage() {
         toast("Schedule entry created");
         setFilters(highlightSearch(form.plate));
       }
+      await refreshPage();
       close();
     } catch {
       toast("Failed to save entry");
@@ -112,7 +161,7 @@ export default function SchedulePage() {
       if (!res.ok) throw new Error("Import failed");
       const json = (await res.json()) as { imported?: number };
       toast(`Imported ${json.imported ?? rows.length} schedule rows`);
-      await refresh();
+      await refreshPage();
     } catch {
       toast("Import failed — use Excel with Plate, Dest, Rate, Days columns");
     }
@@ -129,7 +178,7 @@ export default function SchedulePage() {
       >
         <VehicleRecordView
           plate={screen.plate}
-          schedules={items}
+          schedules={vehicleSchedules}
           localDeliveries={localDeliveries}
           safari={safari}
           invoices={invoices}
@@ -139,23 +188,28 @@ export default function SchedulePage() {
   }
 
   if (screen.kind === "view") {
-    const viewEntry = items.find((e) => e.id === screen.id);
-    if (!viewEntry) { close(); return null; }
+    if (!viewRecord) {
+      return (
+        <RecordScreen crumbs={[...crumbs, { label: "…" }]} title="Schedule entry" onBack={close}>
+          <p className="py-8 text-center text-fleet-gray-400">Loading…</p>
+        </RecordScreen>
+      );
+    }
     return (
       <RecordScreen
-        crumbs={[...crumbs, { label: viewEntry.plate }]}
-        title={`View — ${viewEntry.plate}`}
+        crumbs={[...crumbs, { label: viewRecord.plate }]}
+        title={`View — ${viewRecord.plate}`}
         onBack={close}
       >
         <div className="card max-w-2xl space-y-3 text-sm">
-          <p><span className="text-fleet-gray-400">Vehicle:</span> <span className="font-mono font-semibold">{viewEntry.plate}</span></p>
-          <p><span className="text-fleet-gray-400">Route:</span> {formatRoute(viewEntry.dest)}</p>
-          <p><span className="text-fleet-gray-400">Run type:</span> {viewEntry.runType}</p>
-          <p><span className="text-fleet-gray-400">Date:</span> {viewEntry.serviceDate ?? viewEntry.month}</p>
-          <p><span className="text-fleet-gray-400">Total:</span> <span className="font-mono font-semibold">KES {fmtN(viewEntry.total)}</span></p>
+          <p><span className="text-fleet-gray-400">Vehicle:</span> <span className="font-mono font-semibold">{viewRecord.plate}</span></p>
+          <p><span className="text-fleet-gray-400">Route:</span> {formatRoute(viewRecord.dest)}</p>
+          <p><span className="text-fleet-gray-400">Run type:</span> {viewRecord.runType}</p>
+          <p><span className="text-fleet-gray-400">Date:</span> {viewRecord.serviceDate ?? viewRecord.month}</p>
+          <p><span className="text-fleet-gray-400">Total:</span> <span className="font-mono font-semibold">KES {fmtN(viewRecord.total)}</span></p>
           <div className="flex flex-wrap gap-2 pt-2">
-            <button type="button" className="btn-accent btn-sm" onClick={() => { setForm({ ...viewEntry }); openEdit(viewEntry.id); }}>Edit</button>
-            <button type="button" className="btn-secondary btn-sm" onClick={() => openVehicle(viewEntry.plate)}>All vehicle records</button>
+            <button type="button" className="btn-accent btn-sm" onClick={() => openEdit(viewRecord.id)}>Edit</button>
+            <button type="button" className="btn-secondary btn-sm" onClick={() => openVehicle(viewRecord.plate)}>All vehicle records</button>
           </div>
         </div>
       </RecordScreen>
@@ -193,10 +247,10 @@ export default function SchedulePage() {
   return (
     <>
       <MetricsGrid>
-        <MetricCard accent="navy" icon={IconListCheck} label="Entries logged" value={String(totals.count)} sub="March 2026 schedule" />
-        <MetricCard accent="teal" icon={IconCalendarStats} label="Total days worked" value={String(totals.days)} sub="All schedule rows" />
-        <MetricCard accent="amber" icon={IconChartLine} label="Est. invoice total" value={`${(totals.cost / 1e6).toFixed(2)}M`} sub="Excl. VAT · KES" />
-        <MetricCard accent="red" icon={IconClockExclamation} label="Draft entries" value={String(totals.draft)} sub="Not yet saved" />
+        <MetricCard accent="navy" icon={IconListCheck} label="Entries logged" value={String(summary.count)} sub="All schedule rows" />
+        <MetricCard accent="teal" icon={IconCalendarStats} label="Total days worked" value={String(summary.days)} sub="Fleet-wide" />
+        <MetricCard accent="amber" icon={IconChartLine} label="Est. invoice total" value={`${(summary.cost / 1e6).toFixed(2)}M`} sub="Excl. VAT · KES" />
+        <MetricCard accent="red" icon={IconClockExclamation} label="Draft entries" value={String(summary.draft)} sub="Not yet saved" />
       </MetricsGrid>
 
       <FilterBar
@@ -204,11 +258,11 @@ export default function SchedulePage() {
         onChange={setFilters}
         fields={["search", "destination", "runType", "date", "status"]}
         statusKind="schedule"
-        resultCount={filtered.length}
+        resultCount={meta.total}
       >
         <ExcelImportButton label="Import Excel" onImport={importSchedule} />
         <button type="button" className="btn-secondary btn-sm" onClick={() => toast("Exported to CSV")}><IconDownload size={14} /> Export</button>
-        <button type="button" className="btn-accent btn-sm" onClick={() => { setForm(emptyForm()); openCreate(); }}><IconPlus size={14} /> Add entry</button>
+        <button type="button" className="btn-accent btn-sm" onClick={() => openCreate()}><IconPlus size={14} /> Add entry</button>
       </FilterBar>
 
       <div className="table-wrap">
@@ -222,10 +276,10 @@ export default function SchedulePage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={10} className="py-8 text-center text-fleet-gray-400">Loading…</td></tr>
-            ) : paginated.length === 0 ? (
+            ) : items.length === 0 ? (
               <tr><td colSpan={10} className="py-8 text-center text-fleet-gray-400">No entries match filters</td></tr>
             ) : (
-              paginated.map((e) => (
+              items.map((e) => (
                 <tr key={e.id}>
                   <td className="font-mono font-semibold">{e.plate}</td>
                   <td><Badge variant={clsToBadgeVariant(e.cls)}>{e.cls}</Badge></td>
@@ -239,8 +293,20 @@ export default function SchedulePage() {
                   <td>
                     <div className="flex gap-1">
                       <button type="button" className="btn-secondary btn-sm" onClick={() => openVehicle(e.plate)} title="All records"><IconEye size={14} /></button>
-                      <button type="button" className="btn-secondary btn-sm" onClick={() => { setForm({ ...e }); openEdit(e.id); }}><IconEdit size={14} /></button>
-                      <button type="button" className="btn-secondary btn-sm text-fleet-red" onClick={async () => { if (confirm("Delete?")) { await remove(e.id); toast("Deleted"); } }}><IconTrash size={14} /></button>
+                      <button type="button" className="btn-secondary btn-sm" onClick={() => openEdit(e.id)}><IconEdit size={14} /></button>
+                      <button
+                        type="button"
+                        className="btn-secondary btn-sm text-fleet-red"
+                        onClick={async () => {
+                          if (confirm("Delete?")) {
+                            await remove(e.id);
+                            await refreshPage();
+                            toast("Deleted");
+                          }
+                        }}
+                      >
+                        <IconTrash size={14} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -250,7 +316,7 @@ export default function SchedulePage() {
         </table>
       </div>
 
-      <Pagination {...pagination} onPage={pagination.setPage} />
+      <Pagination page={page} totalPages={totalPages} total={meta.total} from={from} to={to} onPage={setPage} />
     </>
   );
 }

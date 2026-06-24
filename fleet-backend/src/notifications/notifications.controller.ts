@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { UserRole } from "@prisma/client";
 import { ApiTenantAuth } from "../common/decorators/api-tenant-auth.decorator";
-import { PaginationQueryDto } from "../common/dto/pagination.dto";
+import { NotificationsQueryDto } from "./dto/notifications-query.dto";
 import { NotificationsService } from "./notifications.service";
 
 @ApiTags("notifications")
@@ -13,12 +13,8 @@ export class NotificationsController {
 
   @Get()
   @ApiOperation({ summary: "List workflow notifications" })
-  list(
-    @Query() query: PaginationQueryDto,
-    @Query("audience") audience?: string,
-    @Query("unread") unread?: string,
-  ) {
-    return this.service.findAll(query, audience, unread === "true");
+  list(@Query() query: NotificationsQueryDto) {
+    return this.service.findAll(query, query.audience, query.unread === "true");
   }
 
   @Patch(":id/read")

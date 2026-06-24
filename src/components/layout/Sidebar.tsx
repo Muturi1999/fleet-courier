@@ -21,6 +21,7 @@ import {
 } from "@tabler/icons-react";
 import { useAuth } from "@/context/AuthContext";
 import { useBillingProfile } from "@/hooks/useBillingProfile";
+import { prefetchAdminRoute } from "@/lib/admin-prefetch";
 import { NotificationNavLink } from "./NotificationNavLink";
 
 type NavItem = {
@@ -122,7 +123,14 @@ export function Sidebar({ role, onNavigate }: { role: "admin" | "client"; onNavi
               const active = pathname === item.href;
               const Icon = item.icon;
               return (
-                <Link key={item.href} href={item.href} onClick={onNavigate} className={`nav-item ${active ? "nav-item-active" : ""}`}>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  onMouseEnter={() => role === "admin" && prefetchAdminRoute(item.href)}
+                  onFocus={() => role === "admin" && prefetchAdminRoute(item.href)}
+                  className={`nav-item ${active ? "nav-item-active" : ""}`}
+                >
                   <Icon size={17} className="w-5 shrink-0" />
                   <span className="flex-1">{item.label}</span>
                 </Link>
