@@ -25,12 +25,38 @@ export class CreateConsolidatedInvoiceDto {
   @IsOptional()
   @IsString()
   invoiceDate?: string;
+
+  /** vehicle = single plate batch (default); period = all eligible trips in range */
+  @ApiPropertyOptional({ enum: ["vehicle", "period"] })
+  @IsOptional()
+  @IsString()
+  mode?: "vehicle" | "period";
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  route?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  cls?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  runType?: string;
+
+  @ApiPropertyOptional({ description: "Matches trip route, vehicle run type, or destination" })
+  @IsOptional()
+  @IsString()
+  runRoute?: string;
 }
 
 export class ConsolidatedActionDto {
-  @ApiProperty({ enum: ["send", "approve", "mark_paid"] })
+  @ApiProperty({ enum: ["send", "approve", "mark_paid", "reject"] })
   @IsString()
-  action!: "send" | "approve" | "mark_paid";
+  action!: "send" | "approve" | "mark_paid" | "reject";
 
   @ApiPropertyOptional()
   @IsOptional()

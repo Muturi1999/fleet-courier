@@ -15,9 +15,11 @@ import {
 } from "@/components/consolidated/ConsolidatedInvoiceDocument";
 import { SoaBreakdownDocument } from "@/components/consolidated/SoaBreakdownDocument";
 import { ConsolidatedInvoicesTable } from "@/components/consolidated/ConsolidatedInvoicesTable";
+import { ConsolidateByPeriodPanel } from "@/components/consolidated/ConsolidateByPeriodPanel";
 import { RecordScreen } from "@/components/layout/RecordScreen";
 import { currentMonthRangeEAT, formatEATDisplay } from "@/lib/dates";
-import type { ConsolidatedInvoice, Vehicle, WorkTicket } from "@/lib/types";
+import { sortConsolidatedNewestFirst } from "@/lib/consolidation";
+import type { ConsolidatedInvoice, RouteRecord, SafariEntry, Vehicle, WorkTicket } from "@/lib/types";
 import { useToast } from "@/context/ToastContext";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useCrud } from "@/hooks/useCrud";
@@ -125,9 +127,11 @@ export default function ConsolidatedBillingPage() {
   const { toast } = useToast();
   const { refresh: refreshNotifications } = useNotifications("admin");
   const { items: registerVehicles } = useCrud<Vehicle>("vehicles");
+  const { items: routes } = useCrud<RouteRecord>("routes");
+  const { items: safari } = useCrud<SafariEntry>("safari");
   const periodDefaults = useMemo(() => defaultPeriod(), []);
   const invoicesCacheKey = apiCacheKey("GET", "/api/consolidated-invoices?all=true");
-  const [tab, setTab] = useState<"statements" | "generate">("statements");
+  const [tab, setTab] = useState<"statements" | "vehicle" | "period">("statements");
   const [invoices, setInvoices] = useState<ConsolidatedInvoice[]>(
     () => getApiCache<ConsolidatedInvoice[]>(invoicesCacheKey) ?? [],
   );
@@ -143,17 +147,14 @@ export default function ConsolidatedBillingPage() {
   const [consolidating, setConsolidating] = useState(false);
   const [highlightId, setHighlightId] = useState<string | null>(null);
 
-  const sortedInvoices = useMemo(
-    () =>
-      [...invoices].sort((a, b) =>
-        (b.createdAt ?? b.invoiceDate ?? "").localeCompare(a.createdAt ?? a.invoiceDate ?? ""),
-      ),
-    [invoices],
-  );
+  const sortedInvoices = useMemo(() => sortConsolidatedNewestFirst(invoices), [invoices]);
 
   const vehicleConsolidated = useMemo(
-    () => sortedInvoices.filter((inv) => inv.plate?.trim()),
-    [sortedInvoices],
+    () =>
+      sortConsolidatedNewestFirst(
+        invoices.filter((inv) => inv.consolidationType !== "period" && Boolean(inv.plate?.trim())),
+      ),
+    [invoices],
   );
 
   const vehicleListKey = `${vehicleConsolidated.length}-${highlightId ?? ""}`;
@@ -375,7 +376,11 @@ export default function ConsolidatedBillingPage() {
           { label: "Consolidated billing", onClick: () => { setViewId(null); setViewData(null); } },
           { label: viewData.invoice.invoiceNo },
         ]}
-        title={`${viewData.invoice.invoiceNo} · ${viewData.invoice.plate ?? "Vehicle batch"}`}
+        title={`${viewData.invoice.invoiceNo} · ${
+          viewData.invoice.consolidationType === "period" || !viewData.invoice.plate?.trim()
+            ? "Period batch"
+            : viewData.invoice.plate
+        }`}
         onBack={() => { setViewId(null); setViewData(null); }}
       >
         <div id="consolidated-billing-print" className="space-y-6">
@@ -410,17 +415,38 @@ export default function ConsolidatedBillingPage() {
         <button type="button" className={tab === "statements" ? "filter-tab filter-tab-active" : "filter-tab"} onClick={() => setTab("statements")}>
           Consolidated statements
         </button>
-        <button type="button" className={tab === "generate" ? "filter-tab filter-tab-active" : "filter-tab"} onClick={() => setTab("generate")}>
+        <button type="button" className={tab === "vehicle" ? "filter-tab filter-tab-active" : "filter-tab"} onClick={() => setTab("vehicle")}>
           Consolidate by vehicle
+        </button>
+        <button type="button" className={tab === "period" ? "filter-tab filter-tab-active" : "filter-tab"} onClick={() => setTab("period")}>
+          Consolidate by period
         </button>
       </div>
 
-      {tab === "generate" ? (
+      {tab === "period" ? (
+        <ConsolidateByPeriodPanel
+          invoices={sortedInvoices}
+          vehicles={registerVehicles ?? []}
+          routes={routes ?? []}
+          safari={safari ?? []}
+          loading={loading}
+          highlightId={highlightId}
+          onRefresh={refresh}
+          onView={openView}
+          onPrint={printInvoice}
+          onDownload={downloadDocuments}
+          onShare={sendToClient}
+          onDelete={deleteInvoice}
+          toast={toast}
+        />
+      ) : tab === "vehicle" ? (
         <div className="card">
           <h2 className="mb-1 text-[15px] font-semibold">Consolidate trip invoices by vehicle</h2>
           <p className="mb-4 text-xs text-fleet-gray-400">
             Pick a billing period and vehicle to roll trip invoices into one consolidated statement.
             Trip invoices are matched by service/trip date within the selected from–to range.
+            You can consolidate again for the same vehicle and period — each run gets a new serial number and older
+            drafts stay in the list for reference; the newest appears at the top.
           </p>
 
           <div className="mb-4 grid grid-cols-1 items-end gap-3 lg:grid-cols-[minmax(140px,1fr)_minmax(140px,1fr)_minmax(200px,2fr)_auto]">

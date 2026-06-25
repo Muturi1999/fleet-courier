@@ -15,7 +15,22 @@ export class ConsolidatedInvoicesController {
   @ApiTenantAuth(UserRole.admin, UserRole.client)
   list(@Query() query: ConsolidatedInvoicesQueryDto) {
     if (query.vehicles === "true") return this.service.findBillableVehicles(query.from, query.to);
-    if (query.unbilled === "true") return this.service.findUnbilled(query.from, query.to, query.plate);
+    if (query.unbilled === "true") {
+      return this.service.findUnbilled(query.from, query.to, query.plate, {
+        route: query.route,
+        cls: query.cls,
+        runType: query.runType,
+        runRoute: query.runRoute,
+      });
+    }
+    if (query.periodPreview === "true") {
+      return this.service.findPeriodPreview(query.from, query.to, query.groupBy ?? "vehicle", {
+        route: query.route,
+        cls: query.cls,
+        runType: query.runType,
+        runRoute: query.runRoute,
+      });
+    }
     return this.service.findAll(query, query.status);
   }
 
@@ -38,6 +53,7 @@ export class ConsolidatedInvoicesController {
   action(@Param("id") id: string, @Body() dto: ConsolidatedActionDto) {
     if (dto.action === "send") return this.service.updateStatus(id, "pending_approval");
     if (dto.action === "approve") return this.service.updateStatus(id, "approved", { client_note: dto.clientNote ?? null });
+    if (dto.action === "reject") return this.service.updateStatus(id, "rejected", { client_note: dto.clientNote ?? null });
     if (dto.action === "mark_paid") return this.service.updateStatus(id, "paid", { paid_at: new Date().toISOString() });
     return { ok: false };
   }

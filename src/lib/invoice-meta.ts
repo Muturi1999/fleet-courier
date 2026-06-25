@@ -3,7 +3,7 @@ import type { BillingProfile } from "./types";
 
 /** Road Network Transporters — supplier on every invoice */
 export const SUPPLIER = {
-  name: "Road network transporters",
+  name: "Road Network Transporters Limited",
   address: "P.O. Box 4622-00200, Nairobi.",
   phone: "Tel: 020 2011330",
   vatNo: "0161681P",

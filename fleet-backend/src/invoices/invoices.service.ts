@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import {
@@ -14,6 +15,7 @@ import { ListQueryDto } from "../common/dto/list-query.dto";
 import { PartnersService } from "../partners/partners.service";
 import { TenantDatabaseService } from "../common/database/tenant-database.service";
 import { TenantContextStorage } from "../common/tenant-context/tenant-context.storage";
+import { isEtimsTenant } from "../etims/etims-tenant";
 import { WorkflowsService } from "../workflows/workflows.service";
 import { CreateInvoiceDto, UpdateInvoiceDto } from "./dto/invoice.dto";
 
@@ -38,6 +40,7 @@ export class InvoicesService {
     private readonly partners: PartnersService,
     private readonly sequences: TenantSequenceService,
     @InjectQueue("etims") private readonly etimsQueue: Queue,
+    private readonly config: ConfigService,
   ) {}
 
   private async resolvePartnerId(explicit?: string | null) {
@@ -109,7 +112,7 @@ export class InvoicesService {
   async create(dto: CreateInvoiceDto) {
     const partnerId = await this.resolvePartnerId(dto.partnerId);
     const period = dto.period ? dto.period.slice(0, 120) : null;
-    return this.db.queryOne(
+    const created = (await this.db.queryOne(
       `INSERT INTO invoices (invoice_no, plate, cls, route, days, net, vat, total, status, service_date, period, delivery_note_no, client_note, partner_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
       [
@@ -128,7 +131,16 @@ export class InvoicesService {
         dto.clientNote ?? null,
         partnerId,
       ],
-    );
+    )) as InvoiceRow;
+
+    if (dto.status === "sent" || dto.status === "pending") {
+      await this.workflows.processInvoiceStatusChange(
+        { ...created, status: "draft" },
+        created,
+      );
+    }
+
+    return created;
   }
 
   async importBulk(rows: CreateInvoiceDto[]) {
@@ -227,13 +239,15 @@ export class InvoicesService {
 
     if (dto.status === "sent" && before.status !== "sent") {
       const tenant = TenantContextStorage.getOrThrow();
-      await this.etimsQueue.add("submit-invoice", {
-        invoiceId: id,
-        tenantSchema: tenant.schema,
-        tenantId: tenant.id,
-        tenantSlug: tenant.slug,
-        tenantName: tenant.name,
-      });
+      if (isEtimsTenant(tenant.slug, this.config)) {
+        await this.etimsQueue.add("submit-invoice", {
+          invoiceId: id,
+          tenantSchema: tenant.schema,
+          tenantId: tenant.id,
+          tenantSlug: tenant.slug,
+          tenantName: tenant.name,
+        });
+      }
     }
     return updated;
   }

@@ -61,6 +61,12 @@ function jsonResponse(body: unknown, status: number) {
   });
 }
 
+function proxyErrorResponse(err: unknown) {
+  const message = err instanceof Error ? err.message : "Backend unavailable";
+  const status = message.includes("sign in") ? 401 : 503;
+  return jsonResponse({ error: message }, status);
+}
+
 function normalizeExpense(row: Record<string, unknown>) {
   if (!row || typeof row !== "object") return row;
   return {
@@ -88,47 +94,67 @@ function normalizeListBody(json: unknown, resource: string) {
 
 export async function proxyGetList(req: NextRequest, resource: string) {
   if (!backendEnabled()) return null;
-  const query = req.nextUrl.search || "";
-  const { res, json } = await readBackend(await backendRequest(req, backendPath(resource, undefined, query)));
-  if (!res.ok) return jsonResponse(json, res.status);
-  return jsonResponse(normalizeListBody(json, resource), res.status);
+  try {
+    const query = req.nextUrl.search || "";
+    const { res, json } = await readBackend(await backendRequest(req, backendPath(resource, undefined, query)));
+    if (!res.ok) return jsonResponse(json, res.status);
+    return jsonResponse(normalizeListBody(json, resource), res.status);
+  } catch (err) {
+    return proxyErrorResponse(err);
+  }
 }
 
 export async function proxyGetOne(req: NextRequest, resource: string, id: string) {
   if (!backendEnabled()) return null;
-  const query = req.nextUrl.search || "";
-  const { res, json } = await readBackend(await backendRequest(req, backendPath(resource, id, query)));
-  if (!res.ok) return jsonResponse(json, res.status);
-  const body = resource === "expenses" ? normalizeExpense(json as Record<string, unknown>) : json;
-  return jsonResponse(body, res.status);
+  try {
+    const query = req.nextUrl.search || "";
+    const { res, json } = await readBackend(await backendRequest(req, backendPath(resource, id, query)));
+    if (!res.ok) return jsonResponse(json, res.status);
+    const body = resource === "expenses" ? normalizeExpense(json as Record<string, unknown>) : json;
+    return jsonResponse(body, res.status);
+  } catch (err) {
+    return proxyErrorResponse(err);
+  }
 }
 
 export async function proxyCreate(req: NextRequest, resource: string, body: unknown) {
   if (!backendEnabled()) return null;
-  const { res, json } = await readBackend(
-    await backendRequest(req, backendPath(resource), { method: "POST", body: JSON.stringify(body) }),
-  );
-  if (!res.ok) return jsonResponse(json, res.status);
-  const normalized = resource === "expenses" ? normalizeExpense(json as Record<string, unknown>) : json;
-  return jsonResponse(normalized, res.status);
+  try {
+    const { res, json } = await readBackend(
+      await backendRequest(req, backendPath(resource), { method: "POST", body: JSON.stringify(body) }),
+    );
+    if (!res.ok) return jsonResponse(json, res.status);
+    const normalized = resource === "expenses" ? normalizeExpense(json as Record<string, unknown>) : json;
+    return jsonResponse(normalized, res.status);
+  } catch (err) {
+    return proxyErrorResponse(err);
+  }
 }
 
 export async function proxyUpdate(req: NextRequest, resource: string, id: string, body: unknown) {
   if (!backendEnabled()) return null;
-  const { res, json } = await readBackend(
-    await backendRequest(req, backendPath(resource, id), { method: "PUT", body: JSON.stringify(body) }),
-  );
-  if (!res.ok) return jsonResponse(json, res.status);
-  const normalized = resource === "expenses" ? normalizeExpense(json as Record<string, unknown>) : json;
-  return jsonResponse(normalized, res.status);
+  try {
+    const { res, json } = await readBackend(
+      await backendRequest(req, backendPath(resource, id), { method: "PUT", body: JSON.stringify(body) }),
+    );
+    if (!res.ok) return jsonResponse(json, res.status);
+    const normalized = resource === "expenses" ? normalizeExpense(json as Record<string, unknown>) : json;
+    return jsonResponse(normalized, res.status);
+  } catch (err) {
+    return proxyErrorResponse(err);
+  }
 }
 
 export async function proxyDelete(req: NextRequest, resource: string, id: string) {
   if (!backendEnabled()) return null;
-  const { res, json } = await readBackend(
-    await backendRequest(req, backendPath(resource, id), { method: "DELETE" }),
-  );
-  return jsonResponse(json ?? { ok: true }, res.status);
+  try {
+    const { res, json } = await readBackend(
+      await backendRequest(req, backendPath(resource, id), { method: "DELETE" }),
+    );
+    return jsonResponse(json ?? { ok: true }, res.status);
+  } catch (err) {
+    return proxyErrorResponse(err);
+  }
 }
 
 export function localCollection(resource: string): StoreCollection {

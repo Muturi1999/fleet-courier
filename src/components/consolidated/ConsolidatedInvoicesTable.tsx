@@ -17,12 +17,13 @@ import { fmtN } from "@/lib/utils";
 function statusBadge(status: ConsolidatedInvoice["status"]) {
   const map: Record<
     ConsolidatedInvoice["status"],
-    { variant: "draft" | "pending" | "approved" | "paid"; label: string }
+    { variant: "draft" | "pending" | "approved" | "paid" | "rejected"; label: string }
   > = {
     draft: { variant: "draft", label: "Draft" },
     pending_approval: { variant: "pending", label: "Pending approval" },
     approved: { variant: "approved", label: "Approved" },
     paid: { variant: "paid", label: "Paid" },
+    rejected: { variant: "rejected", label: "Rejected" },
   };
   const m = map[status];
   return <Badge variant={m.variant}>{m.label}</Badge>;
@@ -98,7 +99,11 @@ export function ConsolidatedInvoicesTable({
                   className={highlightId === inv.id ? "bg-teal/5 ring-1 ring-inset ring-teal/30" : undefined}
                 >
                   <td className="font-mono font-semibold text-navy">{inv.invoiceNo}</td>
-                  <td className="font-mono">{inv.plate ?? "—"}</td>
+                  <td className="font-mono">
+                    {inv.consolidationType === "period" || (!inv.plate?.trim() && inv.consolidationType !== "vehicle")
+                      ? "Period batch"
+                      : (inv.plate ?? "—")}
+                  </td>
                   <td className="whitespace-nowrap">{formatEATDisplay(inv.createdAt ?? inv.invoiceDate)}</td>
                   <td className="max-w-[180px] truncate" title={formatPeriodRange(inv.periodStart, inv.periodEnd)}>
                     {formatPeriodRange(inv.periodStart, inv.periodEnd)}

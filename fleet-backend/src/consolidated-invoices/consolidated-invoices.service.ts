@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "crypto";
+import type { PoolClient } from "pg";
 import { resolvePageLimit, wantsFullList } from "../common/database/list-query.helper";
 import { queryPaginated } from "../common/database/pagination.helper";
 import { SEQUENCE_KEYS, TenantSequenceService } from "../common/database/tenant-sequence.service";
@@ -10,6 +11,13 @@ import { WorkflowsService } from "../workflows/workflows.service";
 import { CreateConsolidatedInvoiceDto } from "./dto/consolidated-invoice.dto";
 
 const DESCRIPTION = "Provision of Lease Vehicles & Courier Services";
+
+type BillableFilters = {
+  route?: string;
+  cls?: string;
+  runType?: string;
+  runRoute?: string;
+};
 
 type BillableRow = {
   id: string;
@@ -40,7 +48,12 @@ export class ConsolidatedInvoicesService {
     const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
 
     if (wantsFullList(query)) {
-      return this.db.queryAll(`SELECT * FROM consolidated_invoices ${where} ORDER BY created_at DESC`, params);
+      return this.db.queryAll(
+        `SELECT * FROM consolidated_invoices ${where}
+         ORDER BY created_at DESC,
+           CASE WHEN invoice_no ~ '^\\d+$' THEN invoice_no::bigint ELSE 0 END DESC`,
+        params,
+      );
     }
 
     const { page, limit } = resolvePageLimit(query);
@@ -50,20 +63,37 @@ export class ConsolidatedInvoicesService {
       params,
       page,
       limit,
-      orderBy: "created_at DESC",
+      orderBy: `created_at DESC, CASE WHEN invoice_no ~ '^\\d+$' THEN invoice_no::bigint ELSE 0 END DESC`,
     }) as Promise<PaginatedResult<Record<string, unknown>>>;
   }
 
-  private billableWhere(from?: string, to?: string, plate?: string) {
+  /** Trip invoices not on a finalized consolidated statement (draft batches can be re-consolidated). */
+  private static readonly INVOICE_BILLABLE_SQL = `(
+    i.consolidated_invoice_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM consolidated_invoices ci
+      WHERE ci.id = i.consolidated_invoice_id AND ci.status = 'draft'
+    )
+  )`;
+
+  private static readonly WT_BILLABLE_SQL = `(
+    wt.consolidated_invoice_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM consolidated_invoices ci
+      WHERE ci.id = wt.consolidated_invoice_id AND ci.status = 'draft'
+    )
+  )`;
+
+  private billableWhere(from?: string, to?: string, plate?: string, filters?: BillableFilters) {
     const clauses = [
-      `i.consolidated_invoice_id IS NULL`,
+      ConsolidatedInvoicesService.INVOICE_BILLABLE_SQL,
       `i.status NOT IN ('rejected')`,
       `(
         i.work_ticket_id IS NULL
         OR (
           wt.id IS NOT NULL
-          AND wt.consolidated_invoice_id IS NULL
-          AND wt.status NOT IN ('rejected', 'invoiced')
+          AND ${ConsolidatedInvoicesService.WT_BILLABLE_SQL}
+          AND wt.status NOT IN ('rejected')
         )
       )`,
     ];
@@ -81,7 +111,54 @@ export class ConsolidatedInvoicesService {
       clauses.push(`UPPER(REPLACE(i.plate, ' ', '')) = UPPER(REPLACE($${i++}, ' ', ''))`);
       params.push(plate.trim());
     }
+    if (filters?.runRoute?.trim()) {
+      const term = `%${filters.runRoute.trim()}%`;
+      clauses.push(
+        `(
+          COALESCE(NULLIF(TRIM(wt.route), ''), i.route) ILIKE $${i++}
+          OR COALESCE(v.run_type, '') ILIKE $${i++}
+          OR EXISTS (
+            SELECT 1 FROM jsonb_array_elements_text(COALESCE(v.dests, '[]'::jsonb)) d
+            WHERE d ILIKE $${i++}
+          )
+        )`,
+      );
+      params.push(term, term, term);
+    } else {
+      if (filters?.route?.trim()) {
+        clauses.push(`COALESCE(NULLIF(TRIM(wt.route), ''), i.route) ILIKE $${i++}`);
+        params.push(`%${filters.route.trim()}%`);
+      }
+      if (filters?.runType?.trim()) {
+        clauses.push(
+          `EXISTS (
+          SELECT 1 FROM vehicles v2
+          WHERE UPPER(REPLACE(v2.plate, ' ', '')) = UPPER(REPLACE(i.plate, ' ', ''))
+            AND v2.run_type ILIKE $${i++}
+        )`,
+        );
+        params.push(`%${filters.runType.trim()}%`);
+      }
+    }
+    if (filters?.cls?.trim()) {
+      clauses.push(`i.cls = $${i++}`);
+      params.push(filters.cls.trim());
+    }
     return { clauses, params };
+  }
+
+  private billableFiltersFromDto(dto: {
+    route?: string;
+    cls?: string;
+    runType?: string;
+    runRoute?: string;
+  }): BillableFilters {
+    return {
+      route: dto.route?.trim() || undefined,
+      cls: dto.cls?.trim() || undefined,
+      runType: dto.runType?.trim() || undefined,
+      runRoute: dto.runRoute?.trim() || undefined,
+    };
   }
 
   /** Vehicles with uninvoiced trip invoices in period (latest activity first). */
@@ -105,14 +182,15 @@ export class ConsolidatedInvoicesService {
     );
   }
 
-  async findUnbilled(from?: string, to?: string, plate?: string) {
-    const { clauses, params } = this.billableWhere(from, to, plate);
+  async findUnbilled(from?: string, to?: string, plate?: string, filters?: BillableFilters) {
+    const { clauses, params } = this.billableWhere(from, to, plate, filters);
     return this.db.queryAll(
       `SELECT
         COALESCE(wt.id, i.id) AS id,
         COALESCE(wt.serial_no, i.invoice_no) AS serial_no,
         COALESCE(wt.trip_date, i.service_date) AS trip_date,
         i.plate,
+        i.cls,
         COALESCE(NULLIF(TRIM(wt.route), ''), i.route) AS route,
         COALESCE(wt.driver_name, '') AS driver_name,
         COALESCE(wt.net, i.net) AS net,
@@ -120,13 +198,72 @@ export class ConsolidatedInvoicesService {
         COALESCE(wt.total, i.total) AS total,
         i.id AS invoice_id,
         i.invoice_no,
-        wt.id AS work_ticket_id
+        wt.id AS work_ticket_id,
+        COALESCE(v.run_type, '') AS run_type,
+        TO_CHAR(COALESCE(wt.trip_date, i.service_date), 'YYYY-MM') AS trip_month
        FROM invoices i
        LEFT JOIN work_tickets wt ON wt.id = i.work_ticket_id
+       LEFT JOIN vehicles v ON UPPER(REPLACE(v.plate, ' ', '')) = UPPER(REPLACE(i.plate, ' ', ''))
        WHERE ${clauses.join(" AND ")}
        ORDER BY COALESCE(wt.trip_date, i.service_date) ASC, COALESCE(wt.serial_no, i.invoice_no) ASC`,
       params,
     );
+  }
+
+  /** Grouped preview for period consolidation UI. */
+  async findPeriodPreview(
+    from?: string,
+    to?: string,
+    groupBy = "vehicle",
+    filters?: BillableFilters,
+  ) {
+    const lines = (await this.findUnbilled(from, to, undefined, filters)) as Record<string, unknown>[];
+    const keyFor = (row: Record<string, unknown>): string => {
+      switch (groupBy) {
+        case "route":
+          return String(row.route ?? "Unknown route");
+        case "cls":
+          return String(row.cls ?? "Unknown class");
+        case "runType":
+          return String(row.run_type ?? "Unknown run");
+        case "month":
+          return String(row.trip_month ?? "Unknown month");
+        default:
+          return String(row.plate ?? "Unknown vehicle");
+      }
+    };
+
+    const groups = new Map<
+      string,
+      { key: string; invoiceCount: number; net: number; total: number; lines: Record<string, unknown>[] }
+    >();
+
+    for (const row of lines) {
+      const key = keyFor(row);
+      const bucket = groups.get(key) ?? { key, invoiceCount: 0, net: 0, total: 0, lines: [] };
+      bucket.invoiceCount += 1;
+      bucket.net += Number(row.net ?? 0);
+      bucket.total += Number(row.total ?? 0);
+      bucket.lines.push(row);
+      groups.set(key, bucket);
+    }
+
+    const grouped = [...groups.values()].sort((a, b) => b.net - a.net);
+    const net = lines.reduce((s, r) => s + Number(r.net ?? 0), 0);
+    const total = lines.reduce((s, r) => s + Number(r.total ?? 0), 0);
+
+    return {
+      from,
+      to,
+      groupBy,
+      filters: filters ?? {},
+      invoiceCount: lines.length,
+      vehicleCount: new Set(lines.map((r) => String(r.plate ?? ""))).size,
+      net,
+      total,
+      groups: grouped,
+      lines,
+    };
   }
 
   async findOne(id: string) {
@@ -166,6 +303,33 @@ export class ConsolidatedInvoicesService {
     return { invoice, tickets: invoiceRows };
   }
 
+  /** Unlink trip invoices from draft batches so they can join a new consolidation; prior drafts are kept for lookup. */
+  private async releaseFromDraftConsolidations(client: PoolClient, invoiceIds: string[]) {
+    if (!invoiceIds.length) return;
+
+    await client.query(
+      `UPDATE work_tickets wt
+       SET consolidated_invoice_id = NULL,
+           status = CASE WHEN wt.status = 'invoiced' THEN 'approved' ELSE wt.status END,
+           updated_at = NOW()
+       FROM invoices i
+       WHERE i.work_ticket_id = wt.id
+         AND i.id = ANY($1::uuid[])
+         AND wt.consolidated_invoice_id IN (SELECT id FROM consolidated_invoices WHERE status = 'draft')`,
+      [invoiceIds],
+    );
+
+    await client.query(
+      `UPDATE invoices
+       SET consolidated_invoice_id = NULL,
+           status = CASE WHEN status = 'sent' THEN 'approved' ELSE status END,
+           updated_at = NOW()
+       WHERE id = ANY($1::uuid[])
+         AND consolidated_invoice_id IN (SELECT id FROM consolidated_invoices WHERE status = 'draft')`,
+      [invoiceIds],
+    );
+  }
+
   private async nextNumbers() {
     const serial = await this.sequences.next(SEQUENCE_KEYS.consolidatedInvoiceSerial);
     const s = String(serial);
@@ -176,41 +340,55 @@ export class ConsolidatedInvoicesService {
     workTicketIds: string[];
     invoiceIds: string[];
     plate?: string;
+    mode: "vehicle" | "period";
+    filters: BillableFilters;
   }> {
+    const filters = this.billableFiltersFromDto(dto);
     if (dto.workTicketIds?.length) {
       const rows = (await this.db.queryAll(
         `SELECT i.id AS invoice_id, wt.id AS work_ticket_id
          FROM invoices i
          LEFT JOIN work_tickets wt ON wt.id = i.work_ticket_id
          WHERE (wt.id = ANY($1::uuid[]) OR i.id = ANY($1::uuid[]))
-           AND i.consolidated_invoice_id IS NULL`,
+           AND (${ConsolidatedInvoicesService.INVOICE_BILLABLE_SQL.replace(/i\./g, "i.")})`,
         [dto.workTicketIds],
       )) as BillableRow[];
       return {
         workTicketIds: rows.map((r) => r.work_ticket_id).filter(Boolean) as string[],
         invoiceIds: rows.map((r) => r.invoice_id),
+        mode: dto.mode === "period" ? "period" : "vehicle",
+        filters,
       };
     }
+    if (dto.mode === "period") {
+      const rows = (await this.findUnbilled(dto.periodStart, dto.periodEnd, undefined, filters)) as BillableRow[];
+      const invoiceIds = rows.map((r) => r.invoice_id);
+      const workTicketIds = rows.map((r) => r.work_ticket_id).filter(Boolean) as string[];
+      if (!invoiceIds.length) {
+        throw new BadRequestException("No billable trip invoices in this period for the selected filters");
+      }
+      return { workTicketIds, invoiceIds, mode: "period", filters };
+    }
     if (!dto.plate?.trim()) {
-      throw new BadRequestException("Provide plate or workTicketIds");
+      throw new BadRequestException("Provide plate, period mode, or workTicketIds");
     }
     const plate = dto.plate.trim();
-    const rows = (await this.findUnbilled(dto.periodStart, dto.periodEnd, plate)) as BillableRow[];
+    const rows = (await this.findUnbilled(dto.periodStart, dto.periodEnd, plate, filters)) as BillableRow[];
     const invoiceIds = rows.map((r) => r.invoice_id);
     const workTicketIds = rows.map((r) => r.work_ticket_id).filter(Boolean) as string[];
     if (!invoiceIds.length) {
       throw new BadRequestException(`No billable trip invoices for ${plate} in this period`);
     }
-    return { workTicketIds, invoiceIds, plate };
+    return { workTicketIds, invoiceIds, plate, mode: "vehicle", filters };
   }
 
   async create(dto: CreateConsolidatedInvoiceDto) {
-    const { workTicketIds, invoiceIds, plate: vehiclePlate } = await this.resolveBillableItems(dto);
+    const { workTicketIds, invoiceIds, plate: vehiclePlate, mode, filters } =
+      await this.resolveBillableItems(dto);
 
-    const invoices = (await this.db.queryAll(
-      `SELECT * FROM invoices WHERE id = ANY($1::uuid[]) AND consolidated_invoice_id IS NULL`,
-      [invoiceIds],
-    )) as BillableRow[];
+    const invoices = (await this.db.queryAll(`SELECT * FROM invoices WHERE id = ANY($1::uuid[])`, [
+      invoiceIds,
+    ])) as BillableRow[];
 
     if (!invoices.length) throw new BadRequestException("No eligible invoices to consolidate");
 
@@ -218,17 +396,27 @@ export class ConsolidatedInvoicesService {
     const vat = invoices.reduce((s, t) => s + Number(t.vat), 0);
     const total = invoices.reduce((s, t) => s + Number(t.total), 0);
     const plate =
-      vehiclePlate ??
-      (await this.db.queryOne<{ plate: string }>(`SELECT plate FROM invoices WHERE id = $1`, [invoiceIds[0]]))?.plate;
+      mode === "vehicle"
+        ? (vehiclePlate ??
+          (await this.db.queryOne<{ plate: string }>(`SELECT plate FROM invoices WHERE id = $1`, [invoiceIds[0]]))
+            ?.plate)
+        : null;
+    const filterMeta = {
+      ...filters,
+      groupBy: mode === "period" ? "period" : "vehicle",
+    };
     const { invoiceNo, refNo } = await this.nextNumbers();
     const id = randomUUID();
 
     return this.db.withTransaction(async (client) => {
+      await this.releaseFromDraftConsolidations(client, invoiceIds);
+
       const invoice = await client.query(
         `INSERT INTO consolidated_invoices (
         id, invoice_no, ref_no, period_start, period_end, invoice_date, description,
-        payment_terms_days, total_trips, net, vat, total, status, work_ticket_ids, plate
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,90,$8,$9,$10,$11,'draft',$12,$13) RETURNING *`,
+        payment_terms_days, total_trips, net, vat, total, status, work_ticket_ids, plate,
+        consolidation_type, filter_meta
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,90,$8,$9,$10,$11,'draft',$12,$13,$14,$15) RETURNING *`,
         [
           id,
           invoiceNo,
@@ -243,6 +431,8 @@ export class ConsolidatedInvoicesService {
           total,
           JSON.stringify(workTicketIds),
           plate ?? null,
+          mode,
+          JSON.stringify(filterMeta),
         ],
       );
 
@@ -258,7 +448,7 @@ export class ConsolidatedInvoicesService {
       await client.query(
         `UPDATE invoices
          SET consolidated_invoice_id = $1, status = 'sent', updated_at = NOW()
-         WHERE id = ANY($2::uuid[]) AND consolidated_invoice_id IS NULL`,
+         WHERE id = ANY($2::uuid[])`,
         [id, invoiceIds],
       );
 
@@ -288,6 +478,17 @@ export class ConsolidatedInvoicesService {
         message: `SOA ${(updated as { ref_no: string }).ref_no}`,
         refId: id,
         actor: "admin",
+      });
+    }
+    if (status === "rejected" && before) {
+      const note = (extra.client_note as string | undefined) ? ` Note: ${extra.client_note}` : "";
+      await this.workflows.emit({
+        audience: "admin",
+        type: "consolidated_rejected",
+        title: `G4S returned SOA ${(updated as { ref_no: string }).ref_no}`,
+        message: `Consolidated invoice ${(updated as { invoice_no: string }).invoice_no}${note}`,
+        refId: id,
+        actor: "client",
       });
     }
     if (status === "approved" && before) {

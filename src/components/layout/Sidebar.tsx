@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   IconCalendarEvent,
+  IconChartBar,
+  IconClipboardList,
   IconCoin,
   IconDotsVertical,
   IconFileDescription,
@@ -11,18 +13,21 @@ import {
   IconLayoutDashboard,
   IconLogout,
   IconMap2,
+  IconReceipt,
   IconRoad,
+  IconSettings,
+  IconShieldCheck,
   IconTruck,
   IconTruckDelivery,
-  IconChartBar,
-  IconClipboardList,
-  IconReceipt,
-  IconSettings,
 } from "@tabler/icons-react";
 import { useAuth } from "@/context/AuthContext";
 import { useBillingProfile } from "@/hooks/useBillingProfile";
 import { prefetchAdminRoute } from "@/lib/admin-prefetch";
+import { isEtimsTenant } from "@/lib/etims-config";
+import { adminEtimsNav } from "@/lib/etims-nav";
+import { adminWorkflowGroups, clientWorkflowGroups } from "@/lib/workflow-nav";
 import { NotificationNavLink } from "./NotificationNavLink";
+import { SidebarNavGroup } from "./SidebarNavGroup";
 
 type NavItem = {
   href: string;
@@ -36,11 +41,8 @@ const adminSections: { label: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin", label: "Dashboard", icon: IconLayoutDashboard },
       { href: "/admin/schedule", label: "Schedule entry", icon: IconCalendarEvent },
-      { href: "/admin/invoices", label: "Invoices", icon: IconFileInvoice },
-      { href: "/admin/work-tickets", label: "Work tickets", icon: IconClipboardList },
-      { href: "/admin/soa", label: "Consolidated billing", icon: IconFileDescription },
       { href: "/admin/expenses", label: "Expenses", icon: IconReceipt },
-      { href: "/admin/settings", label: "Billing settings", icon: IconSettings },
+      { href: "/admin/settings", label: "Billing (client)", icon: IconSettings },
     ],
   },
   {
@@ -69,8 +71,7 @@ const clientSections: { label: string; items: NavItem[] }[] = [
   {
     label: "Partner",
     items: [
-      { href: "/client", label: "Invoices", icon: IconFileInvoice },
-      { href: "/client/work-tickets", label: "Work tickets", icon: IconClipboardList },
+      { href: "/client", label: "Dashboard", icon: IconLayoutDashboard },
       { href: "/client/reports", label: "Reports", icon: IconChartBar },
     ],
   },
@@ -85,10 +86,12 @@ export function Sidebar({ role, onNavigate }: { role: "admin" | "client"; onNavi
   const { user, logout } = useAuth();
   const { profile } = useBillingProfile();
   const sections = role === "admin" ? adminSections : clientSections;
+  const showEtims = role === "admin" && isEtimsTenant(user?.tenantSlug);
   const partnerLabel =
     role === "admin"
       ? profile?.client.name ?? "G4S Kenya"
-      : profile?.supplier.name ?? "Road Network Transporters";
+      : profile?.supplier.name ?? "Road Network Transporters Limited";
+  const operatorLabel = user?.tenantName ?? "Road Network Transporters Limited";
 
   return (
     <nav className="flex h-full min-h-0 w-60 shrink-0 flex-col overflow-y-auto bg-navy pb-[max(0px,env(safe-area-inset-bottom))]">
@@ -107,8 +110,14 @@ export function Sidebar({ role, onNavigate }: { role: "admin" | "client"; onNavi
       </div>
 
       <div className="mx-3.5 my-3 rounded-fleet-sm border border-white/[0.07] bg-white/[0.05] px-2.5 py-2">
+        {role === "admin" && (
+          <>
+            <p className="mb-0.5 text-[10px] uppercase tracking-wider text-white/35">Fleet operator</p>
+            <p className="mb-2 text-xs font-medium text-white/80">{operatorLabel}</p>
+          </>
+        )}
         <p className="mb-0.5 text-[10px] uppercase tracking-wider text-white/35">
-          {role === "admin" ? "Partner contract" : "Fleet operator"}
+          {role === "admin" ? "Partner (buyer)" : "Fleet operator"}
         </p>
         <p className="text-xs font-medium text-white/70">{partnerLabel}</p>
       </div>
@@ -119,23 +128,138 @@ export function Sidebar({ role, onNavigate }: { role: "admin" | "client"; onNavi
           {section.label === "Workflow" ? (
             <NotificationNavLink role={role} onNavigate={onNavigate} />
           ) : (
-            section.items.map((item) => {
-              const active = pathname === item.href;
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onNavigate}
-                  onMouseEnter={() => role === "admin" && prefetchAdminRoute(item.href)}
-                  onFocus={() => role === "admin" && prefetchAdminRoute(item.href)}
-                  className={`nav-item ${active ? "nav-item-active" : ""}`}
-                >
-                  <Icon size={17} className="w-5 shrink-0" />
-                  <span className="flex-1">{item.label}</span>
-                </Link>
-              );
-            })
+            <>
+              {role === "admin" && section.label === "Main" && (
+                <>
+                  {section.items.slice(0, 2).map((item) => {
+                    const active = pathname === item.href;
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={onNavigate}
+                        onMouseEnter={() => prefetchAdminRoute(item.href)}
+                        onFocus={() => prefetchAdminRoute(item.href)}
+                        className={`nav-item ${active ? "nav-item-active" : ""}`}
+                      >
+                        <Icon size={17} className="w-5 shrink-0" />
+                        <span className="flex-1">{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                  <SidebarNavGroup
+                    item={adminWorkflowGroups.invoices}
+                    icon={IconFileInvoice}
+                    onNavigate={onNavigate}
+                    onPrefetch={prefetchAdminRoute}
+                  />
+                  <SidebarNavGroup
+                    item={adminWorkflowGroups.workTickets}
+                    icon={IconClipboardList}
+                    onNavigate={onNavigate}
+                    onPrefetch={prefetchAdminRoute}
+                  />
+                  <SidebarNavGroup
+                    item={adminWorkflowGroups.consolidated}
+                    icon={IconFileDescription}
+                    onNavigate={onNavigate}
+                    onPrefetch={prefetchAdminRoute}
+                  />
+                  {showEtims && (
+                    <SidebarNavGroup
+                      item={adminEtimsNav}
+                      icon={IconShieldCheck}
+                      onNavigate={onNavigate}
+                      onPrefetch={prefetchAdminRoute}
+                    />
+                  )}
+                  {section.items.slice(2).map((item) => {
+                    const active = pathname === item.href;
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={onNavigate}
+                        onMouseEnter={() => prefetchAdminRoute(item.href)}
+                        onFocus={() => prefetchAdminRoute(item.href)}
+                        className={`nav-item ${active ? "nav-item-active" : ""}`}
+                      >
+                        <Icon size={17} className="w-5 shrink-0" />
+                        <span className="flex-1">{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </>
+              )}
+              {role === "client" && section.label === "Partner" && (
+                <>
+                  {section.items.slice(0, 1).map((item) => {
+                    const active = pathname === item.href;
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={onNavigate}
+                        className={`nav-item ${active ? "nav-item-active" : ""}`}
+                      >
+                        <Icon size={17} className="w-5 shrink-0" />
+                        <span className="flex-1">{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                  <SidebarNavGroup
+                    item={clientWorkflowGroups.invoices}
+                    icon={IconFileInvoice}
+                    onNavigate={onNavigate}
+                  />
+                  <SidebarNavGroup
+                    item={clientWorkflowGroups.workTickets}
+                    icon={IconClipboardList}
+                    onNavigate={onNavigate}
+                  />
+                  <SidebarNavGroup
+                    item={clientWorkflowGroups.consolidated}
+                    icon={IconFileDescription}
+                    onNavigate={onNavigate}
+                  />
+                  {section.items.slice(1).map((item) => {
+                    const active = pathname === item.href;
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={onNavigate}
+                        className={`nav-item ${active ? "nav-item-active" : ""}`}
+                      >
+                        <Icon size={17} className="w-5 shrink-0" />
+                        <span className="flex-1">{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </>
+              )}
+              {section.label !== "Main" && section.label !== "Partner" && section.items.map((item) => {
+                const active = pathname === item.href;
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onNavigate}
+                    onMouseEnter={() => role === "admin" && prefetchAdminRoute(item.href)}
+                    onFocus={() => role === "admin" && prefetchAdminRoute(item.href)}
+                    className={`nav-item ${active ? "nav-item-active" : ""}`}
+                  >
+                    <Icon size={17} className="w-5 shrink-0" />
+                    <span className="flex-1">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </>
           )}
         </div>
       ))}

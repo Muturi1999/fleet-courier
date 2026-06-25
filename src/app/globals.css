@@ -28,6 +28,44 @@
   .field-input {
     @apply w-full rounded-fleet-sm border border-fleet-gray-200 bg-white px-3 py-2 text-[13px] text-fleet-gray-800 outline-none transition focus:border-navy focus:ring-[3px] focus:ring-navy/10 font-sans;
   }
+  .search-select {
+    @apply relative w-full;
+  }
+  .search-select-input-wrap {
+    @apply relative;
+  }
+  .search-select-input {
+    @apply pr-9;
+  }
+  .search-select-chevron {
+    @apply pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-fleet-gray-400 transition-transform duration-150;
+  }
+  .search-select-chevron-open {
+    @apply rotate-180;
+  }
+  .search-select-menu {
+    @apply absolute left-0 top-full z-50 mt-1 min-w-full w-max max-w-[min(calc(100vw-2rem),32rem)] overflow-hidden rounded-fleet-sm border border-fleet-gray-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.12)];
+  }
+  .search-select-list {
+    @apply overflow-y-auto overscroll-contain py-1;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+  .search-select-list::-webkit-scrollbar {
+    width: 6px;
+  }
+  .search-select-list::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-fleet-gray-400;
+  }
+  .search-select-option {
+    @apply flex cursor-pointer items-center whitespace-nowrap px-3 text-[13px] text-fleet-gray-800 transition-colors hover:bg-fleet-gray-50;
+  }
+  .search-select-option-active {
+    @apply bg-fleet-gray-50 font-medium text-navy;
+  }
+  .search-select-empty {
+    @apply px-3 py-2.5 text-[13px] text-fleet-gray-400;
+  }
   .card {
     @apply rounded-fleet border border-fleet-gray-100 bg-white p-5;
   }
@@ -138,6 +176,12 @@
   .nav-item-active::before {
     content: "";
     @apply absolute bottom-1.5 left-0 top-1.5 w-[3px] rounded-r bg-accent;
+  }
+  .nav-item-sub {
+    @apply min-h-[36px] py-1.5 pl-2 text-[12.5px] text-white/45 md:min-h-0;
+  }
+  .nav-item-sub.nav-item-active::before {
+    @apply bottom-1 top-1 w-[2px];
   }
 
   /* Road Network Transporters invoice */

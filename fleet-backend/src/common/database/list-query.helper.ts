@@ -110,3 +110,55 @@ export function addRunTypeClause(
   params.push(runType);
   return idx + 1;
 }
+
+export function addPlateClause(
+  clauses: string[],
+  params: unknown[],
+  idx: number,
+  column: string,
+  plate?: string,
+): number {
+  if (!plate?.trim()) return idx;
+  clauses.push(`LOWER(${column}) LIKE $${idx}`);
+  params.push(`%${plate.trim().toLowerCase()}%`);
+  return idx + 1;
+}
+
+export function addClsClause(
+  clauses: string[],
+  params: unknown[],
+  idx: number,
+  column: string,
+  cls?: string,
+): number {
+  if (!cls?.trim()) return idx;
+  clauses.push(`LOWER(${column}) = $${idx}`);
+  params.push(cls.trim().toLowerCase());
+  return idx + 1;
+}
+
+export function addMonthClause(
+  clauses: string[],
+  params: unknown[],
+  idx: number,
+  dateColumn: string,
+  month?: string,
+): number {
+  if (!month?.trim() || !/^\d{4}-\d{2}$/.test(month.trim())) return idx;
+  clauses.push(`to_char(COALESCE(${dateColumn}::date, created_at::date), 'YYYY-MM') = $${idx}`);
+  params.push(month.trim());
+  return idx + 1;
+}
+
+export function addPeriodClause(
+  clauses: string[],
+  params: unknown[],
+  idx: number,
+  column: string,
+  period?: string,
+): number {
+  if (!period?.trim()) return idx;
+  clauses.push(`LOWER(${column}) LIKE $${idx}`);
+  params.push(`%${period.trim().toLowerCase()}%`);
+  return idx + 1;
+}

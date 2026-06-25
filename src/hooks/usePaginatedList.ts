@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { FleetFilters } from "@/lib/filters";
+import type { ClientPortalFilters } from "@/lib/client-portal-filters";
 import { PAGE_SIZE } from "@/lib/filters";
 import { apiCacheKey, fetchApiCached, getApiCache, invalidateApiCache, setApiCache } from "@/lib/api-cache";
 import { buildListQuery, emptyMeta, normalizeListJson } from "@/lib/list-query";
@@ -17,7 +18,7 @@ export function usePaginatedList<T extends { id: string }>(
   endpoint: string,
   options: {
     page: number;
-    filters: FleetFilters;
+    filters: FleetFilters | ClientPortalFilters;
     status?: string;
     tab?: string;
     month?: string;

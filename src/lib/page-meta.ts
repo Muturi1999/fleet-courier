@@ -5,7 +5,7 @@ export type { PageMeta };
 export const adminPageMeta: Record<string, PageMeta> = {
   "/admin": {
     title: "Dashboard",
-    subtitle: "Fleet Travel Ltd — G4S Kenya · March 2026 · KES 17,624,460",
+    subtitle: "Road Network Transporters Limited · G4S Kenya",
   },
   "/admin/schedule": {
     title: "Schedule entry",
@@ -57,13 +57,53 @@ export const adminPageMeta: Record<string, PageMeta> = {
   },
   "/admin/settings": {
     title: "Billing settings",
-    subtitle: "Client & supplier details for invoices and eTIMS",
+    subtitle: "Partner (buyer) and supplier details for invoices",
+  },
+  "/admin/etims": {
+    title: "KRA eTIMS",
+    subtitle: "Validate, submit and sync VAT with KRA via Digitax",
+  },
+  "/admin/etims/history": {
+    title: "eTIMS filing history",
+    subtitle: "Filed receipts and VAT records",
+  },
+  "/admin/etims/profile": {
+    title: "eTIMS profile",
+    subtitle: "Company KRA PIN and details for fiscal submission",
+  },
+  "/admin/invoices/approved": {
+    title: "Approved invoices",
+    subtitle: "Invoices approved by G4S",
+  },
+  "/admin/invoices/rejected": {
+    title: "Rejected invoices",
+    subtitle: "Invoices returned by G4S — edit and re-share",
+  },
+  "/admin/work-tickets/approved": {
+    title: "Approved work tickets",
+    subtitle: "Work tickets approved by G4S",
+  },
+  "/admin/work-tickets/rejected": {
+    title: "Rejected work tickets",
+    subtitle: "Work tickets returned by G4S",
+  },
+  "/admin/soa/approved": {
+    title: "Approved consolidated invoices",
+    subtitle: "SOA batches approved by G4S",
+  },
+  "/admin/soa/rejected": {
+    title: "Rejected consolidated invoices",
+    subtitle: "SOA batches returned by G4S",
   },
 };
 
 export const clientPageMeta: Record<string, PageMeta> = {
   "/client": {
-    title: "Invoices",
+    title: "Dashboard",
+    subtitle: "Partner overview · current month statistics",
+  },
+  "/client/invoices": {
+    title: "Invoices awaiting review",
     subtitle: "Review and approve invoices · G4S Courier Services",
   },
   "/client/work-tickets": {
@@ -81,6 +121,38 @@ export const clientPageMeta: Record<string, PageMeta> = {
   "/client/notifications": {
     title: "Notifications",
     subtitle: "Invoices and SOA updates from Fleet Admin",
+  },
+  "/client/invoices/approved": {
+    title: "Approved invoices",
+    subtitle: "Invoices you have approved",
+  },
+  "/client/invoices/rejected": {
+    title: "Rejected invoices",
+    subtitle: "Invoices returned to Fleet Admin",
+  },
+  "/client/invoices/all": {
+    title: "All invoices",
+    subtitle: "Full invoice history",
+  },
+  "/client/work-tickets/approved": {
+    title: "Approved work tickets",
+    subtitle: "Work tickets you have approved",
+  },
+  "/client/work-tickets/rejected": {
+    title: "Rejected work tickets",
+    subtitle: "Work tickets returned to Fleet Admin",
+  },
+  "/client/consolidated": {
+    title: "Consolidated invoices",
+    subtitle: "Review SOA batches from Fleet Admin",
+  },
+  "/client/consolidated/approved": {
+    title: "Approved consolidated invoices",
+    subtitle: "SOA batches you have approved",
+  },
+  "/client/consolidated/rejected": {
+    title: "Rejected consolidated invoices",
+    subtitle: "SOA batches returned to Fleet Admin",
   },
 };
 

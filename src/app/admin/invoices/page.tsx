@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { IconClock, IconDownload, IconEdit, IconEye, IconFileText, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconClock, IconDownload, IconEdit, IconEye, IconFileText, IconPlus, IconSend, IconTrash } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/Badge";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { MetricCard, MetricsGrid } from "@/components/ui/MetricCard";
@@ -12,6 +12,8 @@ import { InvoiceDocument, printInvoice } from "@/components/invoices/InvoiceDocu
 import { InvoiceCreateWizard } from "@/components/invoices/InvoiceCreateWizard";
 import { ApprovalWorkflowCard } from "@/components/invoices/ApprovalWorkflowCard";
 import { EtimsValidationPanel } from "@/components/invoices/EtimsValidationPanel";
+import { useAuth } from "@/context/AuthContext";
+import { isEtimsTenant } from "@/lib/etims-config";
 import { calcBilling } from "@/lib/billing";
 import { clearedFilters, filtersAfterSave } from "@/lib/filters";
 import { dateKey, formatEATDisplay } from "@/lib/dates";
@@ -27,6 +29,7 @@ import { usePlateFromUrl } from "@/hooks/usePlateFromUrl";
 import { useBillingProfile } from "@/hooks/useBillingProfile";
 import { ExcelImportButton } from "@/components/import/ExcelImportButton";
 import { parseInvoicesExcel } from "@/lib/excel-import";
+import { canShareInvoice, shareInvoiceWithPartner } from "@/lib/share-invoice";
 
 const PAGE = "Invoices";
 
@@ -44,6 +47,8 @@ type InvoiceSummary = {
 
 export default function InvoicesPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const showEtims = isEtimsTenant(user?.tenantSlug);
   const { items: vehicles } = useCrud<Vehicle>("vehicles");
   const { items: rates } = useCrud<Rate>("rates");
   const { profile, loading: profileLoading, save: saveProfile } = useBillingProfile();
@@ -109,6 +114,17 @@ export default function InvoicesPage() {
     }
     fetchOne(screen.id).then((row) => setViewRecord(row));
   }, [screen, items, fetchOne]);
+
+  useEffect(() => {
+    const editId = sessionStorage.getItem("fleet-open-invoice-edit");
+    if (!editId || !isList) return;
+    sessionStorage.removeItem("fleet-open-invoice-edit");
+    fetchOne(editId).then((row) => {
+      if (!row) return;
+      setForm({ ...row });
+      openEdit(editId);
+    });
+  }, [isList, fetchOne, openEdit]);
 
   useEffect(() => {
     if (screen.kind === "view" && printOnOpen) {
@@ -240,7 +256,7 @@ export default function InvoicesPage() {
         onBack={close}
       >
         <InvoiceDocument invoice={viewRecord} profile={profile ?? undefined} onPrint={printInvoice} />
-        <EtimsValidationPanel invoiceId={viewRecord.id} invoiceNo={viewRecord.invoiceNo} />
+        {showEtims && <EtimsValidationPanel invoiceId={viewRecord.id} invoiceNo={viewRecord.invoiceNo} />}
       </RecordScreen>
     );
   }
@@ -513,6 +529,24 @@ export default function InvoicesPage() {
                       >
                         <IconDownload size={14} />
                       </button>
+                      {canShareInvoice(inv) && (
+                        <button
+                          type="button"
+                          className="btn-secondary btn-sm"
+                          title="Share with G4S"
+                          onClick={async () => {
+                            const res = await shareInvoiceWithPartner(inv.id);
+                            if (!res.ok) {
+                              toast("Share failed");
+                              return;
+                            }
+                            await refreshPage();
+                            toast(`Invoice ${inv.invoiceNo} shared with G4S`);
+                          }}
+                        >
+                          <IconSend size={14} />
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="btn-secondary btn-sm text-fleet-red"

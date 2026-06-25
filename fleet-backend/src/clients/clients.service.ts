@@ -1,9 +1,14 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import {
   addClientTabClause,
+  addClsClause,
   addDateClause,
   addDestinationClause,
+  addMonthClause,
+  addPeriodClause,
+  addPlateClause,
   addSearchClause,
+  addStatusClause,
   resolvePageLimit,
   wantsFullList,
 } from "../common/database/list-query.helper";
@@ -31,10 +36,15 @@ export class ClientsService {
     const params: unknown[] = [partnerId];
     let i = 2;
 
-    i = addSearchClause(clauses, params, i, ["plate", "invoice_no", "route"], query.search);
+    i = addSearchClause(clauses, params, i, ["plate", "invoice_no", "route", "cls", "period"], query.search);
     i = addDestinationClause(clauses, params, i, "route", query.destination);
     i = addDateClause(clauses, params, i, "service_date", query.date);
+    i = addPlateClause(clauses, params, i, "plate", query.plate);
+    i = addClsClause(clauses, params, i, "cls", query.cls);
+    i = addMonthClause(clauses, params, i, "service_date", query.month);
+    i = addPeriodClause(clauses, params, i, "period", query.period);
     i = addClientTabClause(clauses, params, i, query.tab);
+    i = addStatusClause(clauses, params, i, query.status);
 
     const where = `WHERE ${clauses.join(" AND ")}`;
 
@@ -117,12 +127,12 @@ export class ClientsService {
     const params: unknown[] = [partnerId];
     let i = 2;
 
-    i = addSearchClause(clauses, params, i, ["serial_no", "plate", "driver_name", "route"], query.search);
+    i = addSearchClause(clauses, params, i, ["serial_no", "plate", "driver_name", "route", "make"], query.search);
+    i = addDestinationClause(clauses, params, i, "route", query.destination);
     i = addDateClause(clauses, params, i, "trip_date", query.date);
-    if (query.status?.trim()) {
-      clauses.push(`status = $${i++}`);
-      params.push(query.status);
-    }
+    i = addPlateClause(clauses, params, i, "plate", query.plate);
+    i = addMonthClause(clauses, params, i, "trip_date", query.month);
+    i = addStatusClause(clauses, params, i, query.status);
 
     const where = `WHERE ${clauses.join(" AND ")}`;
 
@@ -187,6 +197,26 @@ export class ClientsService {
     return updated;
   }
 
+  async rejectWorkTicket(id: string, clientNote?: string) {
+    const partnerId = this.partnerScope.requirePartnerId();
+    const before = await this.db.queryOne(
+      `SELECT * FROM work_tickets WHERE id = $1 AND partner_id = $2::uuid`,
+      [id, partnerId],
+    );
+    if (!before) return null;
+    const updated = await this.db.queryOne(
+      `UPDATE work_tickets SET status = 'rejected', client_note = $3, updated_at = NOW() WHERE id = $1 AND partner_id = $2::uuid RETURNING *`,
+      [id, partnerId, clientNote ?? null],
+    );
+    if (before && updated) {
+      await this.workflows.processWorkTicketStatusChange(
+        before as Parameters<WorkflowsService["processWorkTicketStatusChange"]>[0],
+        updated as Parameters<WorkflowsService["processWorkTicketStatusChange"]>[1],
+      );
+    }
+    return updated;
+  }
+
   notifications(unreadOnly = false) {
     const partnerId = this.partnerScope.requirePartnerId();
     return this.db.queryAll(
@@ -201,5 +231,147 @@ export class ClientsService {
       `UPDATE workflow_notifications SET read = TRUE WHERE id = $1 AND (partner_id = $2::uuid OR partner_id IS NULL) RETURNING *`,
       [id, partnerId],
     );
+  }
+
+  private currentMonthYm(): string {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Nairobi",
+      year: "numeric",
+      month: "2-digit",
+    }).formatToParts(new Date());
+    const year = parts.find((p) => p.type === "year")?.value ?? "2026";
+    const month = parts.find((p) => p.type === "month")?.value ?? "01";
+    return `${year}-${month}`;
+  }
+
+  private monthLabel(ym: string): string {
+    const [year, month] = ym.split("-");
+    const d = new Date(Number(year), Number(month) - 1, 1);
+    return d.toLocaleString("en-GB", { month: "long", year: "numeric", timeZone: "Africa/Nairobi" });
+  }
+
+  async dashboard(month?: string) {
+    const partnerId = this.partnerScope.requirePartnerId();
+    const ym = month?.trim() && /^\d{4}-\d{2}$/.test(month.trim()) ? month.trim() : this.currentMonthYm();
+
+    const invoiceScope = `partner_id = $1::uuid AND consolidated_invoice_id IS NULL
+      AND to_char(COALESCE(service_date, created_at::date), 'YYYY-MM') = $2`;
+
+    const invoiceStats = (await this.db.queryOne(
+      `SELECT
+        COUNT(*) FILTER (WHERE status IN ('sent', 'pending'))::int AS awaiting,
+        COUNT(*) FILTER (WHERE status = 'approved')::int AS approved,
+        COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected,
+        COUNT(*) FILTER (WHERE status = 'paid')::int AS paid,
+        COALESCE(SUM(total) FILTER (WHERE status IN ('approved', 'paid')), 0)::float AS total_value,
+        COALESCE(SUM(net) FILTER (WHERE status IN ('approved', 'paid')), 0)::float AS net,
+        COALESCE(SUM(vat) FILTER (WHERE status IN ('approved', 'paid')), 0)::float AS vat,
+        COUNT(*)::int AS total_count
+      FROM invoices WHERE ${invoiceScope}`,
+      [partnerId, ym],
+    )) as Record<string, number>;
+
+    const ticketScope = `partner_id = $1::uuid AND status IN ('sent', 'approved', 'rejected')
+      AND to_char(COALESCE(trip_date, created_at::date), 'YYYY-MM') = $2`;
+
+    const ticketStats = (await this.db.queryOne(
+      `SELECT
+        COUNT(*) FILTER (WHERE status = 'sent')::int AS awaiting,
+        COUNT(*) FILTER (WHERE status = 'approved')::int AS approved,
+        COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected,
+        COALESCE(SUM(total) FILTER (WHERE status = 'approved'), 0)::float AS total_value,
+        COUNT(*)::int AS total_count
+      FROM work_tickets WHERE ${ticketScope}`,
+      [partnerId, ym],
+    )) as Record<string, number>;
+
+    const dailyTrend = await this.db.queryAll(
+      `SELECT
+        to_char(day::date, 'YYYY-MM-DD') AS day,
+        to_char(day::date, 'DD Mon') AS label,
+        COALESCE(inv.received, 0)::int AS invoices_received,
+        COALESCE(inv.approved, 0)::int AS invoices_approved,
+        COALESCE(inv.approved_total, 0)::float AS approved_total,
+        COALESCE(wt.approved, 0)::int AS tickets_approved
+      FROM generate_series(
+        to_date($2, 'YYYY-MM'),
+        (to_date($2, 'YYYY-MM') + interval '1 month' - interval '1 day')::date,
+        interval '1 day'
+      ) AS day
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*)::int AS received,
+          COUNT(*) FILTER (WHERE status IN ('approved', 'paid'))::int AS approved,
+          COALESCE(SUM(total) FILTER (WHERE status IN ('approved', 'paid')), 0)::float AS approved_total
+        FROM invoices
+        WHERE partner_id = $1::uuid
+          AND consolidated_invoice_id IS NULL
+          AND COALESCE(service_date, created_at::date) = day::date
+      ) inv ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*) FILTER (WHERE status = 'approved')::int AS approved
+        FROM work_tickets
+        WHERE partner_id = $1::uuid
+          AND status IN ('sent', 'approved', 'rejected')
+          AND COALESCE(trip_date, created_at::date) = day::date
+      ) wt ON TRUE
+      ORDER BY day`,
+      [partnerId, ym],
+    );
+
+    const byClass = await this.db.queryAll(
+      `SELECT cls, COUNT(*)::int AS count, COALESCE(SUM(total), 0)::float AS total
+       FROM invoices
+       WHERE ${invoiceScope} AND status IN ('approved', 'paid', 'sent', 'pending')
+       GROUP BY cls
+       ORDER BY total DESC`,
+      [partnerId, ym],
+    );
+
+    const recentActivity = await this.db.queryAll(
+      `SELECT kind, id, ref_no, plate, route, status, event_date, updated_at
+       FROM (
+         SELECT 'invoice' AS kind, id, invoice_no AS ref_no, plate, route, status,
+           COALESCE(service_date, created_at::date) AS event_date, updated_at
+         FROM invoices
+         WHERE partner_id = $1::uuid AND consolidated_invoice_id IS NULL
+           AND to_char(COALESCE(service_date, created_at::date), 'YYYY-MM') = $2
+         UNION ALL
+         SELECT 'work_ticket', id, serial_no, plate, route, status,
+           COALESCE(trip_date, created_at::date), updated_at
+         FROM work_tickets
+         WHERE partner_id = $1::uuid AND status IN ('sent', 'approved', 'rejected')
+           AND to_char(COALESCE(trip_date, created_at::date), 'YYYY-MM') = $2
+       ) u
+       ORDER BY updated_at DESC
+       LIMIT 8`,
+      [partnerId, ym],
+    );
+
+    return {
+      month: ym,
+      monthLabel: this.monthLabel(ym),
+      updatedAt: new Date().toISOString(),
+      invoices: {
+        awaiting: invoiceStats.awaiting ?? 0,
+        approved: invoiceStats.approved ?? 0,
+        rejected: invoiceStats.rejected ?? 0,
+        paid: invoiceStats.paid ?? 0,
+        totalCount: invoiceStats.total_count ?? 0,
+        totalValue: invoiceStats.total_value ?? 0,
+        net: invoiceStats.net ?? 0,
+        vat: invoiceStats.vat ?? 0,
+      },
+      workTickets: {
+        awaiting: ticketStats.awaiting ?? 0,
+        approved: ticketStats.approved ?? 0,
+        rejected: ticketStats.rejected ?? 0,
+        totalCount: ticketStats.total_count ?? 0,
+        totalValue: ticketStats.total_value ?? 0,
+      },
+      dailyTrend,
+      byClass,
+      recentActivity,
+    };
   }
 }

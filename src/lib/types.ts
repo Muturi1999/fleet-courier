@@ -113,7 +113,7 @@ export type SafariEntry = {
 
 export type WorkTicketStatus = "draft" | "sent" | "approved" | "rejected" | "invoiced";
 
-export type ConsolidatedInvoiceStatus = "draft" | "pending_approval" | "approved" | "paid";
+export type ConsolidatedInvoiceStatus = "draft" | "pending_approval" | "approved" | "paid" | "rejected";
 
 export type WorkTicketJourneyLeg = {
   id: string;
@@ -183,6 +183,13 @@ export type ConsolidatedInvoice = {
   status: ConsolidatedInvoiceStatus;
   workTicketIds: string[];
   plate?: string;
+  consolidationType?: "vehicle" | "period";
+  filterMeta?: {
+    route?: string;
+    cls?: string;
+    runType?: string;
+    groupBy?: string;
+  };
   clientNote?: string;
   approvedAt?: string;
   paidAt?: string;
@@ -240,9 +247,11 @@ export type Expense = {
 export type EtimsValidationResult = {
   invoiceId: string;
   invoiceNo: string;
-  status: "valid" | "pending" | "failed";
+  status: "valid" | "pending" | "failed" | "submitted";
   kraReference?: string;
   cuInvoiceNumber?: string;
+  etimsUrl?: string;
+  digitaxSaleId?: string;
   validatedAt: string;
   checks: { label: string; passed: boolean; detail?: string }[];
   message?: string;
@@ -276,7 +285,9 @@ export type WorkflowEventType =
   | "work_ticket_approved"
   | "consolidated_sent"
   | "consolidated_approved"
-  | "consolidated_paid";
+  | "consolidated_paid"
+  | "consolidated_rejected"
+  | "work_ticket_rejected";
 
 export type WorkflowNotification = {
   id: string;

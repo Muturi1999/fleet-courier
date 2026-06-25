@@ -11,6 +11,12 @@ import { ClientsService } from "./clients.service";
 export class ClientsController {
   constructor(private readonly service: ClientsService) {}
 
+  @Get("dashboard")
+  @ApiOperation({ summary: "Partner portal dashboard — current month stats & trends" })
+  dashboard(@Query("month") month?: string) {
+    return this.service.dashboard(month);
+  }
+
   @Get("invoices")
   @ApiOperation({ summary: "Partner-scoped invoice list (paginated)" })
   listInvoices(@Query() query: ListQueryDto) {
@@ -58,6 +64,11 @@ export class ClientsController {
   @Post("work-tickets/:id/approve")
   approveWorkTicket(@Param("id") id: string, @Body("clientNote") clientNote?: string) {
     return this.service.approveWorkTicket(id, clientNote);
+  }
+
+  @Post("work-tickets/:id/reject")
+  rejectWorkTicket(@Param("id") id: string, @Body("clientNote") clientNote?: string) {
+    return this.service.rejectWorkTicket(id, clientNote);
   }
 
   @Get("notifications")

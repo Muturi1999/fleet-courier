@@ -1,11 +1,13 @@
 import type { FleetFilters } from "./filters";
 import { PAGE_SIZE } from "./filters";
+import type { ClientPortalFilters } from "./client-portal-filters";
+import { appendClientFilterQuery } from "./client-portal-filters";
 import type { PaginatedMeta, PaginatedResponse } from "./types";
 
 export function buildListQuery(params: {
   page?: number;
   limit?: number;
-  filters?: FleetFilters;
+  filters?: FleetFilters | ClientPortalFilters;
   status?: string;
   tab?: string;
   month?: string;
@@ -35,6 +37,7 @@ export function buildListQuery(params: {
   if (f?.status && f.status !== "all" && !params.status) q.set("status", f.status);
   if (params.tab) q.set("tab", params.tab);
   if (params.month && params.month !== "all") q.set("month", params.month);
+  if (f && "cls" in f) appendClientFilterQuery(q, f as ClientPortalFilters);
   return q.toString();
 }
 

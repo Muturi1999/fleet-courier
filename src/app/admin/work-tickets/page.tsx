@@ -345,18 +345,13 @@ export default function WorkTicketsPage() {
               />
             </FormField>
             <FormField label="Driver name (optional)">
-              <input
-                list="driver-options"
-                className="field-input"
+              <SearchSelect
+                listId="driver-options"
                 value={form.driverName}
                 placeholder="Leave blank if not assigned"
-                onChange={(e) => setForm({ ...form, driverName: e.target.value })}
+                options={DRIVER_OPTIONS.map((d) => ({ value: d }))}
+                onChange={(driverName) => setForm({ ...form, driverName })}
               />
-              <datalist id="driver-options">
-                {DRIVER_OPTIONS.map((d) => (
-                  <option key={d} value={d} />
-                ))}
-              </datalist>
             </FormField>
             <FormField label="Header notes" className="col-span-2">
               <input

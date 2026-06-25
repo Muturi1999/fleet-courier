@@ -58,6 +58,10 @@ services:
       ONBOARDING_ENABLED: ${ONBOARDING_ENABLED:-true}
       PLATFORM_API_KEY: ${PLATFORM_API_KEY:-}
       PG_POOL_MAX: ${PG_POOL_MAX:-20}
+      DIGITAX_API_KEY: ${DIGITAX_API_KEY:-}
+      DIGITAX_BASE_URL: ${DIGITAX_BASE_URL:-https://api.digitax.tech/ke/v2}
+      DIGITAX_ITEM_CLASS_CODE: ${DIGITAX_ITEM_CLASS_CODE:-78000000}
+      DIGITAX_TENANT_SLUG: ${DIGITAX_TENANT_SLUG:-g4s-kenya}
     ports:
       - "127.0.0.1:4300:4000"
     healthcheck:

@@ -19,7 +19,7 @@ export class ListQueryDto extends PaginationQueryDto {
   @IsString()
   all?: string;
 
-  @ApiPropertyOptional({ description: "Billing month label e.g. Jun 2026" })
+  @ApiPropertyOptional({ description: "Billing month YYYY-MM (service/trip date)" })
   @IsOptional()
   @IsString()
   month?: string;
@@ -43,6 +43,21 @@ export class ListQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   runType?: string;
+
+  @ApiPropertyOptional({ description: "Vehicle plate (exact or partial)" })
+  @IsOptional()
+  @IsString()
+  plate?: string;
+
+  @ApiPropertyOptional({ description: "Vehicle class e.g. 7T, 15T" })
+  @IsOptional()
+  @IsString()
+  cls?: string;
+
+  @ApiPropertyOptional({ description: "Billing period label substring e.g. June 2026" })
+  @IsOptional()
+  @IsString()
+  period?: string;
 
   @ApiPropertyOptional({ description: "Use keyset (cursor) pagination instead of OFFSET" })
   @IsOptional()

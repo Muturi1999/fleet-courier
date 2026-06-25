@@ -20,6 +20,20 @@ export function formatPeriodRange(start: string, end: string): string {
   return `${formatDocDate(start)} to ${formatDocDate(end)}`;
 }
 
+/** Newest consolidated statements first (created time, then serial number). */
+export function sortConsolidatedNewestFirst<T extends { createdAt?: string; invoiceDate?: string; invoiceNo: string }>(
+  rows: T[],
+): T[] {
+  return [...rows].sort((a, b) => {
+    const byTime = (b.createdAt ?? b.invoiceDate ?? "").localeCompare(a.createdAt ?? a.invoiceDate ?? "");
+    if (byTime !== 0) return byTime;
+    const an = Number.parseInt(a.invoiceNo, 10);
+    const bn = Number.parseInt(b.invoiceNo, 10);
+    if (!Number.isNaN(an) && !Number.isNaN(bn) && bn !== an) return bn - an;
+    return b.invoiceNo.localeCompare(a.invoiceNo);
+  });
+}
+
 export function generateConsolidatedInvoiceNo(
   existing: { invoiceNo: string }[],
   periodEnd: string,

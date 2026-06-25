@@ -1,5 +1,11 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { AUTH_TOKEN_COOKIE, PLATFORM_TOKEN_COOKIE, parseAuthCookie } from "./auth-config";
+
+export function backendErrorResponse(err: unknown) {
+  const message = err instanceof Error ? err.message : "Backend unavailable";
+  const status = message.includes("sign in") || message.includes("session") ? 401 : 503;
+  return NextResponse.json({ error: message }, { status, headers: { "Cache-Control": "no-store" } });
+}
 
 function backendBaseUrl(): string | null {
   const raw = process.env.FLEET_BACKEND_URL ?? process.env.NEXT_PUBLIC_FLEET_BACKEND_URL;

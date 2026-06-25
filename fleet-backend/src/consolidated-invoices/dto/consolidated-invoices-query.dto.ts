@@ -33,4 +33,34 @@ export class ConsolidatedInvoicesQueryDto extends ListQueryDto {
   @IsOptional()
   @IsString()
   plate?: string;
+
+  @ApiPropertyOptional({ description: "periodPreview=true returns grouped billable summary" })
+  @IsOptional()
+  @IsString()
+  periodPreview?: string;
+
+  @ApiPropertyOptional({ enum: ["vehicle", "route", "cls", "runType", "month"] })
+  @IsOptional()
+  @IsString()
+  groupBy?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  route?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  cls?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  runType?: string;
+
+  @ApiPropertyOptional({ description: "Matches trip route, vehicle run type, or destination" })
+  @IsOptional()
+  @IsString()
+  runRoute?: string;
 }

@@ -29,6 +29,7 @@ type WorkTicketRow = {
   trip_date: string;
   total: string | number;
   status: string;
+  client_note?: string | null;
 };
 
 @Injectable()
@@ -138,6 +139,18 @@ export class WorkflowsService {
         type: "work_ticket_approved",
         title: `G4S approved work ticket ${after.serial_no}`,
         message: `${after.plate} · KES ${Number(after.total).toLocaleString("en-KE")}`,
+        refId: after.id,
+        actor: "client",
+      });
+    }
+
+    if (after.status === "rejected" && before.status !== "rejected") {
+      const note = after.client_note ? ` Note: ${after.client_note}` : "";
+      await this.emit({
+        audience: "admin",
+        type: "work_ticket_rejected",
+        title: `G4S returned work ticket ${after.serial_no}`,
+        message: `${after.plate} · ${after.route}${note}`,
         refId: after.id,
         actor: "client",
       });

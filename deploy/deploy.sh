@@ -137,6 +137,19 @@ else
   docker compose --env-file .env up -d --remove-orphans
 fi
 
+# Backend-only deploy recreates the API container; bounce frontend so proxies reconnect.
+if [[ "${DEPLOY_BACKEND}" == "true" && "${DEPLOY_FRONTEND}" == "false" ]]; then
+  echo "==> Waiting for backend health..."
+  for i in \$(seq 1 45); do
+    if curl -sf http://127.0.0.1:4300/api/v1/health >/dev/null; then
+      break
+    fi
+    sleep 2
+  done
+  echo "==> Restarting frontend (refresh API proxy after backend rollout)..."
+  docker compose --env-file .env restart frontend
+fi
+
 if [[ "${CLEAN}" == "true" && "${FAST}" == "false" ]]; then
   echo "==> Pruning old images on server..."
   docker builder prune -af >/dev/null 2>&1 || true

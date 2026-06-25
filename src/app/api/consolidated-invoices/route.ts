@@ -11,12 +11,18 @@ const RESOURCE = "consolidated-invoices";
 export async function GET(req: NextRequest) {
   if (backendEnabled()) {
     const sp = req.nextUrl.searchParams;
-    const special = sp.get("vehicles") === "true" || sp.get("unbilled") === "true";
+    const special =
+      sp.get("vehicles") === "true" ||
+      sp.get("unbilled") === "true" ||
+      sp.get("periodPreview") === "true";
     if (special) {
       const query = req.nextUrl.search || "";
       const res = await backendRequest(req, `/consolidated-invoices${query}`);
       const json = await res.json();
       if (!res.ok) return NextResponse.json(json, { status: res.status });
+      if (sp.get("periodPreview") === "true") {
+        return NextResponse.json(json, { status: res.status });
+      }
       const body = Array.isArray(json) ? json : normalizeListJson(json).data;
       return NextResponse.json(body, { status: res.status });
     }

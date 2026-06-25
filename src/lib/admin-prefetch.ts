@@ -40,9 +40,13 @@ export function prefetchAdminRoute(href: string): void {
       prefetchList("/api/safari?all=true", "array");
       break;
     case "/admin/invoices":
+    case "/admin/invoices/approved":
+    case "/admin/invoices/rejected":
       prefetchList("/api/invoices?page=1&limit=10", "page");
       break;
     case "/admin/work-tickets":
+    case "/admin/work-tickets/approved":
+    case "/admin/work-tickets/rejected":
       prefetchList("/api/work-tickets?page=1&limit=10", "page");
       break;
     case "/admin/schedule":
@@ -52,6 +56,8 @@ export function prefetchAdminRoute(href: string): void {
       prefetchList("/api/expenses?page=1&limit=10", "page");
       break;
     case "/admin/soa":
+    case "/admin/soa/approved":
+    case "/admin/soa/rejected":
       prefetchList("/api/consolidated-invoices?all=true", "array");
       prefetchCached(`/api/consolidated-invoices?vehicles=true&${period}`, (json) => {
         const rows = asList<Record<string, unknown>>(json);
@@ -59,6 +65,16 @@ export function prefetchAdminRoute(href: string): void {
       });
       break;
     case "/admin/settings":
+      prefetchApi("/api/billing-profile");
+      break;
+    case "/admin/etims":
+      prefetchApi("/api/etims/dashboard");
+      break;
+    case "/admin/etims/history":
+      prefetchApi("/api/etims/history");
+      break;
+    case "/admin/etims/profile":
+      prefetchApi("/api/etims/profile");
       prefetchApi("/api/billing-profile");
       break;
     default:
