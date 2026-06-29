@@ -63,3 +63,18 @@ export class ConsolidatedActionDto {
   @IsString()
   clientNote?: string;
 }
+
+export class ReviseConsolidatedInvoiceDto {
+  @ApiProperty()
+  @IsString()
+  periodStart!: string;
+
+  @ApiProperty()
+  @IsString()
+  periodEnd!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  invoiceDate?: string;
+}

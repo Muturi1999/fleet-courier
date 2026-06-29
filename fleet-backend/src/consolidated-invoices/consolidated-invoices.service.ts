@@ -8,7 +8,7 @@ import { ListQueryDto } from "../common/dto/list-query.dto";
 import { PaginatedResult } from "../common/dto/pagination.dto";
 import { TenantDatabaseService } from "../common/database/tenant-database.service";
 import { WorkflowsService } from "../workflows/workflows.service";
-import { CreateConsolidatedInvoiceDto } from "./dto/consolidated-invoice.dto";
+import { CreateConsolidatedInvoiceDto, ReviseConsolidatedInvoiceDto } from "./dto/consolidated-invoice.dto";
 
 const DESCRIPTION = "Provision of Lease Vehicles & Courier Services";
 
@@ -191,11 +191,16 @@ export class ConsolidatedInvoicesService {
         COALESCE(wt.trip_date, i.service_date) AS trip_date,
         i.plate,
         i.cls,
+        COALESCE(NULLIF(TRIM(wt.make), ''), '') AS make,
+        COALESCE(NULLIF(TRIM(wt.branch), ''), '') AS branch,
+        wt.legs,
         COALESCE(NULLIF(TRIM(wt.route), ''), i.route) AS route,
         COALESCE(wt.driver_name, '') AS driver_name,
         COALESCE(wt.net, i.net) AS net,
         COALESCE(wt.vat, i.vat) AS vat,
         COALESCE(wt.total, i.total) AS total,
+        GREATEST(COALESCE(NULLIF(i.days, 0), 1), 1) AS days,
+        COALESCE(NULLIF(wt.agreed_rate, 0), applicable_rate.rate, 0) AS agreed_rate,
         i.id AS invoice_id,
         i.invoice_no,
         wt.id AS work_ticket_id,
@@ -204,6 +209,19 @@ export class ConsolidatedInvoicesService {
        FROM invoices i
        LEFT JOIN work_tickets wt ON wt.id = i.work_ticket_id
        LEFT JOIN vehicles v ON UPPER(REPLACE(v.plate, ' ', '')) = UPPER(REPLACE(i.plate, ' ', ''))
+       LEFT JOIN LATERAL (
+         SELECT r.rate
+         FROM rates r
+         WHERE r.status = 'active'
+           AND r.cls = i.cls
+           AND (
+             LOWER(TRIM(r.route)) = LOWER(TRIM(COALESCE(NULLIF(TRIM(wt.route), ''), i.route)))
+             OR LOWER(r.route) LIKE '%' || LOWER(TRIM(COALESCE(NULLIF(TRIM(wt.route), ''), i.route))) || '%'
+             OR LOWER(COALESCE(NULLIF(TRIM(wt.route), ''), i.route)) LIKE '%' || LOWER(TRIM(r.route)) || '%'
+           )
+         ORDER BY r.effective_from DESC
+         LIMIT 1
+       ) applicable_rate ON TRUE
        WHERE ${clauses.join(" AND ")}
        ORDER BY COALESCE(wt.trip_date, i.service_date) ASC, COALESCE(wt.serial_no, i.invoice_no) ASC`,
       params,
@@ -277,7 +295,27 @@ export class ConsolidatedInvoicesService {
     const ids = (invoice as { work_ticket_ids: string[] }).work_ticket_ids ?? [];
     if (ids.length) {
       const tickets = await this.db.queryAll(
-        `SELECT * FROM work_tickets WHERE id = ANY($1::uuid[]) ORDER BY trip_date`,
+        `SELECT wt.*,
+          GREATEST(COALESCE(NULLIF(i.days, 0), 1), 1) AS days,
+          COALESCE(NULLIF(wt.agreed_rate, 0), applicable_rate.rate, 0) AS agreed_rate,
+          COALESCE(NULLIF(TRIM(i.cls), ''), '') AS cls
+         FROM work_tickets wt
+         LEFT JOIN invoices i ON i.work_ticket_id = wt.id
+         LEFT JOIN LATERAL (
+           SELECT r.rate
+           FROM rates r
+           WHERE r.status = 'active'
+             AND r.cls = COALESCE(NULLIF(TRIM(i.cls), ''), '7T')
+             AND (
+               LOWER(TRIM(r.route)) = LOWER(TRIM(COALESCE(NULLIF(TRIM(wt.route), ''), i.route)))
+               OR LOWER(r.route) LIKE '%' || LOWER(TRIM(COALESCE(NULLIF(TRIM(wt.route), ''), i.route))) || '%'
+               OR LOWER(COALESCE(NULLIF(TRIM(wt.route), ''), i.route)) LIKE '%' || LOWER(TRIM(r.route)) || '%'
+             )
+           ORDER BY r.effective_from DESC
+           LIMIT 1
+         ) applicable_rate ON TRUE
+         WHERE wt.id = ANY($1::uuid[])
+         ORDER BY wt.trip_date`,
         [ids],
       );
       return { invoice, tickets };
@@ -289,13 +327,32 @@ export class ConsolidatedInvoicesService {
         i.invoice_no AS serial_no,
         i.service_date AS trip_date,
         i.plate,
+        i.cls,
         i.route,
         '' AS driver_name,
+        '' AS make,
+        '' AS branch,
+        '[]'::jsonb AS legs,
         i.net,
         i.vat,
         i.total,
+        GREATEST(COALESCE(NULLIF(i.days, 0), 1), 1) AS days,
+        COALESCE(applicable_rate.rate, 0) AS agreed_rate,
         i.invoice_no
        FROM invoices i
+       LEFT JOIN LATERAL (
+         SELECT r.rate
+         FROM rates r
+         WHERE r.status = 'active'
+           AND r.cls = i.cls
+           AND (
+             LOWER(TRIM(r.route)) = LOWER(TRIM(i.route))
+             OR LOWER(r.route) LIKE '%' || LOWER(TRIM(i.route)) || '%'
+             OR LOWER(i.route) LIKE '%' || LOWER(TRIM(r.route)) || '%'
+           )
+         ORDER BY r.effective_from DESC
+         LIMIT 1
+       ) applicable_rate ON TRUE
        WHERE i.consolidated_invoice_id = $1
        ORDER BY i.service_date ASC, i.invoice_no ASC`,
       [id],
@@ -386,15 +443,42 @@ export class ConsolidatedInvoicesService {
     const { workTicketIds, invoiceIds, plate: vehiclePlate, mode, filters } =
       await this.resolveBillableItems(dto);
 
-    const invoices = (await this.db.queryAll(`SELECT * FROM invoices WHERE id = ANY($1::uuid[])`, [
-      invoiceIds,
-    ])) as BillableRow[];
+    const invoices = (await this.db.queryAll(
+      `SELECT i.*,
+        COALESCE(NULLIF(wt.agreed_rate, 0), applicable_rate.rate, 0) AS agreed_rate
+       FROM invoices i
+       LEFT JOIN work_tickets wt ON wt.id = i.work_ticket_id
+       LEFT JOIN LATERAL (
+         SELECT r.rate
+         FROM rates r
+         WHERE r.status = 'active'
+           AND r.cls = i.cls
+           AND (
+             LOWER(TRIM(r.route)) = LOWER(TRIM(COALESCE(NULLIF(TRIM(wt.route), ''), i.route)))
+             OR LOWER(r.route) LIKE '%' || LOWER(TRIM(COALESCE(NULLIF(TRIM(wt.route), ''), i.route))) || '%'
+             OR LOWER(COALESCE(NULLIF(TRIM(wt.route), ''), i.route)) LIKE '%' || LOWER(TRIM(r.route)) || '%'
+           )
+         ORDER BY r.effective_from DESC
+         LIMIT 1
+       ) applicable_rate ON TRUE
+       WHERE i.id = ANY($1::uuid[])`,
+      [invoiceIds],
+    )) as BillableRow[];
 
     if (!invoices.length) throw new BadRequestException("No eligible invoices to consolidate");
 
     const net = invoices.reduce((s, t) => s + Number(t.net), 0);
     const vat = invoices.reduce((s, t) => s + Number(t.vat), 0);
     const total = invoices.reduce((s, t) => s + Number(t.total), 0);
+    const totalTrips = invoices.reduce((s, t) => {
+      const row = t as { days?: number; net?: number; agreed_rate?: number };
+      const stored = Math.max(1, Number(row.days ?? 1));
+      if (stored > 1) return s + stored;
+      const net = Number(row.net ?? 0);
+      const rate = Number(row.agreed_rate ?? 0);
+      if (rate > 0 && net > 0) return s + Math.max(1, Math.round(net / rate));
+      return s + 1;
+    }, 0);
     const plate =
       mode === "vehicle"
         ? (vehiclePlate ??
@@ -425,7 +509,7 @@ export class ConsolidatedInvoicesService {
           dto.periodEnd,
           dto.invoiceDate ?? new Date().toISOString().slice(0, 10),
           DESCRIPTION,
-          invoices.length,
+          totalTrips,
           net,
           vat,
           total,
@@ -529,6 +613,120 @@ export class ConsolidatedInvoicesService {
       );
       await client.query(`DELETE FROM consolidated_invoices WHERE id = $1`, [id]);
       return { ok: true };
+    });
+  }
+
+  /** Create a new draft SOA with corrected period; re-link trips from rejected/draft source. */
+  async revise(id: string, dto: ReviseConsolidatedInvoiceDto) {
+    const source = (await this.findOne(id)) as Record<string, unknown>;
+    if (!source) throw new NotFoundException("Consolidated invoice not found");
+
+    const status = String(source.status ?? "");
+    if (status !== "rejected" && status !== "draft") {
+      throw new BadRequestException("Only rejected or draft consolidated invoices can be revised");
+    }
+    if (source.superseded_by_id) {
+      throw new BadRequestException("This SOA has already been superseded by a revised copy");
+    }
+
+    const pendingRevision = await this.db.queryOne(
+      `SELECT id, invoice_no FROM consolidated_invoices
+       WHERE revised_from_id = $1 AND status = 'draft' LIMIT 1`,
+      [id],
+    );
+    if (pendingRevision) {
+      throw new BadRequestException(
+        `A draft revision already exists (serial ${(pendingRevision as { invoice_no: string }).invoice_no})`,
+      );
+    }
+
+    if (!dto.periodStart?.trim() || !dto.periodEnd?.trim()) {
+      throw new BadRequestException("Period start and end are required");
+    }
+    if (dto.periodStart > dto.periodEnd) {
+      throw new BadRequestException("Period start must be on or before period end");
+    }
+
+    const linkedInvoices = (await this.db.queryAll(
+      `SELECT id FROM invoices WHERE consolidated_invoice_id = $1`,
+      [id],
+    )) as { id: string }[];
+    if (!linkedInvoices.length) {
+      throw new BadRequestException("No trip invoices linked to this consolidated SOA");
+    }
+
+    const invoiceIds = linkedInvoices.map((r) => r.id);
+    const workTicketIds = Array.isArray(source.work_ticket_ids)
+      ? (source.work_ticket_ids as string[])
+      : [];
+
+    const { invoiceNo, refNo } = await this.nextNumbers();
+    const newId = randomUUID();
+    const invoiceDate = dto.invoiceDate?.trim() || new Date().toISOString().slice(0, 10);
+
+    return this.db.withTransaction(async (client) => {
+      const created = await client.query(
+        `INSERT INTO consolidated_invoices (
+          id, invoice_no, ref_no, period_start, period_end, invoice_date, description,
+          payment_terms_days, total_trips, net, vat, total, status, work_ticket_ids, plate,
+          consolidation_type, filter_meta, partner_id, revised_from_id, client_note
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'draft',$13,$14,$15,$16,$17,$18,NULL)
+        RETURNING *`,
+        [
+          newId,
+          invoiceNo,
+          refNo,
+          dto.periodStart,
+          dto.periodEnd,
+          invoiceDate,
+          source.description ?? DESCRIPTION,
+          source.payment_terms_days ?? 90,
+          source.total_trips,
+          source.net,
+          source.vat,
+          source.total,
+          JSON.stringify(workTicketIds),
+          source.plate ?? null,
+          source.consolidation_type ?? "vehicle",
+          JSON.stringify(source.filter_meta ?? {}),
+          source.partner_id ?? null,
+          id,
+        ],
+      );
+
+      await client.query(
+        `UPDATE invoices
+         SET consolidated_invoice_id = $1, updated_at = NOW()
+         WHERE consolidated_invoice_id = $2`,
+        [newId, id],
+      );
+
+      if (workTicketIds.length) {
+        await client.query(
+          `UPDATE work_tickets
+           SET consolidated_invoice_id = $1, status = 'invoiced', updated_at = NOW()
+           WHERE id = ANY($2::uuid[])`,
+          [newId, workTicketIds],
+        );
+      }
+
+      await client.query(
+        `UPDATE work_tickets
+         SET consolidated_invoice_id = $1, status = 'invoiced', updated_at = NOW()
+         WHERE consolidated_invoice_id = $2`,
+        [newId, id],
+      );
+
+      if (status === "rejected") {
+        await client.query(
+          `UPDATE consolidated_invoices SET superseded_by_id = $1, updated_at = NOW() WHERE id = $2`,
+          [newId, id],
+        );
+      } else {
+        await client.query(`DELETE FROM consolidated_invoices WHERE id = $1`, [id]);
+      }
+
+      return created.rows[0];
     });
   }
 }

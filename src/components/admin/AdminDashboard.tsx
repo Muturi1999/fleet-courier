@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   IconClock,
   IconCurrencyDollar,
@@ -9,17 +9,48 @@ import {
   IconTruck,
 } from "@tabler/icons-react";
 import { MetricCard, MetricsGrid } from "@/components/ui/MetricCard";
-import type { Invoice, Vehicle } from "@/lib/types";
+import type { ConsolidatedInvoice, Invoice, Vehicle } from "@/lib/types";
 import { dateKey, formatEATDisplay, todayEAT } from "@/lib/dates";
+import { buildDashboardWorkflow, type WorkflowStepState } from "@/lib/dashboard-workflow";
 import { fmtN, formatMillions, sumBy, toNum } from "@/lib/utils";
+import type { EtimsDashboard } from "@/lib/etims-types";
 import { useCrud } from "@/hooks/useCrud";
+
+function stepClasses(state: WorkflowStepState): string {
+  if (state === "done") return "border-[#9FE1CB] bg-teal-light";
+  if (state === "active") return "border-[#FAC775] bg-accent-light";
+  if (state === "rejected") return "border-fleet-red/30 bg-fleet-red/5";
+  return "bg-fleet-gray-50";
+}
+
+function stepNumClasses(state: WorkflowStepState): string {
+  if (state === "done") return "text-teal";
+  if (state === "active") return "text-accent-dark";
+  if (state === "rejected") return "text-fleet-red";
+  return "text-fleet-gray-400";
+}
 
 export function AdminDashboard() {
   const { items: invoices, loading: invLoading } = useCrud<Invoice>("invoices");
+  const { items: consolidated, loading: conLoading } = useCrud<ConsolidatedInvoice>("consolidated-invoices");
   const { items: vehicles, loading: vehLoading } = useCrud<Vehicle>("vehicles");
   const { items: schedules, loading: schLoading } = useCrud<{ id: string }>("schedules");
+  const [etims, setEtims] = useState<EtimsDashboard | null>(null);
 
-  const loading = invLoading || vehLoading || schLoading;
+  const loadEtims = useCallback(async () => {
+    try {
+      const res = await fetch("/api/etims/dashboard", { cache: "no-store", credentials: "same-origin" });
+      if (res.ok) setEtims((await res.json()) as EtimsDashboard);
+    } catch {
+      /* optional */
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadEtims();
+  }, [loadEtims]);
+
+  const loading = invLoading || conLoading || vehLoading || schLoading;
 
   const stats = useMemo(() => {
     const today = todayEAT();
@@ -30,7 +61,6 @@ export function AdminDashboard() {
     const totalInclVat = sumBy(scoped, (i) => i.total);
     const totalNet = sumBy(scoped, (i) => i.net);
     const totalVat = sumBy(scoped, (i) => i.vat);
-    const pending = invoices.filter((i) => i.status === "sent" || i.status === "pending");
     const periodLabel = scoped.length && todayInvoices.length ? `Today · ${formatEATDisplay(today)}` : "All time";
     const plates = new Set(scoped.map((i) => i.plate));
 
@@ -40,12 +70,30 @@ export function AdminDashboard() {
       totalVat,
       invoiceCount: scoped.length,
       vehicleCount: vehicles.filter((v) => v.status !== "inactive").length,
-      pendingCount: pending.length,
       scheduleCount: schedules.length,
       periodLabel,
       uniquePlates: plates.size,
     };
   }, [invoices, vehicles, schedules]);
+
+  const workflow = useMemo(
+    () =>
+      buildDashboardWorkflow({
+        scheduleCount: stats.scheduleCount,
+        invoices,
+        consolidated,
+        periodLabel: stats.periodLabel,
+        etims: etims
+          ? {
+              enabled: etims.enabled,
+              awaitingFiling: etims.stats.awaitingFiling,
+              filed: etims.stats.filed,
+              failed: etims.stats.failed,
+            }
+          : undefined,
+      }),
+    [stats.scheduleCount, stats.periodLabel, invoices, consolidated, etims],
+  );
 
   const topRoutes = useMemo(() => {
     const byRoute = new Map<string, number>();
@@ -60,48 +108,6 @@ export function AdminDashboard() {
       .map(([name, total]) => ({ id: name, name, total }));
   }, [invoices]);
   const maxRoute = toNum(topRoutes[0]?.total) || 1;
-
-  const workflowSteps = useMemo(
-    () => [
-      {
-        state: stats.scheduleCount > 0 ? "done" : "pending",
-        num: "Step 1",
-        title: "Schedule entry",
-        sub: `${stats.scheduleCount} lines logged`,
-      },
-      {
-        state: stats.invoiceCount > 0 ? "done" : "pending",
-        num: "Step 2",
-        title: "Invoices generated",
-        sub: `${stats.invoiceCount} invoice${stats.invoiceCount === 1 ? "" : "s"}`,
-      },
-      {
-        state: stats.invoiceCount > 0 ? "done" : "pending",
-        num: "Step 3",
-        title: "SOA sent to G4S",
-        sub: stats.periodLabel,
-      },
-      {
-        state: stats.pendingCount > 0 ? "active" : stats.invoiceCount > 0 ? "done" : "pending",
-        num: "Step 4",
-        title: "G4S approval",
-        sub: stats.pendingCount > 0 ? `${stats.pendingCount} awaiting approval` : "No pending approvals",
-      },
-      {
-        state: invoices.some((i) => i.status === "paid" || i.status === "approved") ? "done" : "pending",
-        num: "Step 5",
-        title: "KRA eTIMS submitted",
-        sub: "Via invoice workflow",
-      },
-      {
-        state: invoices.some((i) => i.status === "paid") ? "done" : "pending",
-        num: "Step 6",
-        title: "Payment received",
-        sub: `${invoices.filter((i) => i.status === "paid").length} paid`,
-      },
-    ],
-    [stats, invoices],
-  );
 
   const recentActivity = useMemo(() => {
     return [...invoices]
@@ -152,35 +158,25 @@ export function AdminDashboard() {
           accent="red"
           icon={IconClock}
           label="Pending G4S approval"
-          value={String(stats.pendingCount)}
-          sub={stats.pendingCount > 0 ? "Sent / pending invoices" : "All clear"}
+          value={String(workflow.pendingApprovalCount)}
+          sub={workflow.pendingApprovalLabel}
         />
       </MetricsGrid>
 
       <div className="section-header">
         <h2 className="text-[15px] font-semibold">Monthly workflow — {stats.periodLabel}</h2>
+        <Link href="/admin/soa" className="btn-secondary btn-sm">
+          Consolidated SOA
+        </Link>
       </div>
       <div className="workflow-scroll">
-        {workflowSteps.map((step) => (
-          <div
-            key={step.num}
-            className={`workflow-step ${
-              step.state === "done"
-                ? "border-[#9FE1CB] bg-teal-light"
-                : step.state === "active"
-                  ? "border-[#FAC775] bg-accent-light"
-                  : "bg-fleet-gray-50"
-            }`}
-          >
-            <div
-              className={`text-[10px] font-bold uppercase tracking-wide ${
-                step.state === "done" ? "text-teal" : step.state === "active" ? "text-accent-dark" : "text-fleet-gray-400"
-              }`}
-            >
+        {workflow.steps.map((step) => (
+          <div key={step.num} className={`workflow-step ${stepClasses(step.state)}`}>
+            <div className={`text-[10px] font-bold uppercase tracking-wide ${stepNumClasses(step.state)}`}>
               {step.num}
             </div>
             <div className="text-xs font-semibold">{step.title}</div>
-            <div className="text-[11px] text-fleet-gray-400">{step.sub}</div>
+            <div className="text-[11px] leading-snug text-fleet-gray-500">{step.sub}</div>
           </div>
         ))}
       </div>

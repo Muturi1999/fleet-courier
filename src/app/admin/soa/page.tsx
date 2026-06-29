@@ -14,11 +14,14 @@ import {
   printConsolidatedBilling,
 } from "@/components/consolidated/ConsolidatedInvoiceDocument";
 import { SoaBreakdownDocument } from "@/components/consolidated/SoaBreakdownDocument";
+import { ConsolidationBreakdownTable } from "@/components/consolidated/ConsolidationBreakdownTable";
+import { ConsolidatedRevisePanel } from "@/components/consolidated/ConsolidatedRevisePanel";
 import { ConsolidatedInvoicesTable } from "@/components/consolidated/ConsolidatedInvoicesTable";
 import { ConsolidateByPeriodPanel } from "@/components/consolidated/ConsolidateByPeriodPanel";
 import { RecordScreen } from "@/components/layout/RecordScreen";
-import { currentMonthRangeEAT, formatEATDisplay } from "@/lib/dates";
+import { currentMonthRangeEAT } from "@/lib/dates";
 import { sortConsolidatedNewestFirst } from "@/lib/consolidation";
+import { mapToBreakdownLine } from "@/lib/consolidation-breakdown";
 import type { ConsolidatedInvoice, RouteRecord, SafariEntry, Vehicle, WorkTicket } from "@/lib/types";
 import { useToast } from "@/context/ToastContext";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -54,7 +57,7 @@ function mapBillableVehicle(row: Record<string, unknown>): BillableVehicle {
   };
 }
 
-type PreviewLine = WorkTicket & { invoiceNo?: string };
+type PreviewLine = WorkTicket & { invoiceNo?: string; cls?: string; runType?: string; days?: number; agreedRate?: number };
 
 function apiErrorMessage(err: { message?: string | string[]; error?: string }): string {
   if (Array.isArray(err.message)) return err.message.join(", ");
@@ -75,12 +78,15 @@ function mapPreviewLine(row: Record<string, unknown>): PreviewLine {
     status: (row.status as PreviewLine["status"]) ?? "draft",
     branch: String(row.branch ?? ""),
     make: String(row.make ?? ""),
+    cls: String(row.cls ?? ""),
     rateType: (row.rateType as PreviewLine["rateType"]) ?? "fixed",
-    agreedRate: Number(row.agreedRate ?? row.agreed_rate ?? 0),
+    agreedRate: Number(row.agreedRate ?? row.agreed_rate ?? row.dayRate ?? row.day_rate ?? 0),
     legs: Array.isArray(row.legs) ? (row.legs as PreviewLine["legs"]) : [],
     privateKm: Number(row.privateKm ?? row.private_km ?? 0),
     officialKm: Number(row.officialKm ?? row.official_km ?? 0),
+    runType: String(row.runType ?? row.run_type ?? ""),
     invoiceNo: String(row.invoiceNo ?? row.invoice_no ?? ""),
+    days: Math.max(1, Number(row.days ?? 1)),
   };
 }
 
@@ -142,6 +148,7 @@ export default function ConsolidatedBillingPage() {
   const [plate, setPlate] = useState("");
   const [viewId, setViewId] = useState<string | null>(null);
   const [viewData, setViewData] = useState<{ invoice: ConsolidatedInvoice; tickets: WorkTicket[] } | null>(null);
+  const [reviseData, setReviseData] = useState<{ invoice: ConsolidatedInvoice; tickets: WorkTicket[] } | null>(null);
   const [loading, setLoading] = useState(() => getApiCache<ConsolidatedInvoice[]>(invoicesCacheKey) === undefined);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [consolidating, setConsolidating] = useState(false);
@@ -343,6 +350,34 @@ export default function ConsolidatedBillingPage() {
     if (!res.ok) return;
     setViewData(await res.json());
     setViewId(id);
+    setReviseData(null);
+  };
+
+  const openRevise = async (id: string) => {
+    const res = await fetch(`/api/consolidated-invoices/${id}?detail=full`, { cache: "no-store" });
+    if (!res.ok) {
+      toast("Could not load SOA for editing");
+      return;
+    }
+    const data = (await res.json()) as { invoice: ConsolidatedInvoice; tickets: WorkTicket[] };
+    if (data.invoice.status !== "rejected" && data.invoice.status !== "draft") {
+      toast("Only rejected or draft SOAs can be revised");
+      return;
+    }
+    if (data.invoice.supersededById) {
+      toast("This SOA has already been superseded");
+      return;
+    }
+    setViewId(null);
+    setViewData(null);
+    setReviseData(data);
+  };
+
+  const handleReviseSaved = async (created: ConsolidatedInvoice) => {
+    setReviseData(null);
+    setHighlightId(created.id);
+    await refresh();
+    await openView(created.id);
   };
 
   const downloadDocuments = async (id: string) => {
@@ -368,6 +403,27 @@ export default function ConsolidatedBillingPage() {
     toast("Consolidated invoice deleted");
     await refresh();
   };
+
+  if (reviseData) {
+    return (
+      <RecordScreen
+        crumbs={[
+          { label: "Consolidated billing", onClick: () => setReviseData(null) },
+          { label: `Revise ${reviseData.invoice.invoiceNo}` },
+        ]}
+        title={`Revise SOA ${reviseData.invoice.invoiceNo}`}
+        onBack={() => setReviseData(null)}
+      >
+        <ConsolidatedRevisePanel
+          source={reviseData.invoice}
+          tickets={reviseData.tickets}
+          onClose={() => setReviseData(null)}
+          onSaved={handleReviseSaved}
+          toast={toast}
+        />
+      </RecordScreen>
+    );
+  }
 
   if (viewId && viewData) {
     return (
@@ -396,6 +452,12 @@ export default function ConsolidatedBillingPage() {
             {viewData.invoice.status === "draft" && (
               <button type="button" className="btn-accent btn-sm" onClick={() => sendToClient(viewData.invoice.id)}>
                 <IconSend size={14} /> Share with partner
+              </button>
+            )}
+            {(viewData.invoice.status === "rejected" || viewData.invoice.status === "draft") &&
+              !viewData.invoice.supersededById && (
+              <button type="button" className="btn-secondary btn-sm" onClick={() => openRevise(viewData.invoice.id)}>
+                Revise &amp; resubmit
               </button>
             )}
             {viewData.invoice.status === "approved" && (
@@ -437,16 +499,15 @@ export default function ConsolidatedBillingPage() {
           onDownload={downloadDocuments}
           onShare={sendToClient}
           onDelete={deleteInvoice}
+          onEdit={openRevise}
           toast={toast}
         />
       ) : tab === "vehicle" ? (
         <div className="card">
           <h2 className="mb-1 text-[15px] font-semibold">Consolidate trip invoices by vehicle</h2>
           <p className="mb-4 text-xs text-fleet-gray-400">
-            Pick a billing period and vehicle to roll trip invoices into one consolidated statement.
-            Trip invoices are matched by service/trip date within the selected from–to range.
-            You can consolidate again for the same vehicle and period — each run gets a new serial number and older
-            drafts stay in the list for reference; the newest appears at the top.
+            Pick a billing period and vehicle to consolidate trip invoices. Preview uses the RNT breakdown columns; print
+            shows the same layout with ex VAT and inc VAT totals.
           </p>
 
           <div className="mb-4 grid grid-cols-1 items-end gap-3 lg:grid-cols-[minmax(140px,1fr)_minmax(140px,1fr)_minmax(200px,2fr)_auto]">
@@ -488,39 +549,24 @@ export default function ConsolidatedBillingPage() {
             </div>
           )}
 
-          <div className="table-wrap mb-4 max-h-72 overflow-y-auto">
-            <table className="data-table min-w-[720px] text-xs">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Work ticket</th>
-                  <th>Trip invoice</th>
-                  <th>Route</th>
-                  <th>Driver</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!plate.trim() ? (
-                  <tr><td colSpan={6} className="py-6 text-center text-fleet-gray-400">Select a vehicle to preview trip invoices</td></tr>
-                ) : previewLoading ? (
-                  <tr><td colSpan={6} className="py-6 text-center text-fleet-gray-400">Loading…</td></tr>
-                ) : preview.length === 0 ? (
-                  <tr><td colSpan={6} className="py-6 text-center text-fleet-gray-400">No uninvoiced trip invoices for this vehicle in range</td></tr>
-                ) : (
-                  preview.map((t) => (
-                    <tr key={t.id}>
-                      <td>{formatEATDisplay(t.tripDate)}</td>
-                      <td className="font-mono font-semibold text-[#c41e1e]">{t.serialNo}</td>
-                      <td className="font-mono text-fleet-gray-600">{t.invoiceNo ?? `WT-${t.serialNo}`}</td>
-                      <td>{t.route}</td>
-                      <td>{t.driverName}</td>
-                      <td className="font-mono">{fmtN(t.net)}</td>
-                    </tr>
-                  ))
+          <div className="table-wrap mb-4 max-h-[28rem] overflow-y-auto">
+            {!plate.trim() ? (
+              <p className="py-8 text-center text-sm text-fleet-gray-400">Select a vehicle to preview trip invoices</p>
+            ) : previewLoading ? (
+              <p className="py-8 text-center text-sm text-fleet-gray-400">Loading…</p>
+            ) : preview.length === 0 ? (
+              <p className="py-8 text-center text-sm text-fleet-gray-400">No uninvoiced trip invoices for this vehicle in range</p>
+            ) : (
+              <ConsolidationBreakdownTable
+                compact
+                layout="flat"
+                lines={preview.map((t) =>
+                  mapToBreakdownLine({ ...t, cls: t.cls } as unknown as Record<string, unknown>),
                 )}
-              </tbody>
-            </table>
+                grandNet={preview.reduce((s, t) => s + t.net, 0)}
+                grandTotal={preview.reduce((s, t) => s + t.total, 0)}
+              />
+            )}
           </div>
 
           <p className="mb-6 border-t border-fleet-gray-100 pt-4 text-sm text-fleet-gray-500">
@@ -552,6 +598,7 @@ export default function ConsolidatedBillingPage() {
               onDownload={downloadDocuments}
               onShare={sendToClient}
               onDelete={deleteInvoice}
+              onEdit={openRevise}
             />
           </div>
         </div>
@@ -579,6 +626,7 @@ export default function ConsolidatedBillingPage() {
             onDownload={downloadDocuments}
             onShare={sendToClient}
             onDelete={deleteInvoice}
+            onEdit={openRevise}
           />
         </div>
       )}

@@ -24,6 +24,12 @@ export function prefetchAdminRoute(href: string): void {
   const period = `from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
 
   switch (href) {
+    case "/admin":
+      prefetchList("/api/invoices?all=true", "array");
+      prefetchList("/api/consolidated-invoices?all=true", "array");
+      prefetchList("/api/schedules?page=1&limit=10", "page");
+      prefetchApi("/api/etims/dashboard");
+      break;
     case "/admin/vehicles":
       prefetchList("/api/vehicles?all=true", "array");
       break;

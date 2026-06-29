@@ -2,6 +2,7 @@
 
 import {
   IconDownload,
+  IconEdit,
   IconEye,
   IconPrinter,
   IconSend,
@@ -45,6 +46,7 @@ export function ConsolidatedInvoicesTable({
   onDownload,
   onShare,
   onDelete,
+  onEdit,
 }: {
   rows: ConsolidatedInvoice[];
   loading: boolean;
@@ -61,6 +63,7 @@ export function ConsolidatedInvoicesTable({
   onDownload: (id: string) => void;
   onShare: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit?: (id: string) => void;
 }) {
   return (
     <>
@@ -123,6 +126,11 @@ export function ConsolidatedInvoicesTable({
                       <button type="button" className="btn-secondary btn-sm px-2" title="Download PDF" onClick={() => onDownload(inv.id)}>
                         <IconDownload size={14} />
                       </button>
+                      {(inv.status === "rejected" || inv.status === "draft") && onEdit && !inv.supersededById && (
+                        <button type="button" className="btn-secondary btn-sm px-2" title="Revise" onClick={() => onEdit(inv.id)}>
+                          <IconEdit size={14} />
+                        </button>
+                      )}
                       {inv.status === "draft" && (
                         <>
                           <button type="button" className="btn-accent btn-sm px-2" title="Share with partner" onClick={() => onShare(inv.id)}>

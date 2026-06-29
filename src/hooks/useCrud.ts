@@ -21,6 +21,7 @@ const FULL_LIST_ENDPOINTS = new Set([
   "safari",
   "schedules",
   "invoices",
+  "consolidated-invoices",
 ]);
 
 function prependItem<T extends { id: string }>(items: T[], item: T): T[] {

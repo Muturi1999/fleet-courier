@@ -9,9 +9,11 @@ import {
   formatDocDate,
   formatPeriodRange,
 } from "@/lib/consolidation";
+import { breakdownPeriodTitle } from "@/lib/consolidation-breakdown";
+import { toNum } from "@/lib/utils";
 
-function fmt(n: number) {
-  return n.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function fmt(n: number | string | null | undefined) {
+  return toNum(n).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function ConsolidatedInvoiceDocument({
@@ -25,6 +27,7 @@ export function ConsolidatedInvoiceDocument({
     invoice.paymentWindowFrom && invoice.paymentWindowTo
       ? `${formatDocDate(invoice.paymentWindowFrom)} to ${formatDocDate(invoice.paymentWindowTo)}`
       : "On G4S approval (90–100 days from sign-off)";
+  const periodTitle = breakdownPeriodTitle(invoice.periodStart, invoice.periodEnd);
 
   return (
     <div className="consolidated-doc" id="consolidated-invoice-print">
@@ -95,7 +98,7 @@ export function ConsolidatedInvoiceDocument({
       </table>
 
       <p className="consolidated-doc-note">
-        Attached: G4S Delivery Breakdown Schedule (SOA {invoice.refNo}) listing {invoice.totalTrips} verified work tickets.
+        Attached: {periodTitle} breakdown schedule (ref {invoice.refNo}) — {invoice.totalTrips} work ticket(s).
       </p>
 
       <p className="consolidated-doc-etims print:hidden">{INVOICE_DEFAULTS.etimsNote}</p>

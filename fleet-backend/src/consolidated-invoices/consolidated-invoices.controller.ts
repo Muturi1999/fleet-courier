@@ -3,7 +3,7 @@ import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { UserRole } from "@prisma/client";
 import { ApiTenantAuth } from "../common/decorators/api-tenant-auth.decorator";
 import { ConsolidatedInvoicesQueryDto } from "./dto/consolidated-invoices-query.dto";
-import { ConsolidatedActionDto, CreateConsolidatedInvoiceDto } from "./dto/consolidated-invoice.dto";
+import { ConsolidatedActionDto, CreateConsolidatedInvoiceDto, ReviseConsolidatedInvoiceDto } from "./dto/consolidated-invoice.dto";
 import { ConsolidatedInvoicesService } from "./consolidated-invoices.service";
 
 @ApiTags("consolidated-invoices")
@@ -45,6 +45,13 @@ export class ConsolidatedInvoicesController {
   @ApiTenantAuth(UserRole.admin)
   create(@Body() dto: CreateConsolidatedInvoiceDto) {
     return this.service.create(dto);
+  }
+
+  @Post(":id/revise")
+  @ApiTenantAuth(UserRole.admin)
+  @ApiOperation({ summary: "Create a revised draft copy with corrected period (rejected or draft SOA)" })
+  revise(@Param("id") id: string, @Body() dto: ReviseConsolidatedInvoiceDto) {
+    return this.service.revise(id, dto);
   }
 
   @Post(":id")

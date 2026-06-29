@@ -191,6 +191,8 @@ export type ConsolidatedInvoice = {
     groupBy?: string;
   };
   clientNote?: string;
+  revisedFromId?: string;
+  supersededById?: string;
   approvedAt?: string;
   paidAt?: string;
   createdAt?: string;

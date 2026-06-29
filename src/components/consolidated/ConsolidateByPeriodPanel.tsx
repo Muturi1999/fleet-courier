@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SearchSelect } from "@/components/ui/SearchSelect";
 import { ConsolidatedInvoicesTable } from "@/components/consolidated/ConsolidatedInvoicesTable";
+import { ConsolidationBreakdownTable } from "@/components/consolidated/ConsolidationBreakdownTable";
 import { usePagination } from "@/hooks/usePagination";
 import { PAGE_SIZE } from "@/lib/filters";
 import { sortConsolidatedNewestFirst } from "@/lib/consolidation";
@@ -16,9 +17,10 @@ import {
   type PeriodGroupBy,
   type PeriodPreview,
 } from "@/lib/consolidation-period";
-import { currentMonthRangeEAT, formatEATDisplay } from "@/lib/dates";
+import { mapToBreakdownLine } from "@/lib/consolidation-breakdown";
+import { currentMonthRangeEAT } from "@/lib/dates";
 import type { ConsolidatedInvoice, RouteRecord, SafariEntry, Vehicle } from "@/lib/types";
-import { labelFromCls, normalizeCls, VEHICLE_CLASSIFICATIONS } from "@/lib/vehicle-fleet";
+import { labelFromCls, VEHICLE_CLASSIFICATIONS } from "@/lib/vehicle-fleet";
 import { fmtN } from "@/lib/utils";
 
 function apiErrorMessage(err: { message?: string | string[]; error?: string }): string {
@@ -39,6 +41,7 @@ export function ConsolidateByPeriodPanel({
   onDownload,
   onShare,
   onDelete,
+  onEdit,
   toast,
 }: {
   invoices: ConsolidatedInvoice[];
@@ -53,6 +56,7 @@ export function ConsolidateByPeriodPanel({
   onDownload: (id: string) => void;
   onShare: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit?: (id: string) => void;
   toast: (msg: string) => void;
 }) {
   const defaults = useMemo(() => currentMonthRangeEAT(), []);
@@ -65,7 +69,6 @@ export function ConsolidateByPeriodPanel({
   const [preview, setPreview] = useState<PeriodPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [consolidating, setConsolidating] = useState(false);
-  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [activePreset, setActivePreset] = useState<string | null>(null);
 
   const periodConsolidated = useMemo(
@@ -170,9 +173,9 @@ export function ConsolidateByPeriodPanel({
     <div className="card">
       <h2 className="mb-1 text-[15px] font-semibold">Consolidate by period</h2>
       <p className="mb-4 text-xs text-fleet-gray-400">
-        Roll all eligible trip invoices in a billing period into one consolidated statement — across every vehicle.
-        Pick a month or custom dates, filter the preview, then consolidate. Regenerating creates a new statement (new
-        serial); older drafts remain for lookup and the newest sorts to the top.
+        Roll all eligible trip invoices in a billing period into one consolidated statement. Preview matches the RNT
+        monthly breakdown: each vehicle lists trip lines (date, make/model, reg, branch, ton, service type, route,
+        cost, work ticket no), vehicle subtotals (ex VAT / inc VAT), then a grand total at the foot.
       </p>
 
       <div className="mb-4">
@@ -274,7 +277,7 @@ export function ConsolidateByPeriodPanel({
         </div>
       )}
 
-      <div className="table-wrap mb-4 max-h-80 overflow-y-auto">
+      <div className="table-wrap mb-4 max-h-[32rem] overflow-y-auto">
         {previewLoading ? (
           <p className="py-8 text-center text-sm text-fleet-gray-400">Loading preview…</p>
         ) : !preview?.invoiceCount ? (
@@ -282,72 +285,14 @@ export function ConsolidateByPeriodPanel({
             No billable trip invoices in this period
             {runRouteFilter || clsFilter ? " for the selected filters" : ""}
           </p>
-        ) : groupBy === "vehicle" ? (
-          <table className="data-table min-w-[720px] text-xs">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Work ticket</th>
-                <th>Vehicle</th>
-                <th>Class</th>
-                <th>Route</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {preview.lines.map((line) => (
-                <tr key={line.id}>
-                  <td>{formatEATDisplay(line.tripDate)}</td>
-                  <td className="font-mono font-semibold text-[#c41e1e]">{line.serialNo}</td>
-                  <td className="font-mono">{line.plate}</td>
-                  <td>{normalizeCls(line.cls)}</td>
-                  <td>{line.route}</td>
-                  <td className="font-mono">{fmtN(line.net)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         ) : (
-          <div className="divide-y divide-fleet-gray-100">
-            {preview.groups.map((group) => (
-              <div key={group.key} className="py-2">
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between px-2 py-2 text-left text-sm hover:bg-fleet-gray-50"
-                  onClick={() => setExpandedGroup((g) => (g === group.key ? null : group.key))}
-                >
-                  <span className="font-medium text-navy">{group.key}</span>
-                  <span className="text-xs text-fleet-gray-500">
-                    {group.invoiceCount} trip(s) · KES {fmtN(group.net)}
-                  </span>
-                </button>
-                {expandedGroup === group.key && (
-                  <table className="data-table mb-2 text-xs">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Ticket</th>
-                        <th>Vehicle</th>
-                        <th>Route</th>
-                        <th>Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.lines.map((line) => (
-                        <tr key={line.id}>
-                          <td>{formatEATDisplay(line.tripDate)}</td>
-                          <td className="font-mono">{line.serialNo}</td>
-                          <td className="font-mono">{line.plate}</td>
-                          <td>{line.route}</td>
-                          <td className="font-mono">{fmtN(line.net)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            ))}
-          </div>
+          <ConsolidationBreakdownTable
+            compact
+            layout="byVehicle"
+            lines={preview.lines.map((line) => mapToBreakdownLine(line as unknown as Record<string, unknown>))}
+            grandNet={preview.net}
+            grandTotal={preview.total}
+          />
         )}
       </div>
 
@@ -376,6 +321,7 @@ export function ConsolidateByPeriodPanel({
           onDownload={onDownload}
           onShare={onShare}
           onDelete={onDelete}
+          onEdit={onEdit}
         />
       </div>
     </div>

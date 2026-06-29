@@ -9,6 +9,7 @@ type WorkTicketRow = {
   trip_date: string | Date;
   plate: string;
   route: string;
+  agreed_rate?: string | number | null;
   net: string | number;
   vat: string | number;
   total: string | number;
@@ -38,6 +39,13 @@ export class WorkTicketInvoiceService {
     return (row as { cls?: string } | null)?.cls ?? "7T";
   }
 
+  private invoiceDaysForTicket(ticket: WorkTicketRow): number {
+    const net = Number(ticket.net);
+    const rate = Number(ticket.agreed_rate ?? 0);
+    if (rate > 0 && net > 0) return Math.max(1, Math.round(net / rate));
+    return 1;
+  }
+
   async createForWorkTicket(ticket: WorkTicketRow, client?: PoolClient) {
     const existing = client
       ? await client
@@ -54,11 +62,12 @@ export class WorkTicketInvoiceService {
     const invoiceNo = this.invoiceNoForSerial(ticket.serial_no);
     const period = this.formatPeriod(tripDate);
     const id = randomUUID();
+    const days = this.invoiceDaysForTicket(ticket);
 
     const sql = `INSERT INTO invoices (
       id, invoice_no, plate, cls, route, days, net, vat, total, status,
       service_date, period, delivery_note_no, work_ticket_id, partner_id
-    ) VALUES ($1,$2,$3,$4,$5,1,$6,$7,$8,'draft',$9,$10,$11,$12,$13)
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10,$11,$12,$13,$14)
     RETURNING *`;
 
     const params = [
@@ -67,6 +76,7 @@ export class WorkTicketInvoiceService {
       ticket.plate,
       cls,
       ticket.route,
+      days,
       ticket.net,
       ticket.vat,
       ticket.total,
@@ -85,9 +95,10 @@ export class WorkTicketInvoiceService {
   }
 
   async syncFromWorkTicket(ticket: WorkTicketRow, client?: PoolClient) {
+    const days = this.invoiceDaysForTicket(ticket);
     const sql = `UPDATE invoices SET
-      plate = $2, route = $3, net = $4, vat = $5, total = $6,
-      service_date = $7, period = $8, delivery_note_no = $9, updated_at = NOW()
+      plate = $2, route = $3, days = $4, net = $5, vat = $6, total = $7,
+      service_date = $8, period = $9, delivery_note_no = $10, updated_at = NOW()
       WHERE work_ticket_id = $1 AND consolidated_invoice_id IS NULL`;
     const tripDate =
       ticket.trip_date instanceof Date
@@ -97,6 +108,7 @@ export class WorkTicketInvoiceService {
       ticket.id,
       ticket.plate,
       ticket.route,
+      days,
       ticket.net,
       ticket.vat,
       ticket.total,

@@ -1,5 +1,5 @@
 import { formatBillingPeriodMonth } from "./dates";
-import type { RouteRecord, SafariEntry, Vehicle } from "./types";
+import type { RouteRecord, SafariEntry, Vehicle, WorkTicketJourneyLeg } from "./types";
 
 export type PeriodPreset = {
   id: string;
@@ -109,6 +109,8 @@ export type PeriodPreviewLine = {
   tripDate: string;
   plate: string;
   cls: string;
+  make: string;
+  branch: string;
   route: string;
   driverName: string;
   net: number;
@@ -117,6 +119,10 @@ export type PeriodPreviewLine = {
   invoiceNo: string;
   runType: string;
   tripMonth: string;
+  /** Invoice Days/Trip (from billable row). */
+  days: number;
+  agreedRate: number;
+  legs?: WorkTicketJourneyLeg[];
 };
 
 export type PeriodPreviewGroup = {
@@ -146,6 +152,8 @@ export function mapPeriodPreviewLine(row: Record<string, unknown>): PeriodPrevie
     tripDate: String(row.tripDate ?? row.trip_date ?? ""),
     plate: String(row.plate ?? ""),
     cls: String(row.cls ?? ""),
+    make: String(row.make ?? ""),
+    branch: String(row.branch ?? ""),
     route: String(row.route ?? ""),
     driverName: String(row.driverName ?? row.driver_name ?? ""),
     net: Number(row.net ?? 0),
@@ -154,6 +162,9 @@ export function mapPeriodPreviewLine(row: Record<string, unknown>): PeriodPrevie
     invoiceNo: String(row.invoiceNo ?? row.invoice_no ?? ""),
     runType: String(row.runType ?? row.run_type ?? ""),
     tripMonth: String(row.tripMonth ?? row.trip_month ?? ""),
+    days: Math.max(1, Number(row.days ?? 1)),
+    agreedRate: Number(row.agreedRate ?? row.agreed_rate ?? row.dayRate ?? row.day_rate ?? 0),
+    legs: Array.isArray(row.legs) ? (row.legs as PeriodPreviewLine["legs"]) : undefined,
   };
 }
 

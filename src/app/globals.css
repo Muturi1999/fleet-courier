@@ -454,6 +454,13 @@
   .consolidated-doc-note {
     @apply mt-3 text-center text-[11px] italic text-fleet-gray-400;
   }
+  .consolidated-breakdown-table {
+    @apply min-w-[880px];
+  }
+  .consolidated-breakdown-subtotal th,
+  .consolidated-breakdown-subtotal td {
+    @apply bg-teal/5 text-navy;
+  }
 
   /* Auth / onboarding screens (login, onboarding) */
   .auth-screen {
