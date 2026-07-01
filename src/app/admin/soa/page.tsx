@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   IconCheck,
   IconDownload,
@@ -18,11 +18,15 @@ import { ConsolidationBreakdownTable } from "@/components/consolidated/Consolida
 import { ConsolidatedRevisePanel } from "@/components/consolidated/ConsolidatedRevisePanel";
 import { ConsolidatedInvoicesTable } from "@/components/consolidated/ConsolidatedInvoicesTable";
 import { ConsolidateByPeriodPanel } from "@/components/consolidated/ConsolidateByPeriodPanel";
+import { EtimsValidationPanel } from "@/components/invoices/EtimsValidationPanel";
 import { RecordScreen } from "@/components/layout/RecordScreen";
+import { useAuth } from "@/context/AuthContext";
+import { isEtimsTenant } from "@/lib/etims-config";
 import { currentMonthRangeEAT } from "@/lib/dates";
 import { sortConsolidatedNewestFirst } from "@/lib/consolidation";
 import { mapToBreakdownLine } from "@/lib/consolidation-breakdown";
 import type { ConsolidatedInvoice, RouteRecord, SafariEntry, Vehicle, WorkTicket } from "@/lib/types";
+import { normalizeVehicleCondition } from "@/lib/work-ticket-meta";
 import { useToast } from "@/context/ToastContext";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useCrud } from "@/hooks/useCrud";
@@ -78,6 +82,12 @@ function mapPreviewLine(row: Record<string, unknown>): PreviewLine {
     status: (row.status as PreviewLine["status"]) ?? "draft",
     branch: String(row.branch ?? ""),
     make: String(row.make ?? ""),
+    vehicleType: String(row.vehicleType ?? row.vehicle_type ?? ""),
+    vehicleCondition: normalizeVehicleCondition(
+      (row.vehicleCondition ?? row.vehicle_condition) as Record<string, string> | undefined,
+    ),
+    driverSignature: String(row.driverSignature ?? row.driver_signature ?? ""),
+    certificationDate: String(row.certificationDate ?? row.certification_date ?? ""),
     cls: String(row.cls ?? ""),
     rateType: (row.rateType as PreviewLine["rateType"]) ?? "fixed",
     agreedRate: Number(row.agreedRate ?? row.agreed_rate ?? row.dayRate ?? row.day_rate ?? 0),
@@ -131,6 +141,8 @@ function resolveVehiclePlate(input: string, plates: string[]): string {
 
 export default function ConsolidatedBillingPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const showEtims = isEtimsTenant(user?.tenantSlug);
   const { refresh: refreshNotifications } = useNotifications("admin");
   const { items: registerVehicles } = useCrud<Vehicle>("vehicles");
   const { items: routes } = useCrud<RouteRecord>("routes");
@@ -353,6 +365,15 @@ export default function ConsolidatedBillingPage() {
     setReviseData(null);
   };
 
+  const openedFromUrl = useRef(false);
+  useEffect(() => {
+    if (openedFromUrl.current || typeof window === "undefined") return;
+    const view = new URLSearchParams(window.location.search).get("view");
+    if (!view) return;
+    openedFromUrl.current = true;
+    void openView(view);
+  }, []);
+
   const openRevise = async (id: string) => {
     const res = await fetch(`/api/consolidated-invoices/${id}?detail=full`, { cache: "no-store" });
     if (!res.ok) {
@@ -442,6 +463,14 @@ export default function ConsolidatedBillingPage() {
         <div id="consolidated-billing-print" className="space-y-6">
           <ConsolidatedInvoiceDocument invoice={viewData.invoice} onPrint={printConsolidatedBilling} />
           <SoaBreakdownDocument invoice={viewData.invoice} tickets={viewData.tickets} />
+          {showEtims &&
+            (viewData.invoice.status === "approved" || viewData.invoice.status === "paid") && (
+            <EtimsValidationPanel
+              recordId={viewData.invoice.id}
+              invoiceNo={viewData.invoice.invoiceNo}
+              target="consolidated"
+            />
+          )}
           <div className="flex flex-wrap gap-2 print:hidden">
             <button type="button" className="btn-secondary btn-sm" onClick={printConsolidatedBilling}>
               <IconPrinter size={14} /> Print

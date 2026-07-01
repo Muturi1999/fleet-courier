@@ -4,8 +4,8 @@ import {
   IsArray,
   IsIn,
   IsInt,
-  IsNotEmpty,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   Min,
@@ -18,9 +18,10 @@ export class JourneyLegDto {
   @IsString()
   id?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  details!: string;
+  details?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -54,6 +55,22 @@ export class JourneyLegDto {
   @Min(0)
   closingMileage?: number;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  serviceDone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  officerConfirming?: string;
+
+  @ApiPropertyOptional({ enum: ["", "A/V", "S/S"] })
+  @IsOptional()
+  @IsString()
+  journeyType?: string;
+
+  /** @deprecated use journeyType */
   @ApiPropertyOptional({ enum: ["", "A/V", "S/S"] })
   @IsOptional()
   @IsString()
@@ -61,44 +78,55 @@ export class JourneyLegDto {
 }
 
 export class CreateWorkTicketDto {
-  @ApiProperty({ example: "1189105", description: "Work ticket serial number (entered by user)" })
+  @ApiPropertyOptional({ example: "1189105" })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  serialNo!: string;
+  serialNo?: string;
 
-  @ApiProperty({ default: "Embakasi" })
+  @ApiPropertyOptional({ default: "Embakasi" })
+  @IsOptional()
   @IsString()
-  branch!: string;
+  branch?: string;
 
-  @ApiProperty({ example: "2026-01-07" })
+  @ApiPropertyOptional({ example: "2026-01-07" })
+  @IsOptional()
   @IsString()
-  tripDate!: string;
+  tripDate?: string;
 
-  @ApiProperty({ example: "KAV 038M" })
+  @ApiPropertyOptional({ example: "KAV 038M" })
+  @IsOptional()
   @IsString()
-  plate!: string;
+  plate?: string;
 
-  @ApiProperty({ example: "Mitsubishi" })
+  @ApiPropertyOptional({ example: "Mitsubishi" })
+  @IsOptional()
   @IsString()
-  make!: string;
+  make?: string;
+
+  @ApiPropertyOptional({ example: "FRR 90" })
+  @IsOptional()
+  @IsString()
+  vehicleType?: string;
 
   @ApiPropertyOptional({ example: "Hillary" })
   @IsOptional()
   @IsString()
   driverName?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  route!: string;
+  route?: string;
 
   @ApiPropertyOptional({ enum: ["fixed", "per_km"] })
   @IsOptional()
   @IsIn(["fixed", "per_km"])
   rateType?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsNumber()
-  agreedRate!: number;
+  agreedRate?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -110,11 +138,17 @@ export class CreateWorkTicketDto {
   @IsString()
   headerNotes?: string;
 
-  @ApiProperty({ type: [JourneyLegDto] })
+  @ApiPropertyOptional({ type: [JourneyLegDto] })
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => JourneyLegDto)
-  legs!: JourneyLegDto[];
+  legs?: JourneyLegDto[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsObject()
+  vehicleCondition?: Record<string, string>;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -128,17 +162,30 @@ export class CreateWorkTicketDto {
   @Min(0)
   officialKm?: number;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsNumber()
-  net!: number;
+  net?: number;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsNumber()
-  vat!: number;
+  vat?: number;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsNumber()
-  total!: number;
+  total?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  driverSignature?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  certificationDate?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

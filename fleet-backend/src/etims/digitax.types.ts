@@ -73,6 +73,13 @@ export type DigitaxSaleWithItemsPayload = {
   }[];
 };
 
+/** Best URL for QR / links — Digitax sale view first, then receipt, then KRA. */
+export function resolveDigitaxSaleUrl(sale?: Partial<DigitaxSale> | null): string | undefined {
+  if (!sale) return undefined;
+  const url = sale.sale_detail_url?.trim() || sale.offline_url?.trim() || sale.etims_url?.trim();
+  return url || undefined;
+}
+
 export type DigitaxApiError = {
   message: string;
   code?: string;

@@ -29,11 +29,14 @@ function notificationHref(audience: NotificationAudience, n: WorkflowNotificatio
     if (n.type === "invoice_sent" && n.refId) return "/client/invoices";
     if (n.type === "work_ticket_sent" && n.refId) return "/client/work-tickets";
     if (n.type.startsWith("consolidated") && n.refId) return "/client/consolidated";
+    if (n.type === "etims_filing_shared" && n.refId) return "/client/consolidated";
+    if (n.type === "etims_submitted" && n.refId) return "/client/consolidated";
     return null;
   }
+  if (n.type === "etims_submitted") return "/admin/etims/history";
   if (n.type.includes("invoice")) return "/admin/invoices";
   if (n.type.includes("work_ticket")) return "/admin/work-tickets";
-  if (n.type.includes("consolidated")) return "/admin/soa";
+  if (n.type.includes("consolidated") || n.type === "etims_filing_shared") return "/admin/soa";
   return "/admin/invoices";
 }
 

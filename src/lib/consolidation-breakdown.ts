@@ -64,7 +64,9 @@ export function deriveServiceType(input: {
   route?: string;
   legs?: WorkTicketJourneyLeg[];
 }): string {
-  const legType = input.legs?.find((l) => l.serviceType?.trim())?.serviceType?.trim();
+  const legType = input.legs
+    ?.map((l) => l.journeyType?.trim() || (l as { serviceType?: string }).serviceType?.trim())
+    .find(Boolean);
   if (legType) {
     const upper = legType.toUpperCase();
     if (upper.includes("ROUTE") || upper === "R") return "ROUTE";

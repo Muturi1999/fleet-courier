@@ -111,7 +111,7 @@ export class WorkTicketsService {
     return String(n);
   }
 
-  private normalizeLegs(legs: JourneyLegDto[]) {
+  private normalizeLegs(legs: JourneyLegDto[] = []) {
     return legs.map((leg) => ({
       id: leg.id ?? randomUUID(),
       details: leg.details ?? "",
@@ -121,44 +121,80 @@ export class WorkTicketsService {
       fuelDrawn: leg.fuelDrawn ?? "",
       timeIn: leg.timeIn ?? "",
       closingMileage: leg.closingMileage ?? 0,
-      serviceType: leg.serviceType ?? "",
+      serviceDone: leg.serviceDone ?? "",
+      officerConfirming: leg.officerConfirming ?? "",
+      journeyType: leg.journeyType ?? leg.serviceType ?? "",
     }));
   }
 
+  private normalizeVehicleCondition(raw?: Record<string, string> | null) {
+    const defaults = {
+      petrolDiesel: "",
+      oil: "",
+      seatBelt: "",
+      water: "",
+      battery: "",
+      tyres: "",
+      safety: "",
+      triangles: "",
+      body: "",
+      spareWheel: "",
+      fireExtinguisher: "",
+      tools: "",
+    };
+    return { ...defaults, ...(raw ?? {}) };
+  }
+
+  private async resolveSerialNo(serialNo?: string) {
+    const trimmed = serialNo?.trim();
+    if (trimmed) return trimmed;
+    return String(await this.sequences.next(SEQUENCE_KEYS.workTicketSerial));
+  }
+
   async create(dto: CreateWorkTicketDto) {
-    const serialNo = dto.serialNo.trim();
-    if (!serialNo) throw new BadRequestException("Serial number is required");
+    const serialNo = await this.resolveSerialNo(dto.serialNo);
 
     const duplicate = await this.db.queryOne(`SELECT id FROM work_tickets WHERE serial_no = $1`, [serialNo]);
     if (duplicate) throw new ConflictException(`Work ticket serial ${serialNo} already exists`);
 
     const legs = this.normalizeLegs(dto.legs);
+    const tripDate = dto.tripDate?.trim() || new Date().toISOString().slice(0, 10);
+    const amounts = {
+      net: dto.net ?? 0,
+      vat: dto.vat ?? 0,
+      total: dto.total ?? 0,
+    };
 
     return this.db.withTransaction(async (client) => {
       const res = await client.query(
         `INSERT INTO work_tickets (
-        serial_no, branch, trip_date, plate, make, driver_name, route,
-        rate_type, agreed_rate, gate_pass_ref, header_notes, legs,
-        private_km, official_km, net, vat, total, attachment_name, status
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
+        serial_no, branch, trip_date, plate, make, vehicle_type, driver_name, route,
+        rate_type, agreed_rate, gate_pass_ref, header_notes, legs, vehicle_condition,
+        private_km, official_km, net, vat, total, driver_signature, certification_date,
+        attachment_name, status
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING *`,
         [
           serialNo,
-          dto.branch,
-          dto.tripDate,
-          dto.plate,
-          dto.make,
-          dto.driverName ?? "",
-          dto.route,
+          dto.branch?.trim() || "Embakasi",
+          tripDate,
+          dto.plate?.trim() || "",
+          dto.make?.trim() || "",
+          dto.vehicleType?.trim() || null,
+          dto.driverName?.trim() || "",
+          dto.route?.trim() || "",
           dto.rateType ?? "fixed",
-          dto.agreedRate,
+          dto.agreedRate ?? 0,
           dto.gatePassRef ?? null,
           dto.headerNotes ?? null,
           JSON.stringify(legs),
+          JSON.stringify(this.normalizeVehicleCondition(dto.vehicleCondition)),
           dto.privateKm ?? 0,
           dto.officialKm ?? 0,
-          dto.net,
-          dto.vat,
-          dto.total,
+          amounts.net,
+          amounts.vat,
+          amounts.total,
+          dto.driverSignature?.trim() || null,
+          dto.certificationDate?.trim() || null,
           dto.attachmentName ?? null,
           dto.status ?? "draft",
         ],
@@ -181,6 +217,7 @@ export class WorkTicketsService {
       tripDate: "trip_date",
       plate: "plate",
       make: "make",
+      vehicleType: "vehicle_type",
       driverName: "driver_name",
       route: "route",
       rateType: "rate_type",
@@ -192,6 +229,8 @@ export class WorkTicketsService {
       net: "net",
       vat: "vat",
       total: "total",
+      driverSignature: "driver_signature",
+      certificationDate: "certification_date",
       attachmentName: "attachment_name",
       status: "status",
       clientNote: "client_note",
@@ -202,7 +241,7 @@ export class WorkTicketsService {
       if (val !== undefined) {
         if (key === "serialNo" && typeof val === "string") {
           const serialNo = val.trim();
-          if (!serialNo) throw new BadRequestException("Serial number is required");
+          if (!serialNo) continue;
           const duplicate = await this.db.queryOne(
             `SELECT id FROM work_tickets WHERE serial_no = $1 AND id <> $2`,
             [serialNo, id],
@@ -210,13 +249,24 @@ export class WorkTicketsService {
           if (duplicate) throw new ConflictException(`Work ticket serial ${serialNo} already exists`);
         }
         fields.push(`${col} = $${i++}`);
-        values.push(key === "serialNo" && typeof val === "string" ? val.trim() : val);
+        values.push(
+          key === "serialNo" && typeof val === "string"
+            ? val.trim()
+            : typeof val === "string"
+              ? val.trim()
+              : val,
+        );
       }
     }
 
     if (dto.legs !== undefined) {
       fields.push(`legs = $${i++}`);
       values.push(JSON.stringify(this.normalizeLegs(dto.legs)));
+    }
+
+    if (dto.vehicleCondition !== undefined) {
+      fields.push(`vehicle_condition = $${i++}`);
+      values.push(JSON.stringify(this.normalizeVehicleCondition(dto.vehicleCondition)));
     }
 
     if (dto.status === "sent" && !(before as WorkTicketRow).partner_id) {

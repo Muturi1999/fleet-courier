@@ -256,7 +256,14 @@ export default function InvoicesPage() {
         onBack={close}
       >
         <InvoiceDocument invoice={viewRecord} profile={profile ?? undefined} onPrint={printInvoice} />
-        {showEtims && <EtimsValidationPanel invoiceId={viewRecord.id} invoiceNo={viewRecord.invoiceNo} />}
+        {showEtims && !viewRecord.consolidatedInvoiceId && (
+          <EtimsValidationPanel recordId={viewRecord.id} invoiceNo={viewRecord.invoiceNo} />
+        )}
+        {showEtims && viewRecord.consolidatedInvoiceId && (
+          <p className="card mt-4 text-xs text-fleet-gray-500 print:hidden">
+            This trip invoice is on a consolidated SOA — file KRA eTIMS from the SOA document, not here.
+          </p>
+        )}
       </RecordScreen>
     );
   }

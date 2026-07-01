@@ -18,6 +18,7 @@ import { sortConsolidatedNewestFirst } from "@/lib/consolidation";
 import { normalizeListJson } from "@/lib/list-query";
 import type { ConsolidatedInvoice, WorkTicket } from "@/lib/types";
 import { useToast } from "@/context/ToastContext";
+import { dispatchWorkflowUpdated } from "@/lib/workflow-events";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { useNotifications } from "@/hooks/useNotifications";
 
@@ -86,6 +87,7 @@ export function ClientConsolidatedPanel({ mode }: { mode: ClientConsolidatedMode
     setPendingConsolidated(null);
     setViewData(null);
     await refreshNotifications();
+    dispatchWorkflowUpdated();
     toast(`SOA ${updated.refNo} approved — 90-day payment window starts`);
     await refreshPendingConsolidated();
   };
@@ -108,6 +110,7 @@ export function ClientConsolidatedPanel({ mode }: { mode: ClientConsolidatedMode
     setViewData(null);
     setRejectNote("");
     await refreshNotifications();
+    dispatchWorkflowUpdated();
     toast("SOA returned to Fleet Admin");
     await refreshPendingConsolidated();
   };

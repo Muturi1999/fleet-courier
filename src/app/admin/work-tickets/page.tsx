@@ -17,6 +17,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { FormActions, FormField } from "@/components/ui/Modal";
 import { RecordScreen } from "@/components/layout/RecordScreen";
 import { WorkTicketDocument, printWorkTicket } from "@/components/work-tickets/WorkTicketDocument";
+import { WorkTicketConditionForm } from "@/components/work-tickets/WorkTicketConditionForm";
 import { WorkTicketLegForm } from "@/components/work-tickets/WorkTicketLegForm";
 import { clearedFilters, highlightSearch } from "@/lib/filters";
 import type { FleetFilters } from "@/lib/filters";
@@ -27,8 +28,12 @@ import {
   VEHICLE_MAKE_BY_PLATE,
   calcWorkTicketAmounts,
   emptyJourneyLeg,
+  emptyVehicleCondition,
   generateWorkTicketSerial,
+  normalizeJourneyLeg,
+  normalizeVehicleCondition,
   sumLegDistances,
+  VEHICLE_TYPE_BY_PLATE,
 } from "@/lib/work-ticket-meta";
 import { dateKey, formatEATDisplay, todayEAT } from "@/lib/dates";
 import { SearchSelect } from "@/components/ui/SearchSelect";
@@ -52,6 +57,7 @@ function emptyTicket(vehicles: Vehicle[], existing: WorkTicket[], prefix: string
     tripDate: todayEAT(),
     plate,
     make: VEHICLE_MAKE_BY_PLATE[plate] ?? "",
+    vehicleType: VEHICLE_TYPE_BY_PLATE[plate] ?? "",
     driverName: "",
     route: "",
     rateType: "fixed",
@@ -59,8 +65,11 @@ function emptyTicket(vehicles: Vehicle[], existing: WorkTicket[], prefix: string
     gatePassRef: "",
     headerNotes: "",
     legs: [emptyJourneyLeg()],
+    vehicleCondition: emptyVehicleCondition(),
     privateKm: 0,
     officialKm: 0,
+    driverSignature: "",
+    certificationDate: todayEAT(),
     ...amounts,
     status: "draft",
   };
@@ -134,7 +143,14 @@ export default function WorkTicketsPage() {
 
   useEffect(() => {
     if (screen.kind === "edit" && viewRecord) {
-      setForm({ ...viewRecord, legs: viewRecord.legs.map((l) => ({ ...l })) });
+      setForm({
+        ...viewRecord,
+        legs: viewRecord.legs.map((l) => normalizeJourneyLeg(l)),
+        vehicleCondition: normalizeVehicleCondition(viewRecord.vehicleCondition),
+        vehicleType: viewRecord.vehicleType ?? "",
+        driverSignature: viewRecord.driverSignature ?? "",
+        certificationDate: viewRecord.certificationDate ?? viewRecord.tripDate,
+      });
     } else if (screen.kind === "create") {
       fetch("/api/work-tickets/next-serial", { cache: "no-store", credentials: "same-origin" })
         .then((r) => r.json())
@@ -148,8 +164,9 @@ export default function WorkTicketsPage() {
   const syncPlate = (plate: string) => {
     const vehicle = vehicles.find((v) => v.plate === plate);
     const make = VEHICLE_MAKE_BY_PLATE[plate] ?? form.make;
+    const vehicleType = VEHICLE_TYPE_BY_PLATE[plate] ?? form.vehicleType;
     setForm((f) => {
-      const next = { ...f, plate, make };
+      const next = { ...f, plate, make, vehicleType };
       if (vehicle && f.route) {
         const rate =
           rates.find((r) => r.route === f.route && r.cls === vehicle.cls) ??
@@ -206,15 +223,12 @@ export default function WorkTicketsPage() {
 
   const onSubmit = async (ev: FormEvent) => {
     ev.preventDefault();
-    const serialNo = form.serialNo.trim();
-    if (!serialNo) {
-      toast("Serial number is required");
-      return;
-    }
     try {
       const payload = {
         ...form,
-        serialNo,
+        serialNo: form.serialNo.trim(),
+        legs: form.legs.map((l) => normalizeJourneyLeg(l)),
+        vehicleCondition: normalizeVehicleCondition(form.vehicleCondition),
         officialKm: form.officialKm || sumLegDistances(form.legs),
       };
       if (screen.kind === "edit") {
@@ -310,11 +324,10 @@ export default function WorkTicketsPage() {
                 }}
               />
             </FormField>
-            <FormField label="Serial No. *">
+            <FormField label="Serial No.">
               <div className="flex gap-2">
                 <input
                   className={`field-input font-mono flex-1 ${serialLocked ? "bg-fleet-gray-50" : ""}`}
-                  required
                   readOnly={serialLocked}
                   value={form.serialNo}
                   placeholder="Auto-generated — edit if needed"
@@ -327,24 +340,22 @@ export default function WorkTicketsPage() {
                 )}
               </div>
             </FormField>
-            <FormField label="Date of trip *">
+            <FormField label="Date">
               <input
                 type="date"
                 className="field-input"
-                required
                 value={dateKey(form.tripDate)}
                 onChange={(e) => setForm({ ...form, tripDate: e.target.value })}
               />
             </FormField>
-            <FormField label="Branch *">
+            <FormField label="Branch">
               <input
                 className="field-input"
-                required
                 value={form.branch}
                 onChange={(e) => setForm({ ...form, branch: e.target.value })}
               />
             </FormField>
-            <FormField label="Driver name (optional)">
+            <FormField label="Name of driver">
               <SearchSelect
                 listId="driver-options"
                 value={form.driverName}
@@ -365,11 +376,10 @@ export default function WorkTicketsPage() {
 
           <section className="card grid grid-cols-2 gap-3">
             <h3 className="col-span-2 text-sm font-semibold text-navy">Vehicle details</h3>
-            <FormField label="Vehicle registration *">
+            <FormField label="Reg. no. of vehicle">
               <SearchSelect
                 listId="wt-vehicle-plates"
                 mono
-                required
                 value={form.plate}
                 placeholder="Type or select plate"
                 options={vehicles.map((v) => ({ value: v.plate, label: `${v.plate} · ${v.cls}` }))}
@@ -379,12 +389,19 @@ export default function WorkTicketsPage() {
             <FormField label="Vehicle class (tonnes)">
               <input className="field-input bg-fleet-gray-50 font-mono" readOnly value={selectedVehicleCls} />
             </FormField>
-            <FormField label="Make *">
+            <FormField label="Make">
               <input
                 className="field-input"
-                required
                 value={form.make}
                 onChange={(e) => setForm({ ...form, make: e.target.value })}
+              />
+            </FormField>
+            <FormField label="Type">
+              <input
+                className="field-input"
+                placeholder="e.g. FRR 90"
+                value={form.vehicleType}
+                onChange={(e) => setForm({ ...form, vehicleType: e.target.value })}
               />
             </FormField>
             <FormField label="Private KM">
@@ -403,10 +420,9 @@ export default function WorkTicketsPage() {
 
           <section className="card grid grid-cols-2 gap-3">
             <h3 className="col-span-2 text-sm font-semibold text-navy">G4S trip &amp; rate</h3>
-            <FormField label="Route / destination *" className="col-span-2">
+            <FormField label="Route / destination" className="col-span-2">
               <SearchSelect
                 listId="wt-route-options"
-                required
                 value={form.route}
                 placeholder="Morning run, Afternoon, or type route"
                 options={rates.map((r) => ({ value: r.route, label: `${r.route} · ${r.cls} · KES ${r.rate}` }))}
@@ -425,12 +441,11 @@ export default function WorkTicketsPage() {
                 <option value="per_km">Rate per kilometre</option>
               </select>
             </FormField>
-            <FormField label="Agreed rate (KES) *">
+            <FormField label="Agreed rate (KES)">
               <input
                 type="number"
                 min={0}
                 className="field-input"
-                required
                 value={form.agreedRate}
                 onChange={(e) => setAgreedRate(Number(e.target.value))}
               />
@@ -454,6 +469,46 @@ export default function WorkTicketsPage() {
               Net KES {form.net.toLocaleString()} · VAT KES {form.vat.toLocaleString()} · Total KES{" "}
               {form.total.toLocaleString()}
             </div>
+          </section>
+
+          <section className="card space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-navy">Vehicle condition (end of journey)</h3>
+              <p className="mt-0.5 text-xs text-fleet-gray-400">
+                Match the paper checklist — note OK, issues, fuel level, etc.
+              </p>
+            </div>
+            <WorkTicketConditionForm
+              value={form.vehicleCondition}
+              onChange={(patch) =>
+                setForm((f) => ({
+                  ...f,
+                  vehicleCondition: { ...f.vehicleCondition, ...patch },
+                }))
+              }
+            />
+          </section>
+
+          <section className="card grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <h3 className="col-span-full text-sm font-semibold text-navy">Driver certification</h3>
+            <p className="col-span-full text-xs text-fleet-gray-500">
+              I certify that I have checked the above and they are all correct.
+            </p>
+            <FormField label="Signature of driver">
+              <input
+                className="field-input"
+                value={form.driverSignature ?? ""}
+                onChange={(e) => setForm({ ...form, driverSignature: e.target.value })}
+              />
+            </FormField>
+            <FormField label="Certification date">
+              <input
+                type="date"
+                className="field-input"
+                value={dateKey(form.certificationDate ?? form.tripDate)}
+                onChange={(e) => setForm({ ...form, certificationDate: e.target.value })}
+              />
+            </FormField>
           </section>
 
           <section className="card space-y-4">
@@ -580,7 +635,12 @@ export default function WorkTicketsPage() {
                           className="btn-secondary btn-sm shrink-0"
                           title="Edit"
                           onClick={() => {
-                            setForm({ ...t, legs: t.legs.map((l) => ({ ...l })) });
+                            setForm({
+                              ...t,
+                              legs: t.legs.map((l) => normalizeJourneyLeg(l)),
+                              vehicleCondition: normalizeVehicleCondition(t.vehicleCondition),
+                              vehicleType: t.vehicleType ?? "",
+                            });
                             openEdit(t.id);
                           }}
                         >

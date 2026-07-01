@@ -250,24 +250,105 @@ export class ClientsService {
     return d.toLocaleString("en-GB", { month: "long", year: "numeric", timeZone: "Africa/Nairobi" });
   }
 
+  /** Prefer current month; fall back to the latest month with open or approved billing activity. */
+  private async resolveDashboardMonth(partnerId: string, requested?: string): Promise<string> {
+    const current = this.currentMonthYm();
+    if (requested?.trim() && /^\d{4}-\d{2}$/.test(requested.trim())) {
+      return requested.trim();
+    }
+
+    const hasPipeline = async (ym: string) => {
+      const row = (await this.db.queryOne(
+        `WITH soa AS (
+           SELECT status, total_trips, total
+           FROM consolidated_invoices
+           WHERE partner_id = $1::uuid
+             AND superseded_by_id IS NULL
+             AND status NOT IN ('draft')
+             AND to_char(period_start, 'YYYY-MM') = $2
+         ),
+         standalone AS (
+           SELECT status, total
+           FROM invoices
+           WHERE partner_id = $1::uuid
+             AND consolidated_invoice_id IS NULL
+             AND to_char(COALESCE(service_date, created_at::date), 'YYYY-MM') = $2
+         )
+         SELECT
+           (SELECT COUNT(*)::int FROM standalone WHERE status IN ('sent', 'pending'))
+             + (SELECT COALESCE(SUM(total_trips), 0)::int FROM soa WHERE status = 'pending_approval') AS awaiting,
+           (SELECT COUNT(*)::int FROM standalone WHERE status IN ('approved', 'paid'))
+             + (SELECT COALESCE(SUM(total_trips), 0)::int FROM soa WHERE status IN ('approved', 'paid')) AS approved,
+           (SELECT COALESCE(SUM(total), 0) FROM standalone WHERE status IN ('approved', 'paid'))
+             + (SELECT COALESCE(SUM(total), 0) FROM soa WHERE status IN ('approved', 'paid')) AS total_value`,
+        [partnerId, ym],
+      )) as { awaiting?: number; approved?: number; total_value?: number };
+      return (row?.awaiting ?? 0) > 0 || (row?.approved ?? 0) > 0 || Number(row?.total_value ?? 0) > 0;
+    };
+
+    if (await hasPipeline(current)) return current;
+
+    const latest = (await this.db.queryOne(
+      `SELECT ym FROM (
+         SELECT to_char(period_start, 'YYYY-MM') AS ym, MAX(updated_at) AS ts
+         FROM consolidated_invoices
+         WHERE partner_id = $1::uuid
+           AND superseded_by_id IS NULL
+           AND status IN ('pending_approval', 'approved', 'paid')
+         GROUP BY 1
+         UNION ALL
+         SELECT to_char(COALESCE(service_date, created_at::date), 'YYYY-MM'), MAX(updated_at)
+         FROM invoices
+         WHERE partner_id = $1::uuid
+           AND consolidated_invoice_id IS NULL
+           AND status IN ('sent', 'pending', 'approved', 'paid')
+         GROUP BY 1
+       ) u
+       ORDER BY ts DESC
+       LIMIT 1`,
+      [partnerId],
+    )) as { ym?: string } | null;
+
+    return latest?.ym ?? current;
+  }
+
   async dashboard(month?: string) {
     const partnerId = this.partnerScope.requirePartnerId();
-    const ym = month?.trim() && /^\d{4}-\d{2}$/.test(month.trim()) ? month.trim() : this.currentMonthYm();
-
-    const invoiceScope = `partner_id = $1::uuid AND consolidated_invoice_id IS NULL
-      AND to_char(COALESCE(service_date, created_at::date), 'YYYY-MM') = $2`;
+    const ym = await this.resolveDashboardMonth(partnerId, month);
 
     const invoiceStats = (await this.db.queryOne(
-      `SELECT
-        COUNT(*) FILTER (WHERE status IN ('sent', 'pending'))::int AS awaiting,
-        COUNT(*) FILTER (WHERE status = 'approved')::int AS approved,
-        COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected,
-        COUNT(*) FILTER (WHERE status = 'paid')::int AS paid,
-        COALESCE(SUM(total) FILTER (WHERE status IN ('approved', 'paid')), 0)::float AS total_value,
-        COALESCE(SUM(net) FILTER (WHERE status IN ('approved', 'paid')), 0)::float AS net,
-        COALESCE(SUM(vat) FILTER (WHERE status IN ('approved', 'paid')), 0)::float AS vat,
-        COUNT(*)::int AS total_count
-      FROM invoices WHERE ${invoiceScope}`,
+      `WITH soa AS (
+         SELECT status, total_trips, total, net, vat
+         FROM consolidated_invoices
+         WHERE partner_id = $1::uuid
+           AND superseded_by_id IS NULL
+           AND status NOT IN ('draft')
+           AND to_char(period_start, 'YYYY-MM') = $2
+       ),
+       standalone AS (
+         SELECT status, total, net, vat
+         FROM invoices
+         WHERE partner_id = $1::uuid
+           AND consolidated_invoice_id IS NULL
+           AND to_char(COALESCE(service_date, created_at::date), 'YYYY-MM') = $2
+       )
+       SELECT
+         (SELECT COUNT(*)::int FROM standalone WHERE status IN ('sent', 'pending'))
+           + (SELECT COALESCE(SUM(total_trips), 0)::int FROM soa WHERE status = 'pending_approval') AS awaiting,
+         (SELECT COUNT(*)::int FROM standalone WHERE status = 'approved')
+           + (SELECT COALESCE(SUM(total_trips), 0)::int FROM soa WHERE status = 'approved') AS approved,
+         (SELECT COUNT(*)::int FROM standalone WHERE status = 'rejected')
+           + (SELECT COALESCE(SUM(total_trips), 0)::int FROM soa WHERE status = 'rejected') AS rejected,
+         (SELECT COUNT(*)::int FROM standalone WHERE status = 'paid')
+           + (SELECT COALESCE(SUM(total_trips), 0)::int FROM soa WHERE status = 'paid') AS paid,
+         (SELECT COALESCE(SUM(total), 0) FROM standalone WHERE status IN ('approved', 'paid'))
+           + (SELECT COALESCE(SUM(total), 0) FROM soa WHERE status IN ('approved', 'paid')) AS total_value,
+         (SELECT COALESCE(SUM(net), 0) FROM standalone WHERE status IN ('approved', 'paid'))
+           + (SELECT COALESCE(SUM(net), 0) FROM soa WHERE status IN ('approved', 'paid')) AS net,
+         (SELECT COALESCE(SUM(vat), 0) FROM standalone WHERE status IN ('approved', 'paid'))
+           + (SELECT COALESCE(SUM(vat), 0) FROM soa WHERE status IN ('approved', 'paid')) AS vat,
+         (SELECT COUNT(*)::int FROM standalone)
+           + (SELECT COALESCE(SUM(total_trips), 0)::int FROM soa) AS total_count`,
       [partnerId, ym],
     )) as Record<string, number>;
 
@@ -301,12 +382,26 @@ export class ClientsService {
       LEFT JOIN LATERAL (
         SELECT
           COUNT(*)::int AS received,
-          COUNT(*) FILTER (WHERE status IN ('approved', 'paid'))::int AS approved,
-          COALESCE(SUM(total) FILTER (WHERE status IN ('approved', 'paid')), 0)::float AS approved_total
-        FROM invoices
-        WHERE partner_id = $1::uuid
-          AND consolidated_invoice_id IS NULL
-          AND COALESCE(service_date, created_at::date) = day::date
+          COUNT(*) FILTER (WHERE effective_status IN ('approved', 'paid'))::int AS approved,
+          COALESCE(SUM(total) FILTER (WHERE effective_status IN ('approved', 'paid')), 0)::float AS approved_total
+        FROM (
+          SELECT i.total,
+            CASE
+              WHEN ci.id IS NOT NULL AND ci.superseded_by_id IS NULL AND ci.status NOT IN ('draft') THEN
+                CASE ci.status
+                  WHEN 'approved' THEN 'approved'
+                  WHEN 'paid' THEN 'paid'
+                  WHEN 'pending_approval' THEN 'sent'
+                  WHEN 'rejected' THEN 'rejected'
+                  ELSE i.status
+                END
+              ELSE i.status
+            END AS effective_status
+          FROM invoices i
+          LEFT JOIN consolidated_invoices ci ON ci.id = i.consolidated_invoice_id
+          WHERE i.partner_id = $1::uuid
+            AND COALESCE(i.service_date, i.created_at::date) = day::date
+        ) scoped
       ) inv ON TRUE
       LEFT JOIN LATERAL (
         SELECT COUNT(*) FILTER (WHERE status = 'approved')::int AS approved
@@ -320,10 +415,20 @@ export class ClientsService {
     );
 
     const byClass = await this.db.queryAll(
-      `SELECT cls, COUNT(*)::int AS count, COALESCE(SUM(total), 0)::float AS total
-       FROM invoices
-       WHERE ${invoiceScope} AND status IN ('approved', 'paid', 'sent', 'pending')
-       GROUP BY cls
+      `SELECT i.cls, COUNT(*)::int AS count, COALESCE(SUM(i.total), 0)::float AS total
+       FROM invoices i
+       LEFT JOIN consolidated_invoices ci ON ci.id = i.consolidated_invoice_id
+       WHERE i.partner_id = $1::uuid
+         AND to_char(COALESCE(i.service_date, i.created_at::date), 'YYYY-MM') = $2
+         AND (
+           i.consolidated_invoice_id IS NULL
+           OR (ci.superseded_by_id IS NULL AND ci.status NOT IN ('draft'))
+         )
+         AND (
+           (i.consolidated_invoice_id IS NULL AND i.status IN ('sent', 'pending', 'approved', 'paid', 'rejected'))
+           OR ci.status IN ('pending_approval', 'approved', 'paid', 'rejected')
+         )
+       GROUP BY i.cls
        ORDER BY total DESC`,
       [partnerId, ym],
     );
@@ -334,13 +439,23 @@ export class ClientsService {
          SELECT 'invoice' AS kind, id, invoice_no AS ref_no, plate, route, status,
            COALESCE(service_date, created_at::date) AS event_date, updated_at
          FROM invoices
-         WHERE partner_id = $1::uuid AND consolidated_invoice_id IS NULL
+         WHERE partner_id = $1::uuid
+           AND consolidated_invoice_id IS NULL
            AND to_char(COALESCE(service_date, created_at::date), 'YYYY-MM') = $2
+         UNION ALL
+         SELECT 'consolidated', id, invoice_no, COALESCE(plate, '—'), COALESCE(description, 'Consolidated SOA'), status,
+           period_start, updated_at
+         FROM consolidated_invoices
+         WHERE partner_id = $1::uuid
+           AND superseded_by_id IS NULL
+           AND status NOT IN ('draft')
+           AND to_char(period_start, 'YYYY-MM') = $2
          UNION ALL
          SELECT 'work_ticket', id, serial_no, plate, route, status,
            COALESCE(trip_date, created_at::date), updated_at
          FROM work_tickets
-         WHERE partner_id = $1::uuid AND status IN ('sent', 'approved', 'rejected')
+         WHERE partner_id = $1::uuid
+           AND status IN ('sent', 'approved', 'rejected')
            AND to_char(COALESCE(trip_date, created_at::date), 'YYYY-MM') = $2
        ) u
        ORDER BY updated_at DESC

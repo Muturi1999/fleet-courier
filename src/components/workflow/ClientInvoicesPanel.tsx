@@ -19,6 +19,7 @@ import { formatEATDisplay } from "@/lib/dates";
 import type { Invoice } from "@/lib/types";
 import { fmtN } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
+import { dispatchWorkflowUpdated } from "@/lib/workflow-events";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 import { useNotifications } from "@/hooks/useNotifications";
 
@@ -101,6 +102,7 @@ export function ClientInvoicesPanel({ mode }: { mode: ClientInvoiceMode }) {
       }
       await refreshPage();
       await refreshNotifications();
+      dispatchWorkflowUpdated();
       toast(`Invoice ${inv.invoiceNo} approved`);
       setReview(null);
     },
@@ -121,6 +123,7 @@ export function ClientInvoicesPanel({ mode }: { mode: ClientInvoiceMode }) {
       }
       await refreshPage();
       await refreshNotifications();
+      dispatchWorkflowUpdated();
       toast(`Invoice ${inv.invoiceNo} sent back to Fleet Admin`);
       setReview(null);
     },

@@ -124,7 +124,24 @@ export type WorkTicketJourneyLeg = {
   fuelDrawn: string;
   timeIn: string;
   closingMileage: number;
-  serviceType: string;
+  serviceDone: string;
+  officerConfirming: string;
+  journeyType: string;
+};
+
+export type WorkTicketVehicleCondition = {
+  petrolDiesel: string;
+  oil: string;
+  seatBelt: string;
+  water: string;
+  battery: string;
+  tyres: string;
+  safety: string;
+  triangles: string;
+  body: string;
+  spareWheel: string;
+  fireExtinguisher: string;
+  tools: string;
 };
 
 export type WorkTicketRateType = "fixed" | "per_km";
@@ -136,6 +153,7 @@ export type WorkTicket = {
   tripDate: string;
   plate: string;
   make: string;
+  vehicleType: string;
   driverName: string;
   route: string;
   rateType: WorkTicketRateType;
@@ -143,11 +161,14 @@ export type WorkTicket = {
   gatePassRef?: string;
   headerNotes?: string;
   legs: WorkTicketJourneyLeg[];
+  vehicleCondition: WorkTicketVehicleCondition;
   privateKm: number;
   officialKm: number;
   net: number;
   vat: number;
   total: number;
+  driverSignature?: string;
+  certificationDate?: string;
   attachmentName?: string;
   status: WorkTicketStatus;
   clientNote?: string;
@@ -193,6 +214,9 @@ export type ConsolidatedInvoice = {
   clientNote?: string;
   revisedFromId?: string;
   supersededById?: string;
+  etimsStatus?: string;
+  etimsRef?: string;
+  etimsUrl?: string;
   approvedAt?: string;
   paidAt?: string;
   createdAt?: string;
@@ -289,6 +313,8 @@ export type WorkflowEventType =
   | "consolidated_approved"
   | "consolidated_paid"
   | "consolidated_rejected"
+  | "etims_filing_shared"
+  | "etims_submitted"
   | "work_ticket_rejected";
 
 export type WorkflowNotification = {

@@ -1,7 +1,4 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { InjectQueue } from "@nestjs/bullmq";
-import { Queue } from "bullmq";
 import {
   addDateClause,
   addDestinationClause,
@@ -15,7 +12,6 @@ import { ListQueryDto } from "../common/dto/list-query.dto";
 import { PartnersService } from "../partners/partners.service";
 import { TenantDatabaseService } from "../common/database/tenant-database.service";
 import { TenantContextStorage } from "../common/tenant-context/tenant-context.storage";
-import { isEtimsTenant } from "../etims/etims-tenant";
 import { WorkflowsService } from "../workflows/workflows.service";
 import { CreateInvoiceDto, UpdateInvoiceDto } from "./dto/invoice.dto";
 
@@ -39,8 +35,6 @@ export class InvoicesService {
     private readonly workflows: WorkflowsService,
     private readonly partners: PartnersService,
     private readonly sequences: TenantSequenceService,
-    @InjectQueue("etims") private readonly etimsQueue: Queue,
-    private readonly config: ConfigService,
   ) {}
 
   private async resolvePartnerId(explicit?: string | null) {
@@ -237,18 +231,6 @@ export class InvoicesService {
       updated as Parameters<WorkflowsService["processInvoiceStatusChange"]>[1],
     );
 
-    if (dto.status === "sent" && before.status !== "sent") {
-      const tenant = TenantContextStorage.getOrThrow();
-      if (isEtimsTenant(tenant.slug, this.config)) {
-        await this.etimsQueue.add("submit-invoice", {
-          invoiceId: id,
-          tenantSchema: tenant.schema,
-          tenantId: tenant.id,
-          tenantSlug: tenant.slug,
-          tenantName: tenant.name,
-        });
-      }
-    }
     return updated;
   }
 

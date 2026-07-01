@@ -92,6 +92,22 @@
   .data-table tbody tr:hover td {
     @apply bg-fleet-gray-50;
   }
+  .etims-action-group {
+    @apply inline-flex items-center gap-0.5 rounded-fleet-sm border border-fleet-gray-100 bg-gradient-to-b from-white to-fleet-gray-50/90 p-0.5 shadow-sm;
+  }
+  .etims-icon-action {
+    @apply relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] text-fleet-gray-600 transition-all duration-150 hover:bg-white hover:text-navy hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-35;
+  }
+  .etims-icon-action-accent {
+    @apply text-navy/80 hover:bg-accent/30 hover:text-navy;
+  }
+  .etims-icon-tooltip {
+    @apply pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-md bg-navy px-2.5 py-1 text-[10px] font-medium text-white opacity-0 shadow-[0_4px_12px_rgba(15,23,42,0.2)] transition-all duration-150 translate-y-0.5 group-hover:opacity-100 group-hover:translate-y-0 group-focus-visible:opacity-100 group-focus-visible:translate-y-0;
+  }
+  .etims-icon-tooltip::after {
+    content: "";
+    @apply absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-navy;
+  }
   .search-bar-wrap {
     @apply mb-4 flex flex-wrap items-center gap-2.5 rounded-fleet border border-fleet-gray-100 bg-white px-4 py-3;
   }
@@ -313,7 +329,7 @@
 
   /* G4S Vehicle Work Ticket */
   .g4s-wt {
-    @apply mx-auto max-w-[820px] text-[11px] leading-snug text-black;
+    @apply mx-auto max-w-[980px] text-[11px] leading-snug text-black;
     font-family: Arial, "Segoe UI", sans-serif;
   }
   .g4s-wt-sheet {
@@ -352,20 +368,29 @@
   .g4s-wt-serial-no {
     @apply text-lg font-bold text-[#c41e1e];
   }
+  .g4s-wt-meta-block {
+    @apply mb-3 flex justify-end;
+  }
   .g4s-wt-meta {
-    @apply mb-3 grid gap-1 sm:grid-cols-2;
+    @apply grid w-full max-w-md gap-0.5 sm:w-auto;
   }
   .g4s-wt-meta-row {
     @apply flex gap-2 text-[11px];
   }
   .g4s-wt-meta-row > span:first-child {
-    @apply min-w-[130px] shrink-0 font-semibold;
+    @apply min-w-[118px] shrink-0 font-semibold;
   }
   .g4s-wt-meta-val {
-    @apply flex-1 border-b border-black font-mono uppercase;
+    @apply min-w-[140px] flex-1 border-b border-black font-mono uppercase;
+  }
+  .g4s-wt-main {
+    @apply flex items-stretch border-2 border-black;
+  }
+  .g4s-wt-table-wrap {
+    @apply min-w-0 flex-1 overflow-x-auto;
   }
   .g4s-wt-table {
-    @apply mb-0 w-full border-collapse border-2 border-black text-[10px];
+    @apply mb-0 h-full w-full border-collapse border-0 text-[9px];
   }
   .g4s-wt-table th,
   .g4s-wt-table td {
@@ -375,25 +400,59 @@
     @apply bg-white text-center font-bold uppercase;
   }
   .g4s-wt-col-details {
-    @apply min-w-[140px] w-[28%] whitespace-pre-wrap align-top;
+    @apply min-w-[120px] w-[22%] whitespace-pre-wrap align-top;
   }
   .g4s-wt-col-fuel {
-    @apply w-[52px];
+    @apply w-[44px];
   }
   .g4s-wt-num {
-    @apply text-right font-mono;
+    @apply text-right font-mono tabular-nums;
+  }
+  .g4s-wt-time {
+    @apply text-center font-mono tabular-nums whitespace-nowrap;
   }
   .g4s-wt-blank-row td {
-    @apply h-6;
+    @apply h-7;
   }
   .g4s-wt-bottom {
-    @apply flex flex-wrap items-end justify-between gap-4 border-2 border-t-0 border-black p-2;
+    @apply flex flex-wrap items-end justify-between gap-3 border-2 border-t-0 border-black p-2;
   }
   .g4s-wt-notes {
-    @apply min-w-[200px] flex-1 text-[9px] leading-relaxed;
+    @apply min-w-[180px] flex-1 text-[9px] leading-relaxed;
+  }
+  .g4s-wt-cert {
+    @apply mt-2 border-t border-black pt-2 text-[9px];
+  }
+  .g4s-wt-cert-line {
+    @apply mt-2 flex gap-2;
+  }
+  .g4s-wt-cert-line > span:first-child {
+    @apply min-w-[100px] shrink-0 font-semibold;
+  }
+  .g4s-wt-cert-val {
+    @apply flex-1 border-b border-black font-mono uppercase;
+  }
+  .g4s-wt-condition {
+    @apply w-[148px] shrink-0 border-collapse border-0 border-l-2 border-black text-[8px];
+  }
+  .g4s-wt-condition-sub {
+    @apply font-normal normal-case;
+  }
+  .g4s-wt-condition th,
+  .g4s-wt-condition td {
+    @apply border border-black px-1.5 py-0.5;
+  }
+  .g4s-wt-condition thead th {
+    @apply bg-white text-center font-bold uppercase;
+  }
+  .g4s-wt-condition tbody th {
+    @apply text-left font-semibold;
   }
   .g4s-wt-route {
-    @apply mb-2 text-[11px];
+    @apply mb-1 text-[10px];
+  }
+  .g4s-wt-internal {
+    @apply text-gray-500;
   }
   .g4s-wt-form-ref {
     @apply font-mono;
@@ -638,8 +697,15 @@
     max-width: none;
     border: none;
     box-shadow: none;
-    padding: 10mm;
+    padding: 8mm;
     background: white !important;
+  }
+  #work-ticket-print-root .g4s-wt-internal {
+    display: none !important;
+  }
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
   }
   #consolidated-billing-print,
   #consolidated-billing-print * {

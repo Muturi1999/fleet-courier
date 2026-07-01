@@ -14,7 +14,7 @@ export type ClientDashboardClassRow = {
 };
 
 export type ClientDashboardActivity = {
-  kind: "invoice" | "work_ticket";
+  kind: "invoice" | "work_ticket" | "consolidated";
   id: string;
   refNo: string;
   plate: string;
@@ -109,7 +109,12 @@ export function mapClientDashboard(json: Record<string, unknown>): ClientDashboa
     recentActivity: activity.map((row) => {
       const r = row as Record<string, unknown>;
       return {
-        kind: str(r.kind) === "work_ticket" ? "work_ticket" : "invoice",
+        kind:
+          str(r.kind) === "work_ticket"
+            ? "work_ticket"
+            : str(r.kind) === "consolidated"
+              ? "consolidated"
+              : "invoice",
         id: str(r.id),
         refNo: str(r.refNo ?? r.ref_no),
         plate: str(r.plate),

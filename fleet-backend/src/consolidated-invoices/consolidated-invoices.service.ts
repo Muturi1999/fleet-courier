@@ -380,6 +380,7 @@ export class ConsolidatedInvoicesService {
       `UPDATE invoices
        SET consolidated_invoice_id = NULL,
            status = CASE WHEN status = 'sent' THEN 'approved' ELSE status END,
+           etims_status = CASE WHEN etims_status = 'consolidated' THEN 'pending' ELSE etims_status END,
            updated_at = NOW()
        WHERE id = ANY($1::uuid[])
          AND consolidated_invoice_id IN (SELECT id FROM consolidated_invoices WHERE status = 'draft')`,
@@ -531,7 +532,7 @@ export class ConsolidatedInvoicesService {
 
       await client.query(
         `UPDATE invoices
-         SET consolidated_invoice_id = $1, status = 'sent', updated_at = NOW()
+         SET consolidated_invoice_id = $1, status = 'sent', etims_status = 'consolidated', updated_at = NOW()
          WHERE id = ANY($2::uuid[])`,
         [id, invoiceIds],
       );
@@ -696,7 +697,7 @@ export class ConsolidatedInvoicesService {
 
       await client.query(
         `UPDATE invoices
-         SET consolidated_invoice_id = $1, updated_at = NOW()
+         SET consolidated_invoice_id = $1, etims_status = 'consolidated', updated_at = NOW()
          WHERE consolidated_invoice_id = $2`,
         [newId, id],
       );

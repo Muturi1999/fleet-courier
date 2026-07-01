@@ -3,6 +3,7 @@
 import { IconTrash } from "@tabler/icons-react";
 import { FormField } from "@/components/ui/Modal";
 import { JourneyDetailsEditor } from "@/components/work-tickets/JourneyDetailsEditor";
+import { legDistance } from "@/lib/work-ticket-meta";
 import type { WorkTicketJourneyLeg } from "@/lib/types";
 
 type WorkTicketLegFormProps = {
@@ -14,6 +15,8 @@ type WorkTicketLegFormProps = {
 };
 
 export function WorkTicketLegForm({ leg, index, onChange, onRemove, canRemove }: WorkTicketLegFormProps) {
+  const distance = legDistance(leg);
+
   return (
     <article className="rounded-fleet-md border border-fleet-gray-100 bg-fleet-gray-50/50 p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
@@ -47,16 +50,17 @@ export function WorkTicketLegForm({ leg, index, onChange, onRemove, canRemove }:
             onChange={(e) => onChange({ timeOut: e.target.value })}
           />
         </FormField>
-        <FormField label="Officer authorising">
+        <FormField label="Officer authorising journey">
           <input
             className="field-input w-full"
             value={leg.officerAuthorising}
             onChange={(e) => onChange({ officerAuthorising: e.target.value })}
           />
         </FormField>
-        <FormField label="Fuel drawn (litres)">
+        <FormField label="Fuel drawn">
           <input
             className="field-input w-full"
+            placeholder="e.g. 28L"
             value={leg.fuelDrawn}
             onChange={(e) => onChange({ fuelDrawn: e.target.value })}
           />
@@ -78,14 +82,32 @@ export function WorkTicketLegForm({ leg, index, onChange, onRemove, canRemove }:
             onChange={(e) => onChange({ closingMileage: Number(e.target.value) })}
           />
         </FormField>
-        <FormField label="Service type">
+        <FormField label="Total distance covered (km)">
+          <input className="field-input w-full bg-fleet-gray-50 font-mono" readOnly value={distance || ""} />
+        </FormField>
+        <FormField label="Type of service done">
+          <input
+            className="field-input w-full"
+            placeholder="Maintenance or service notes"
+            value={leg.serviceDone}
+            onChange={(e) => onChange({ serviceDone: e.target.value })}
+          />
+        </FormField>
+        <FormField label="Officer confirming journey">
+          <input
+            className="field-input w-full"
+            value={leg.officerConfirming}
+            onChange={(e) => onChange({ officerConfirming: e.target.value })}
+          />
+        </FormField>
+        <FormField label="Type of journey">
           <select
             className="field-input w-full"
-            value={leg.serviceType}
-            onChange={(e) => onChange({ serviceType: e.target.value })}
+            value={leg.journeyType}
+            onChange={(e) => onChange({ journeyType: e.target.value })}
           >
-            <option value="">— Select —</option>
-            <option value="A/V">A/V — C.I.T</option>
+            <option value="">—</option>
+            <option value="A/V">A/V — C.I.T.</option>
             <option value="S/S">S/S — Static / Courier</option>
           </select>
         </FormField>

@@ -53,7 +53,7 @@ export function ClientDashboard() {
         <div>
           <h2 className="text-[15px] font-semibold">Partner dashboard</h2>
           <p className="text-xs text-fleet-gray-400">
-            {data.monthLabel} · live stats refresh every minute · last update {updatedLabel}
+            {data.monthLabel} · live stats refresh every 30s · last update {updatedLabel}
           </p>
         </div>
         <button type="button" className="btn-secondary btn-sm" onClick={() => void refresh()}>
@@ -153,18 +153,38 @@ export function ClientDashboard() {
                 <div className="flex min-w-0 flex-1 items-start gap-2">
                   {row.kind === "invoice" ? (
                     <IconFileInvoice size={16} className="mt-0.5 shrink-0 text-navy" />
+                  ) : row.kind === "consolidated" ? (
+                    <IconFileInvoice size={16} className="mt-0.5 shrink-0 text-accent-dark" />
                   ) : (
                     <IconTruck size={16} className="mt-0.5 shrink-0 text-teal" />
                   )}
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-fleet-gray-800">
-                      {row.kind === "invoice" ? "Invoice" : "Work ticket"} {row.refNo} · {row.plate}
+                      {row.kind === "invoice"
+                        ? "Invoice"
+                        : row.kind === "consolidated"
+                          ? "SOA"
+                          : "Work ticket"}{" "}
+                      {row.refNo}
+                      {row.plate && row.plate !== "—" ? ` · ${row.plate}` : ""}
                     </p>
                     <p className="truncate text-xs text-fleet-gray-500">{row.route}</p>
                   </div>
                 </div>
-                <Badge variant={row.status === "approved" || row.status === "paid" ? "approved" : row.status === "rejected" ? "rejected" : "sent"}>
-                  {row.status}
+                <Badge
+                  variant={
+                    row.status === "approved" ||
+                    row.status === "paid" ||
+                    row.status === "pending_approval"
+                      ? row.status === "pending_approval"
+                        ? "sent"
+                        : "approved"
+                      : row.status === "rejected"
+                        ? "rejected"
+                        : "sent"
+                  }
+                >
+                  {row.status === "pending_approval" ? "awaiting" : row.status}
                 </Badge>
                 <span className="text-[11px] text-fleet-gray-400">{formatEATDisplay(row.eventDate)}</span>
               </div>

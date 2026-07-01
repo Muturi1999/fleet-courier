@@ -123,7 +123,7 @@ export function buildDashboardWorkflow(input: DashboardWorkflowInput): {
   }
 
   let step5State: WorkflowStepState = "pending";
-  let step5Sub = etimsEnabled ? "File approved invoices on KRA eTIMS" : "Via invoice workflow";
+  let step5Sub = etimsEnabled ? "Validate & submit manually on KRA eTIMS" : "Via invoice workflow";
 
   if (soaApproved || soaPaid) {
     if (etimsComplete || soaPaid) {
@@ -131,10 +131,15 @@ export function buildDashboardWorkflow(input: DashboardWorkflowInput): {
       step5Sub = etimsFiled > 0 ? `${etimsFiled} filed on eTIMS` : "Complete";
     } else if (etimsEnabled && etimsAwaiting > 0) {
       step5State = "active";
-      step5Sub = `${etimsAwaiting} invoice(s) awaiting eTIMS filing`;
+      step5Sub =
+        activeSoa && etimsAwaiting <= 3
+          ? `SOA ${activeSoa.invoiceNo} ready — validate & submit on eTIMS`
+          : `${etimsAwaiting} awaiting manual eTIMS filing`;
     } else if (soaApproved) {
       step5State = "active";
-      step5Sub = "Generate eTIMS invoices for VAT";
+      step5Sub = activeSoa
+        ? `SOA ${activeSoa.invoiceNo} — validate & submit on eTIMS`
+        : "Validate & submit consolidated SOA on eTIMS";
     }
   } else if (invoices.some((i) => i.status === "approved" || i.status === "paid")) {
     step5State = etimsComplete ? "done" : etimsAwaiting > 0 ? "active" : "pending";
@@ -148,6 +153,23 @@ export function buildDashboardWorkflow(input: DashboardWorkflowInput): {
 
   const paidCount = consolidated.filter((c) => c.status === "paid").length;
   const individualPaid = invoices.filter((i) => i.status === "paid").length;
+
+  let step6State: WorkflowStepState = "pending";
+  let step6Sub = "After KRA eTIMS filing";
+
+  if (soaPaid || paidCount > 0 || individualPaid > 0) {
+    step6State = "done";
+    step6Sub = soaPaid
+      ? `${soaLabel(activeSoa!)} · Paid`
+      : paidCount > 0
+        ? `${paidCount} SOA paid`
+        : `${individualPaid} invoice(s) paid`;
+  } else if (etimsComplete && soaApproved && activeSoa) {
+    step6State = "active";
+    step6Sub = `${soaLabel(activeSoa)} · Awaiting payment`;
+  } else if (soaApproved && activeSoa) {
+    step6Sub = `${soaLabel(activeSoa)} · Awaiting payment after eTIMS`;
+  }
 
   const steps: DashboardWorkflowStep[] = [
     {
@@ -185,14 +207,10 @@ export function buildDashboardWorkflow(input: DashboardWorkflowInput): {
       sub: step5Sub,
     },
     {
-      state: soaPaid || paidCount > 0 || individualPaid > 0 ? "done" : "pending",
+      state: step6State,
       num: "Step 6",
       title: "Payment received",
-      sub: soaPaid
-        ? `${soaLabel(activeSoa!)} · Paid`
-        : paidCount > 0
-          ? `${paidCount} SOA paid`
-          : `${individualPaid} invoice(s) paid`,
+      sub: step6Sub,
     },
   ];
 

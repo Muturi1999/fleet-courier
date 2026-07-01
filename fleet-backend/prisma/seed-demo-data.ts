@@ -337,18 +337,88 @@ type WtSeed = {
   tripDate: string;
   plate: string;
   make: string;
+  vehicleType?: string;
   driverName: string;
   route: string;
   agreedRate: number;
   gatePassRef?: string;
   headerNotes?: string;
   legs: object[];
+  vehicleCondition?: Record<string, string>;
   officialKm: number;
+  driverSignature?: string;
+  certificationDate?: string;
   status: string;
   consolidated?: boolean;
+  alwaysRefresh?: boolean;
 };
 
 const WORK_TICKETS: WtSeed[] = [
+  {
+    serialNo: "1189100",
+    tripDate: "2024-04-27",
+    plate: "KDE 073Q",
+    make: "Isuzu",
+    vehicleType: "FRR 90",
+    driverName: "Kennedy Priti 817",
+    route: "Nairobi local",
+    agreedRate: 8500,
+    legs: [
+      {
+        id: "leg-1189100-1",
+        details: "Base - Total - EDAS",
+        openingMileage: 186250,
+        timeOut: "0938",
+        officerAuthorising: "J.M.",
+        fuelDrawn: "",
+        timeIn: "1017",
+        closingMileage: 186253,
+        journeyType: "S/S",
+        officerConfirming: "J.M.",
+      },
+      {
+        id: "leg-1189100-2",
+        details: "Nyati HQ - Base",
+        openingMileage: 186292,
+        timeOut: "1215",
+        officerAuthorising: "",
+        fuelDrawn: "",
+        timeIn: "1838",
+        closingMileage: 186330,
+        journeyType: "S/S",
+      },
+      {
+        id: "leg-1189100-3",
+        details: "Base - CBD",
+        openingMileage: 186330,
+        timeOut: "1738",
+        officerAuthorising: "",
+        fuelDrawn: "",
+        timeIn: "1942",
+        closingMileage: 186341,
+        journeyType: "S/S",
+      },
+    ],
+    vehicleCondition: {
+      petrolDiesel: "Empty",
+      oil: "OK",
+      seatBelt: "OK",
+      water: "OK",
+      battery: "OK",
+      tyres: "OK",
+      safety: "OK",
+      triangles: "OK",
+      body: "OK",
+      spareWheel: "OK",
+      fireExtinguisher: "OK",
+      tools: "OK",
+    },
+    officialKm: 91,
+    driverSignature: "Kennedy Priti",
+    certificationDate: "2024-04-27",
+    status: "draft",
+    alwaysRefresh: true,
+  },
   {
     serialNo: "1189105",
     tripDate: "2026-01-05",
@@ -522,35 +592,89 @@ async function seedWorkTickets(pool: Pool): Promise<{ consolidatedIds: string[];
   }
   for (const wt of WORK_TICKETS) {
     const existing = await pool.query(`SELECT id FROM work_tickets WHERE serial_no = $1`, [wt.serialNo]);
+    const amounts = calcWtAmounts(wt.agreedRate);
+    const cond = JSON.stringify(
+      wt.vehicleCondition ?? {
+        petrolDiesel: "",
+        oil: "",
+        seatBelt: "",
+        water: "",
+        battery: "",
+        tyres: "",
+        safety: "",
+        triangles: "",
+        body: "",
+        spareWheel: "",
+        fireExtinguisher: "",
+        tools: "",
+      },
+    );
+
     if (existing.rows.length > 0) {
-      idBySerial.set(wt.serialNo, existing.rows[0].id);
-      if (wt.consolidated) consolidatedIds.push(existing.rows[0].id);
+      const id = existing.rows[0].id as string;
+      idBySerial.set(wt.serialNo, id);
+      if (wt.consolidated) consolidatedIds.push(id);
+      if (wt.alwaysRefresh) {
+        await pool.query(
+          `UPDATE work_tickets SET
+            branch = 'Embakasi', trip_date = $2, plate = $3, make = $4, vehicle_type = $5,
+            driver_name = $6, route = $7, agreed_rate = $8, gate_pass_ref = $9, header_notes = $10,
+            legs = $11::jsonb, vehicle_condition = $12::jsonb, official_km = $13,
+            net = $14, vat = $15, total = $16, driver_signature = $17, certification_date = $18,
+            status = $19, updated_at = NOW()
+           WHERE id = $1`,
+          [
+            id,
+            wt.tripDate,
+            wt.plate,
+            wt.make,
+            wt.vehicleType ?? null,
+            wt.driverName,
+            wt.route,
+            wt.agreedRate,
+            wt.gatePassRef ?? null,
+            wt.headerNotes ?? null,
+            JSON.stringify(wt.legs),
+            cond,
+            wt.officialKm,
+            amounts.net,
+            amounts.vat,
+            amounts.total,
+            wt.driverSignature ?? null,
+            wt.certificationDate ?? null,
+            wt.status,
+          ],
+        );
+      }
       continue;
     }
     const id = randomUUID();
-    const amounts = calcWtAmounts(wt.agreedRate);
     await pool.query(
       `INSERT INTO work_tickets (
-        id, serial_no, branch, trip_date, plate, make, driver_name, route,
-        rate_type, agreed_rate, gate_pass_ref, header_notes, legs,
-        private_km, official_km, net, vat, total, status
-      ) VALUES ($1,$2,'Embakasi',$3,$4,$5,$6,$7,'fixed',$8,$9,$10,$11,0,$12,$13,$14,$15,$16)`,
+        id, serial_no, branch, trip_date, plate, make, vehicle_type, driver_name, route,
+        rate_type, agreed_rate, gate_pass_ref, header_notes, legs, vehicle_condition,
+        private_km, official_km, net, vat, total, driver_signature, certification_date, status
+      ) VALUES ($1,$2,'Embakasi',$3,$4,$5,$6,$7,$8,'fixed',$9,$10,$11,$12,$13,0,$14,$15,$16,$17,$18,$19,$20)`,
       [
         id,
         wt.serialNo,
         wt.tripDate,
         wt.plate,
         wt.make,
+        wt.vehicleType ?? null,
         wt.driverName,
         wt.route,
         wt.agreedRate,
         wt.gatePassRef ?? null,
         wt.headerNotes ?? null,
         JSON.stringify(wt.legs),
+        cond,
         wt.officialKm,
         amounts.net,
         amounts.vat,
         amounts.total,
+        wt.driverSignature ?? null,
+        wt.certificationDate ?? null,
         wt.status,
       ],
     );

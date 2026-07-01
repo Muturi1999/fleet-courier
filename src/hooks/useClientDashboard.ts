@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { mapClientDashboard, type ClientDashboardData } from "@/lib/client-dashboard";
+import { WORKFLOW_UPDATED_EVENT } from "@/lib/workflow-events";
 
-const POLL_MS = 60_000;
+const POLL_MS = 30_000;
 
 export function useClientDashboard() {
   const [data, setData] = useState<ClientDashboardData | null>(null);
@@ -28,10 +29,18 @@ export function useClientDashboard() {
     void refresh();
     const interval = window.setInterval(() => void refresh(), POLL_MS);
     const onFocus = () => void refresh();
+    const onWorkflow = () => void refresh();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
     window.addEventListener("focus", onFocus);
+    window.addEventListener(WORKFLOW_UPDATED_EVENT, onWorkflow);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("focus", onFocus);
+      window.removeEventListener(WORKFLOW_UPDATED_EVENT, onWorkflow);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [refresh]);
 

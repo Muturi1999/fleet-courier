@@ -12,6 +12,7 @@ import { defaultClientFilters, type ClientPortalFilters } from "@/lib/client-por
 import { formatEATDisplay } from "@/lib/dates";
 import type { WorkTicket } from "@/lib/types";
 import { useToast } from "@/context/ToastContext";
+import { dispatchWorkflowUpdated } from "@/lib/workflow-events";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
 
 export type ClientWorkTicketMode = "main" | "approved" | "rejected";
@@ -72,6 +73,7 @@ export function ClientWorkTicketsPanel({ mode }: { mode: ClientWorkTicketMode })
       return;
     }
     await refreshPage();
+    dispatchWorkflowUpdated();
     toast(`Work ticket ${t.serialNo} approved`);
     setViewId(null);
   };
@@ -88,6 +90,7 @@ export function ClientWorkTicketsPanel({ mode }: { mode: ClientWorkTicketMode })
       return;
     }
     await refreshPage();
+    dispatchWorkflowUpdated();
     toast(`Work ticket ${t.serialNo} returned to Fleet Admin`);
     setViewId(null);
     setRejectNote("");

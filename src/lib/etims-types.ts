@@ -12,6 +12,8 @@ export type EtimsConnectionStatus = {
 };
 
 export type EtimsHistoryItem = {
+  kind: "invoice" | "consolidated";
+  recordId: string;
   invoiceId: string;
   invoiceNo: string;
   plate: string;
@@ -22,6 +24,8 @@ export type EtimsHistoryItem = {
   etimsStatus: string;
   kraReference?: string;
   etimsUrl?: string;
+  digitaxSaleUrl?: string;
+  qrUrl?: string;
   filedAt?: string;
   serviceDate?: string;
 };
@@ -33,6 +37,7 @@ export type EtimsDashboard = {
   stats: {
     awaitingFiling: number;
     filed: number;
+    validated: number;
     pending: number;
     failed: number;
     vatFiledThisMonth: number;
@@ -63,9 +68,40 @@ export type EtimsSubmitResult = {
   status: string;
   kraReference?: string;
   etimsUrl?: string;
+  digitaxSaleUrl?: string;
   digitaxSaleId?: string;
   salesTaxSummary?: { tax_amount_b?: number; taxable_amount_b?: number };
   message?: string;
+};
+
+export type EtimsFilingPreviewLine = {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  totalAmount: number;
+  vatBand: string;
+};
+
+export type EtimsFilingPreview = {
+  kind: "consolidated" | "invoice";
+  recordId: string;
+  traderInvoiceNumber: string;
+  saleDate: string;
+  supplierName: string;
+  supplierPin: string;
+  customerName: string;
+  customerPin: string;
+  invoiceDetails: string;
+  net: number;
+  vat: number;
+  total: number;
+  kraReference?: string;
+  etimsUrl?: string;
+  digitaxSaleUrl?: string;
+  digitaxSaleId?: string;
+  periodLabel?: string;
+  lineItems: EtimsFilingPreviewLine[];
+  filingNote: string;
 };
 
 export type { EtimsValidationResult };
