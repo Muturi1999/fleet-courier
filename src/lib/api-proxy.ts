@@ -23,9 +23,13 @@ export const API_BACKEND_PATHS: Record<string, string> = {
   "consolidated-invoices": "/consolidated-invoices",
   notifications: "/notifications",
   expenses: "/expenses",
+  drivers: "/drivers",
+  orders: "/orders",
+  dispatch: "/dispatch",
   "billing-profile": "/billing-profile",
   "clients/invoices": "/clients/invoices",
   "clients/work-tickets": "/clients/work-tickets",
+  "clients/orders": "/clients/orders",
 };
 
 const LOCAL_COLLECTION: Record<string, StoreCollection> = {

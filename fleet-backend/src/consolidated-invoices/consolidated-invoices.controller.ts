@@ -54,6 +54,13 @@ export class ConsolidatedInvoicesController {
     return this.service.revise(id, dto);
   }
 
+  @Post(":id/reissue-after-credit")
+  @ApiTenantAuth(UserRole.admin)
+  @ApiOperation({ summary: "New draft SOA after Digitax credit note on filed invoice (same trips, new serial)" })
+  reissueAfterCredit(@Param("id") id: string, @Body() body: { clientNote?: string }) {
+    return this.service.reissueAfterEtimsCredit(id, body?.clientNote);
+  }
+
   @Post(":id")
   @ApiTenantAuth(UserRole.admin, UserRole.client)
   @ApiOperation({ summary: "send | approve | mark_paid" })

@@ -55,6 +55,62 @@ export type Vehicle = {
   createdAt?: string;
 };
 
+export type Driver = {
+  id: string;
+  name: string;
+  idNumber?: string;
+  licenseExpiry?: string;
+  phone?: string;
+  portalPin?: string;
+  active: boolean;
+};
+
+export type TransportOrder = {
+  id: string;
+  orderNo: string;
+  customerName: string;
+  customerPhone?: string;
+  pickupAddress: string;
+  deliveryAddress: string;
+  routeHint?: string;
+  pickupAt?: string;
+  deliveryDueAt?: string;
+  cargoDescription?: string;
+  weightKg?: number;
+  quotedAmount?: number;
+  status: string;
+  notes?: string;
+  invoiceId?: string;
+  createdAt?: string;
+};
+
+export type DispatchAssignment = {
+  id: string;
+  orderId: string;
+  orderNo?: string;
+  customerName?: string;
+  pickupAddress?: string;
+  deliveryAddress?: string;
+  driverId?: string;
+  vehicleId?: string;
+  plate: string;
+  driverName: string;
+  status: string;
+  tripNotes?: string;
+  assignedAt?: string;
+  orderStatus?: string;
+};
+
+export type OpsInsight = {
+  id: string;
+  insightType: string;
+  title: string;
+  message: string;
+  score?: number;
+  dismissed?: boolean;
+  createdAt?: string;
+};
+
 export type InvoiceStatus = "draft" | "sent" | "approved" | "paid" | "pending" | "rejected";
 
 export type Invoice = {

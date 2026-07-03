@@ -13,15 +13,22 @@ enum UserRole {
   client
 }
 
+enum TenantProfile {
+  contract_fleet
+  operations_pilot
+}
+
 model Tenant {
-  id        String    @id @default(uuid())
-  slug      String    @unique
+  id        String         @id @default(uuid())
+  slug      String         @unique
   name      String
-  schema    String    @unique // e.g. tenant_g4s_kenya
-  active    Boolean   @default(true)
+  schema    String         @unique // e.g. tenant_g4s_kenya
+  active    Boolean        @default(true)
   contract  String?
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  profile   TenantProfile  @default(contract_fleet)
+  features  Json?
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
   users     User[]
   partners  Partner[]
 

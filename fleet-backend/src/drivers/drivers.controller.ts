@@ -1,12 +1,16 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { UserRole } from "@prisma/client";
 import { ApiTenantAuth } from "../common/decorators/api-tenant-auth.decorator";
+import { RequireFeature } from "../common/decorators/require-feature.decorator";
+import { FeatureGuard } from "../common/guards/feature.guard";
 import { CreateDriverDto, UpdateDriverDto } from "./dto/driver.dto";
 import { DriversService } from "./drivers.service";
 
 @ApiTags("drivers")
 @ApiTenantAuth(UserRole.admin)
+@UseGuards(FeatureGuard)
+@RequireFeature("drivers")
 @Controller("drivers")
 export class DriversController {
   constructor(private readonly service: DriversService) {}

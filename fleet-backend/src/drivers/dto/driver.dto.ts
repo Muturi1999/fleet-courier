@@ -20,6 +20,16 @@ export class CreateDriverDto {
   @IsOptional()
   @IsBoolean()
   active?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  portalPin?: string;
 }
 
 export class UpdateDriverDto extends PartialType(CreateDriverDto) {}

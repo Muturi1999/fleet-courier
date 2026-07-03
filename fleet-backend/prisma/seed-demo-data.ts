@@ -770,8 +770,8 @@ async function seedBillingProfile(pool: Pool) {
       JSON.stringify({
         name: "G4S COURIER",
         legalName: "G4S Courier Services Kenya Ltd",
-        address: "G4S House, Waiyaki Way",
-        city: "Nairobi, Kenya",
+        address: "Airport North Road, next to SDV Transami, Embakasi, Nairobi",
+        city: "P.O. Box 30242 - 00100 Nairobi GPO",
         pin: "P051987654G",
         contact: "Accounts Payable",
         email: "accounts@g4s.co.ke",

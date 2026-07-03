@@ -11,11 +11,11 @@ export const SUPPLIER = {
 } as const;
 
 export const CLIENT = {
-  name: "G4S COURIER",
-  legalName: "G4S Courier Services Kenya Ltd",
-  address: "G4S House, Waiyaki Way",
-  city: "Nairobi, Kenya",
-  pin: "P051987654G",
+  name: "G4S KENYA LIMITED",
+  legalName: "G4S KENYA LIMITED",
+  address: "Airport North Road, next to SDV Transami, Embakasi, Nairobi",
+  city: "P.O. Box 30242 - 00100 Nairobi GPO",
+  pin: "P000618582J",
   contact: "Accounts Payable",
   email: "accounts@g4s.co.ke",
   contractRef: "G4S-RNT-2026-001",

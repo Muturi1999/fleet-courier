@@ -97,9 +97,23 @@ chmod +x deploy/migrate-data.sh
 ## 5. Subsequent deploys
 
 ```bash
-./deploy/deploy.sh                  # uses git short SHA as version tag
-./deploy/deploy.sh v1.2.0           # explicit version
+./deploy/deploy.sh                  # zero-downtime: migrate-first + blue/green frontend
+./deploy/deploy.sh --backend        # API only (~30s API blip; site stays up — no 502)
+./deploy/deploy.sh --frontend       # UI only (no 502; NPM unchanged on :3300)
+./deploy/deploy.sh v1.2.0           # explicit version tag
 ```
+
+### Zero-downtime (how 502 is avoided)
+
+| Layer | Role |
+|-------|------|
+| **NPM / OpenResty** | Always `127.0.0.1:3300` — never change during deploy |
+| **swiftfleet-router** | Nginx on `:3300`; survives app deploys |
+| **Frontend** | New container starts → health check → router switches → old stopped |
+| **Backend** | Migrations run **before** container swap; API may blip ~15–45s |
+
+The first deploy after this change may have a **short one-time cutover** while port `3300` moves from the app container to the router.
+
 
 ## 6. CI/CD (GitHub Actions)
 
@@ -140,4 +154,4 @@ curl http://127.0.0.1:4300/api/v1/health
 
 **NPM SSL fails:** DNS not propagated, or port 80 blocked. Ensure A records resolve to `62.171.186.126`.
 
-**502 Bad Gateway:** Stack not running or wrong forward port (must be `3300`).
+**502 Bad Gateway:** Usually NPM cannot reach `127.0.0.1:3300`. Check `docker ps` for `swiftfleet-router` (not only `swiftfleet-frontend`). Run `curl http://127.0.0.1:3300/api/health` on the server.

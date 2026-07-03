@@ -43,29 +43,26 @@ function formatPeriod(start: string | Date, end: string | Date): string {
   return `${s} to ${e}`;
 }
 
-/** Option B: qty = trips, unit = average trip pay (ex VAT), line amount = SOA net. */
+/** Single consolidated line: qty 1, unit & line total = SOA gross (VAT inclusive), same as a one-day trip invoice. */
 export function resolveConsolidatedEtimsLine(invoice: ConsolidatedInvoice): {
   quantity: number;
   unitPrice: number;
-  lineNet: number;
+  lineTotal: number;
 } {
-  const trips = Math.max(1, Number(invoice.total_trips) || 1);
-  const net = Number(invoice.net);
-  const unitPrice = Math.round((net / trips) * 100) / 100;
-  const lineNet = Math.round(unitPrice * trips * 100) / 100;
-  return { quantity: trips, unitPrice, lineNet: lineNet || net };
+  const total = Number(invoice.total);
+  return { quantity: 1, unitPrice: total, lineTotal: total };
 }
 
 /**
  * Digitax/KRA payload for a consolidated SOA.
- * Line is ex-VAT (net); VAT and grand total come from SOA totals below the line.
+ * One line at gross (VAT inclusive); Digitax derives taxable amount and VAT for band B.
  */
 export function buildDigitaxConsolidatedSalePayload(
   invoice: ConsolidatedInvoice,
   client: BillingClient,
   itemClassCode: string,
 ): DigitaxSaleWithItemsPayload {
-  const { quantity, unitPrice, lineNet } = resolveConsolidatedEtimsLine(invoice);
+  const { quantity, unitPrice, lineTotal } = resolveConsolidatedEtimsLine(invoice);
   const saleDate = formatSaleDate(invoice.invoice_date);
   const customerName = (client.legalName || client.name || "Customer").trim();
   const customerTin = (client.pin || "").trim().toUpperCase();
@@ -91,14 +88,14 @@ export function buildDigitaxConsolidatedSalePayload(
         item_tax_type_code: "B",
         quantity,
         unit_price: unitPrice,
-        total_amount: lineNet,
+        total_amount: lineTotal,
         is_stockable: false,
       },
     ],
   };
 }
 
-/** Preview/print line — matches Digitax payload (trips × avg trip pay ex VAT = line net). */
+/** Preview/print line — matches Digitax payload (qty 1 · gross inclusive line). */
 export function consolidatedEtimsDisplayLine(item: {
   item_name: string;
   quantity: number;

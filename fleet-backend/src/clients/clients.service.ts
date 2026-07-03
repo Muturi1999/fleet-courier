@@ -489,4 +489,81 @@ export class ClientsService {
       recentActivity,
     };
   }
+
+  listOrders() {
+    const partnerId = this.partnerScope.requirePartnerId();
+    return this.db.queryAll(
+      `SELECT o.*, (
+        SELECT row_to_json(d) FROM (
+          SELECT status, plate, driver_name, assigned_at, completed_at
+          FROM dispatch_assignments WHERE order_id = o.id AND status NOT IN ('reassigned')
+          ORDER BY assigned_at DESC LIMIT 1
+        ) d
+      ) AS assignment
+       FROM transport_orders o
+       WHERE o.partner_id = $1::uuid
+       ORDER BY o.created_at DESC`,
+      [partnerId],
+    );
+  }
+
+  async findOrder(id: string) {
+    const partnerId = this.partnerScope.requirePartnerId();
+    const row = await this.db.queryOne(
+      `SELECT o.*, (
+        SELECT json_agg(d ORDER BY d.assigned_at DESC)
+        FROM dispatch_assignments d WHERE d.order_id = o.id
+      ) AS assignments
+       FROM transport_orders o WHERE o.id = $1 AND o.partner_id = $2::uuid`,
+      [id, partnerId],
+    );
+    if (!row) throw new NotFoundException("Order not found");
+    return row;
+  }
+
+  async bookOrder(body: {
+    customerName: string;
+    customerPhone?: string;
+    pickupAddress: string;
+    deliveryAddress: string;
+    routeHint?: string;
+    pickupAt?: string;
+    cargoDescription?: string;
+    weightKg?: number;
+    quotedAmount?: number;
+  }) {
+    const partnerId = this.partnerScope.requirePartnerId();
+    const seq = await this.db.queryOne<{ next: string }>(
+      `SELECT COALESCE((SELECT next_value FROM tenant_sequences WHERE key = 'transport_order_no'), 5001)::text AS next`,
+    );
+    const orderNo = `ORD-${seq?.next ?? "5001"}`;
+    const row = await this.db.queryOne(
+      `INSERT INTO transport_orders (
+        order_no, partner_id, customer_name, customer_phone, pickup_address, delivery_address,
+        route_hint, pickup_at, cargo_description, weight_kg, quoted_amount, status
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'booked') RETURNING *`,
+      [
+        orderNo,
+        partnerId,
+        body.customerName,
+        body.customerPhone ?? null,
+        body.pickupAddress,
+        body.deliveryAddress,
+        body.routeHint ?? null,
+        body.pickupAt ?? null,
+        body.cargoDescription ?? null,
+        body.weightKg ?? null,
+        body.quotedAmount ?? null,
+      ],
+    );
+    await this.workflows.emit({
+      audience: "admin",
+      type: "order_booked",
+      title: `Client booked ${orderNo}`,
+      message: `${body.customerName}: ${body.pickupAddress} → ${body.deliveryAddress}`,
+      refId: row?.id as string,
+      actor: "client",
+    });
+    return row;
+  }
 }

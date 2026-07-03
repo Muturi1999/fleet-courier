@@ -6,12 +6,14 @@ export const SEQUENCE_KEYS = {
   invoiceNo: "invoice_no",
   workTicketSerial: "work_ticket_serial",
   consolidatedInvoiceSerial: "consolidated_invoice_serial",
+  transportOrderNo: "transport_order_no",
 } as const;
 
 const FLOOR: Record<string, number> = {
   [SEQUENCE_KEYS.invoiceNo]: 17206,
   [SEQUENCE_KEYS.workTicketSerial]: 1189100,
   [SEQUENCE_KEYS.consolidatedInvoiceSerial]: 1000,
+  [SEQUENCE_KEYS.transportOrderNo]: 5001,
 };
 
 @Injectable()

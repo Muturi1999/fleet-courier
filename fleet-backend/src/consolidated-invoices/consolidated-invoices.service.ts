@@ -730,4 +730,97 @@ export class ConsolidatedInvoicesService {
       return created.rows[0];
     });
   }
+
+  /**
+   * After Digitax credit note on a filed SOA: new draft serial, same trips/amounts, corrected billing on next eTIMS submit.
+   */
+  async reissueAfterEtimsCredit(id: string, clientNote?: string) {
+    const source = (await this.findOne(id)) as Record<string, unknown>;
+    if (!source) throw new NotFoundException("Consolidated invoice not found");
+    if (source.superseded_by_id) {
+      throw new BadRequestException("This SOA has already been superseded");
+    }
+    const etims = String(source.etims_status ?? "");
+    if (!["submitted", "credited"].includes(etims) && source.status !== "approved") {
+      throw new BadRequestException(
+        "Reissue after credit applies to approved SOAs that were filed or credited on eTIMS",
+      );
+    }
+
+    const pending = await this.db.queryOne(
+      `SELECT id, invoice_no FROM consolidated_invoices WHERE revised_from_id = $1 AND status = 'draft' LIMIT 1`,
+      [id],
+    );
+    if (pending) {
+      throw new BadRequestException(
+        `A draft reissue already exists (serial ${(pending as { invoice_no: string }).invoice_no})`,
+      );
+    }
+
+    const linkedInvoices = (await this.db.queryAll(
+      `SELECT id FROM invoices WHERE consolidated_invoice_id = $1`,
+      [id],
+    )) as { id: string }[];
+    if (!linkedInvoices.length) {
+      throw new BadRequestException("No trip invoices linked to this consolidated SOA");
+    }
+
+    const workTicketIds = Array.isArray(source.work_ticket_ids)
+      ? (source.work_ticket_ids as string[])
+      : [];
+    const { invoiceNo, refNo } = await this.nextNumbers();
+    const newId = randomUUID();
+    const note =
+      clientNote?.trim() ||
+      `Reissue of SOA ${source.invoice_no} with corrected buyer KRA details after Digitax credit note.`;
+
+    return this.db.withTransaction(async (client) => {
+      const created = await client.query(
+        `INSERT INTO consolidated_invoices (
+          id, invoice_no, ref_no, period_start, period_end, invoice_date, description,
+          payment_terms_days, total_trips, net, vat, total, status, work_ticket_ids, plate,
+          consolidation_type, filter_meta, partner_id, revised_from_id, client_note
+        ) VALUES ($1,$2,$3,$4,$5,CURRENT_DATE,$6,$7,$8,$9,$10,$11,'draft',$12,$13,$14,$15,$16,$17,$18)
+        RETURNING *`,
+        [
+          newId,
+          invoiceNo,
+          refNo,
+          source.period_start,
+          source.period_end,
+          source.description ?? DESCRIPTION,
+          source.payment_terms_days ?? 90,
+          source.total_trips,
+          source.net,
+          source.vat,
+          source.total,
+          JSON.stringify(workTicketIds),
+          source.plate ?? null,
+          source.consolidation_type ?? "period",
+          JSON.stringify(source.filter_meta ?? {}),
+          source.partner_id ?? null,
+          id,
+          note,
+        ],
+      );
+
+      await client.query(
+        `UPDATE invoices SET consolidated_invoice_id = $1, etims_status = 'consolidated', updated_at = NOW()
+         WHERE consolidated_invoice_id = $2`,
+        [newId, id],
+      );
+      await client.query(
+        `UPDATE work_tickets SET consolidated_invoice_id = $1, updated_at = NOW() WHERE consolidated_invoice_id = $2`,
+        [newId, id],
+      );
+      await client.query(
+        `UPDATE consolidated_invoices
+         SET superseded_by_id = $1, etims_status = 'credited', updated_at = NOW()
+         WHERE id = $2`,
+        [newId, id],
+      );
+
+      return created.rows[0];
+    });
+  }
 }

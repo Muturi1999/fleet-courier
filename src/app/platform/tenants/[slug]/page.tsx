@@ -9,6 +9,7 @@ type TenantDetail = {
   slug: string;
   name: string;
   active: boolean;
+  profile?: string;
   createdAt: string;
   partners: { id: string; slug: string; name: string; email?: string | null }[];
   users: {
@@ -72,6 +73,11 @@ export default function PlatformTenantDetailPage() {
       <div>
         <h1 className="text-2xl font-semibold text-fleet-gray-900">{tenant.name}</h1>
         <p className="mt-1 font-mono text-sm text-fleet-gray-500">/{tenant.slug}</p>
+        {tenant.profile && (
+          <p className="mt-2 text-xs uppercase tracking-wide text-teal">
+            Profile: {tenant.profile.replace(/_/g, " ")}
+          </p>
+        )}
       </div>
 
       {flash && (

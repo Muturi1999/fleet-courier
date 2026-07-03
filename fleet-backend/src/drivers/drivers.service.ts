@@ -19,9 +19,9 @@ export class DriversService {
 
   create(dto: CreateDriverDto) {
     return this.db.queryOne(
-      `INSERT INTO drivers (name, id_number, license_expiry, active)
-       VALUES ($1,$2,$3,$4) RETURNING *`,
-      [dto.name, dto.idNumber ?? null, dto.licenseExpiry ?? null, dto.active ?? true],
+      `INSERT INTO drivers (name, id_number, license_expiry, active, phone, portal_pin)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [dto.name, dto.idNumber ?? null, dto.licenseExpiry ?? null, dto.active ?? true, dto.phone ?? null, dto.portalPin ?? null],
     );
   }
 
@@ -35,6 +35,8 @@ export class DriversService {
       idNumber: "id_number",
       licenseExpiry: "license_expiry",
       active: "active",
+      phone: "phone",
+      portalPin: "portal_pin",
     };
     for (const [key, col] of Object.entries(map)) {
       const val = (dto as Record<string, unknown>)[key];

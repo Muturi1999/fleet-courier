@@ -59,6 +59,30 @@ export const adminPageMeta: Record<string, PageMeta> = {
     title: "Billing settings",
     subtitle: "Partner (buyer) and supplier details for invoices",
   },
+  "/admin/drivers": {
+    title: "Drivers",
+    subtitle: "Driver roster for dispatch and trip assignment",
+  },
+  "/admin/orders": {
+    title: "Orders",
+    subtitle: "Transport order management (operations pilot)",
+  },
+  "/admin/dispatch": {
+    title: "Dispatch center",
+    subtitle: "Assign drivers and vehicles to open orders",
+  },
+  "/admin/tracking": {
+    title: "Live tracking",
+    subtitle: "GPS fleet visibility (operations pilot)",
+  },
+  "/admin/maintenance": {
+    title: "Maintenance",
+    subtitle: "Preventive maintenance and service schedules",
+  },
+  "/admin/ops": {
+    title: "AI operations",
+    subtitle: "Fleet KPIs, dispatch intelligence, and predictive alerts",
+  },
   "/admin/etims": {
     title: "KRA eTIMS",
     subtitle: "Validate, submit and sync VAT with KRA via Digitax",
@@ -117,6 +141,10 @@ export const clientPageMeta: Record<string, PageMeta> = {
   "/client/reports": {
     title: "Reports",
     subtitle: "Monthly revenue, VAT and fleet analytics · export to Excel",
+  },
+  "/client/orders": {
+    title: "Shipments",
+    subtitle: "Book and track transport orders",
   },
   "/client/notifications": {
     title: "Notifications",

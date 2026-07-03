@@ -1,10 +1,10 @@
 "use client";
 
 import { IconPrinter } from "@tabler/icons-react";
+import { useBillingProfile } from "@/hooks/useBillingProfile";
 import type { ConsolidatedInvoice } from "@/lib/types";
-import { INVOICE_DEFAULTS } from "@/lib/invoice-meta";
+import { CLIENT, INVOICE_DEFAULTS, SUPPLIER } from "@/lib/invoice-meta";
 import {
-  BILLING_PARTIES,
   CONSOLIDATED_PAYMENT_TERMS,
   formatDocDate,
   formatPeriodRange,
@@ -23,10 +23,9 @@ export function ConsolidatedInvoiceDocument({
   invoice: ConsolidatedInvoice;
   onPrint?: () => void;
 }) {
-  const paymentWindow =
-    invoice.paymentWindowFrom && invoice.paymentWindowTo
-      ? `${formatDocDate(invoice.paymentWindowFrom)} to ${formatDocDate(invoice.paymentWindowTo)}`
-      : "On G4S approval (90–100 days from sign-off)";
+  const { profile } = useBillingProfile();
+  const supplier = profile?.supplier ?? SUPPLIER;
+  const client = profile?.client ?? CLIENT;
   const periodTitle = breakdownPeriodTitle(invoice.periodStart, invoice.periodEnd);
 
   return (
@@ -35,10 +34,10 @@ export function ConsolidatedInvoiceDocument({
 
       <div className="consolidated-doc-header">
         <div>
-          <div className="consolidated-doc-brand">{BILLING_PARTIES.supplier.name}</div>
-          <p className="consolidated-doc-meta">{BILLING_PARTIES.supplier.address}</p>
-          <p className="consolidated-doc-meta">PIN: {BILLING_PARTIES.supplier.pin}</p>
-          <p className="consolidated-doc-meta">V.A.T No: {BILLING_PARTIES.supplier.vatNo}</p>
+          <div className="consolidated-doc-brand">{supplier.name}</div>
+          <p className="consolidated-doc-meta">{supplier.address}</p>
+          <p className="consolidated-doc-meta">PIN: {supplier.pin}</p>
+          <p className="consolidated-doc-meta">V.A.T No: {supplier.vatNo}</p>
         </div>
         <div className="text-right text-[12px]">
           <div><span className="text-fleet-gray-400">Serial No.</span> <strong className="font-mono">{invoice.invoiceNo}</strong></div>
@@ -51,17 +50,16 @@ export function ConsolidatedInvoiceDocument({
 
       <div className="consolidated-doc-party">
         <p className="consolidated-doc-label">Invoice To</p>
-        <p className="font-semibold">{BILLING_PARTIES.client.legalName}</p>
-        <p className="consolidated-doc-meta">
-          {BILLING_PARTIES.client.address}, {BILLING_PARTIES.client.city}
-        </p>
-        <p className="consolidated-doc-meta">PIN: {BILLING_PARTIES.client.pin}</p>
+        <p className="font-semibold">{client.legalName ?? client.name}</p>
+        <p className="consolidated-doc-meta">{client.address}</p>
+        {client.city?.trim() && <p className="consolidated-doc-meta">{client.city}</p>}
+        <p className="consolidated-doc-meta">PIN: {client.pin}</p>
         <p className="consolidated-doc-meta">eTIMS / VAT registered</p>
       </div>
 
-      <div className="consolidated-doc-terms grid gap-2 text-[12px] sm:grid-cols-2">
-        <div><span className="text-fleet-gray-400">Payment terms</span><p className="font-medium">{CONSOLIDATED_PAYMENT_TERMS.label}</p></div>
-        <div><span className="text-fleet-gray-400">Expected payment window</span><p className="font-medium">{paymentWindow}</p></div>
+      <div className="consolidated-doc-terms text-[12px]">
+        <span className="text-fleet-gray-400">Payment terms</span>
+        <p className="font-medium">{CONSOLIDATED_PAYMENT_TERMS.label}</p>
       </div>
 
       <table className="consolidated-doc-table">
@@ -87,7 +85,7 @@ export function ConsolidatedInvoiceDocument({
             <td className="text-right font-mono font-semibold">{fmt(invoice.net)}</td>
           </tr>
           <tr>
-            <th colSpan={3} className="text-right">VAT ({BILLING_PARTIES.vatRate}%)</th>
+            <th colSpan={3} className="text-right">VAT ({INVOICE_DEFAULTS.vatRate}%)</th>
             <td className="text-right font-mono">{fmt(invoice.vat)}</td>
           </tr>
           <tr className="consolidated-doc-grand">

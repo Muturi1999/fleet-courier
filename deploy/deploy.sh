@@ -2,14 +2,15 @@
 # Build Docker images locally, transfer to server, start stack.
 #
 # Usage:
-#   ./deploy/deploy.sh                  # full deploy (both services, keeps build cache)
-#   ./deploy/deploy.sh --frontend       # frontend only — use for UI-only changes (~3–8 min)
-#   ./deploy/deploy.sh --backend        # backend only — API / DB changes
-#   ./deploy/deploy.sh --frontend --fast  # same, skip all pruning
-#   ./deploy/deploy.sh --clean          # full deploy + prune Docker cache (slow, frees disk)
+#   ./deploy/deploy.sh                  # full deploy (zero-downtime rollout)
+#   ./deploy/deploy.sh --frontend       # frontend only — blue/green, no 502
+#   ./deploy/deploy.sh --backend        # backend only — migrate-first
+#   ./deploy/deploy.sh --frontend --fast
+#   ./deploy/deploy.sh --clean          # full deploy + prune Docker cache
 #   ./deploy/deploy.sh [version] --seed
 #
-# Requires: SSH key access to SERVER (no password in this script).
+# NPM always points to 127.0.0.1:3300 (swiftfleet-router). The app frontend
+# is swapped behind the router during deploys so users do not see 502.
 
 set -euo pipefail
 
@@ -107,6 +108,10 @@ rm -f "$TMP_TAR"
 echo "==> Uploading compose + env template..."
 scp "$ROOT/docker-compose.prod.yml" "${SERVER}:${REMOTE_DIR}/docker-compose.yml"
 scp "$ROOT/deploy/.env.production.example" "${SERVER}:${REMOTE_DIR}/.env.production.example"
+ssh "$SERVER" "mkdir -p ${REMOTE_DIR}/router"
+scp "$ROOT/deploy/router/nginx.conf" "${SERVER}:${REMOTE_DIR}/router/nginx.conf"
+scp "$ROOT/deploy/router/upstream.conf" "${SERVER}:${REMOTE_DIR}/router/upstream.conf"
+scp "$ROOT/deploy/rollout-remote.sh" "${SERVER}:${REMOTE_DIR}/rollout-remote.sh"
 
 COMPOSE_SERVICES=""
 [[ "$DEPLOY_BACKEND" == true ]] && COMPOSE_SERVICES+=" backend"
@@ -126,29 +131,17 @@ gunzip -c images.tar.gz | docker load
 rm -f images.tar.gz
 
 export SWIFTFLEET_VERSION=${VERSION}
+export DEPLOY_BACKEND=${DEPLOY_BACKEND}
+export DEPLOY_FRONTEND=${DEPLOY_FRONTEND}
+export REMOTE_DIR=${REMOTE_DIR}
+export RUN_SEED=${RUN_SEED_FLAG}
+
 if [[ "${RUN_SEED_FLAG}" == "true" ]]; then
   sed -i 's/^RUN_SEED=.*/RUN_SEED=true/' .env || echo 'RUN_SEED=true' >> .env
 fi
 
-echo "==> Rolling restart (no dependency churn, old images kept)..."
-if [[ -n "${COMPOSE_SERVICES// }" ]]; then
-  docker compose --env-file .env up -d --no-deps${COMPOSE_SERVICES}
-else
-  docker compose --env-file .env up -d --remove-orphans
-fi
-
-# Backend-only deploy recreates the API container; bounce frontend so proxies reconnect.
-if [[ "${DEPLOY_BACKEND}" == "true" && "${DEPLOY_FRONTEND}" == "false" ]]; then
-  echo "==> Waiting for backend health..."
-  for i in \$(seq 1 45); do
-    if curl -sf http://127.0.0.1:4300/api/v1/health >/dev/null; then
-      break
-    fi
-    sleep 2
-  done
-  echo "==> Restarting frontend (refresh API proxy after backend rollout)..."
-  docker compose --env-file .env restart frontend
-fi
+chmod +x rollout-remote.sh
+./rollout-remote.sh
 
 if [[ "${CLEAN}" == "true" && "${FAST}" == "false" ]]; then
   echo "==> Pruning old images on server..."
@@ -161,11 +154,6 @@ if [[ "${CLEAN}" == "true" && "${FAST}" == "false" ]]; then
   done
   docker image prune -f >/dev/null 2>&1 || true
 fi
-
-echo "==> Status:"
-docker compose ps
-curl -sf http://127.0.0.1:3300/api/health || echo "(frontend health pending...)"
-curl -sf http://127.0.0.1:4300/api/v1/health || echo "(backend health pending...)"
 REMOTE
 
 if [[ "$CLEAN" == true && "$FAST" == false ]]; then
@@ -174,5 +162,6 @@ fi
 
 echo ""
 echo "Deploy complete (${SCOPE}, ~${TAR_MB} MB uploaded)."
-echo "  Tip: UI-only change → ./deploy/deploy.sh --frontend --fast"
+echo "  Zero-downtime: NPM → router :3300 → blue/green frontend"
+echo "  Tip: UI-only → ./deploy/deploy.sh --frontend --fast"
 echo "  Version: ${VERSION}"

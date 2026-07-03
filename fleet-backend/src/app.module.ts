@@ -6,12 +6,18 @@ import { BillingProfileModule } from "./billing-profile/billing-profile.module";
 import { ClientsModule } from "./clients/clients.module";
 import { ConsolidatedInvoicesModule } from "./consolidated-invoices/consolidated-invoices.module";
 import { DeliveriesModule } from "./deliveries/deliveries.module";
+import { DispatchModule } from "./dispatch/dispatch.module";
+import { DriverPortalModule } from "./driver-portal/driver-portal.module";
 import { DriversModule } from "./drivers/drivers.module";
 import { EtimsModule } from "./etims/etims.module";
 import { ExpensesModule } from "./expenses/expenses.module";
+import { GpsModule } from "./gps/gps.module";
 import { HealthModule } from "./health/health.module";
 import { InvoicesModule } from "./invoices/invoices.module";
+import { MaintenanceModule } from "./maintenance/maintenance.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { OpsModule } from "./ops/ops.module";
+import { OrdersModule } from "./orders/orders.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { RateCardsModule } from "./rate-cards/rate-cards.module";
 import { ReportsModule } from "./reports/reports.module";
@@ -49,6 +55,12 @@ import { TenantContextModule } from "./common/tenant-context/tenant-context.modu
     SchedulesModule,
     VehiclesModule,
     DriversModule,
+    OrdersModule,
+    DispatchModule,
+    GpsModule,
+    MaintenanceModule,
+    OpsModule,
+    DriverPortalModule,
     RoutesModule,
     ExpensesModule,
     BillingProfileModule,

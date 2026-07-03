@@ -44,7 +44,7 @@ export function BillingPartyForm({
         <FormField label="Address" className="sm:col-span-2">
           <input className="field-input" value={party.address} onChange={(e) => set({ address: e.target.value })} />
         </FormField>
-        <FormField label="City">
+        <FormField label="Postal address">
           <input className="field-input" value={party.city ?? ""} onChange={(e) => set({ city: e.target.value })} />
         </FormField>
         <FormField label="Phone">

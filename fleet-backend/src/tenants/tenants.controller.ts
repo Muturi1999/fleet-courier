@@ -1,14 +1,30 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Req, UseGuards } from "@nestjs/common";
 import { ApiOperation, ApiSecurity, ApiTags } from "@nestjs/swagger";
+import type { Request } from "express";
+import type { JwtPayload } from "../auth/auth.service";
+import { ApiTenantAuth } from "../common/decorators/api-tenant-auth.decorator";
 import { PlatformKeyGuard } from "../common/guards/platform-key.guard";
 import { CreateTenantDto } from "./dto/create-tenant.dto";
 import { OnboardTenantDto } from "./dto/onboard-tenant.dto";
+import { TenantCapabilitiesService } from "./tenant-capabilities.service";
 import { TenantsService } from "./tenants.service";
 
 @ApiTags("tenants")
 @Controller("tenants")
 export class TenantsController {
-  constructor(private readonly tenantsService: TenantsService) {}
+  constructor(
+    private readonly tenantsService: TenantsService,
+    private readonly capabilities: TenantCapabilitiesService,
+  ) {}
+
+  @Get("me/capabilities")
+  @ApiTenantAuth()
+  @ApiOperation({ summary: "Resolved feature flags for the signed-in workspace" })
+  async myCapabilities(@Req() req: Request & { user: JwtPayload }) {
+    const caps = await this.capabilities.getForTenantId(req.user.tenantId);
+    if (!caps) return { error: "Workspace not found" };
+    return caps;
+  }
 
   @Get()
   @ApiOperation({ summary: "List active fleet-operator workspaces" })

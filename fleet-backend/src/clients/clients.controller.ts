@@ -80,4 +80,34 @@ export class ClientsController {
   markRead(@Param("id") id: string) {
     return this.service.markNotificationRead(id);
   }
+
+  @Get("orders")
+  @ApiOperation({ summary: "Partner-scoped transport orders" })
+  listOrders() {
+    return this.service.listOrders();
+  }
+
+  @Get("orders/:id")
+  getOrder(@Param("id") id: string) {
+    return this.service.findOrder(id);
+  }
+
+  @Post("orders")
+  @ApiOperation({ summary: "Book a shipment from client portal" })
+  bookOrder(
+    @Body()
+    body: {
+      customerName: string;
+      customerPhone?: string;
+      pickupAddress: string;
+      deliveryAddress: string;
+      routeHint?: string;
+      pickupAt?: string;
+      cargoDescription?: string;
+      weightKg?: number;
+      quotedAmount?: number;
+    },
+  ) {
+    return this.service.bookOrder(body);
+  }
 }

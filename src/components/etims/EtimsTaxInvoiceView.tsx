@@ -82,12 +82,8 @@ export function EtimsTaxInvoiceView({
             <tr className="border-b border-fleet-gray-200 text-left text-[10px] uppercase text-fleet-gray-400">
               <th className="pb-2 pr-2 font-semibold">Description</th>
               <th className="pb-2 pr-2 text-center font-semibold">Qty</th>
-              <th className="pb-2 pr-2 text-right font-semibold">
-                {isConsolidated ? "Unit (KES ex VAT)" : "Unit (KES)"}
-              </th>
-              <th className="pb-2 text-right font-semibold">
-                {isConsolidated ? "Amount ex VAT (KES)" : "Amount (KES)"}
-              </th>
+              <th className="pb-2 pr-2 text-right font-semibold">Unit (KES)</th>
+              <th className="pb-2 text-right font-semibold">Amount (KES)</th>
             </tr>
           </thead>
           <tbody>

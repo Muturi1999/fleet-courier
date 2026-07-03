@@ -15,6 +15,7 @@ import { buildDashboardWorkflow, type WorkflowStepState } from "@/lib/dashboard-
 import { fmtN, formatMillions, sumBy, toNum } from "@/lib/utils";
 import type { EtimsDashboard } from "@/lib/etims-types";
 import { useCrud } from "@/hooks/useCrud";
+import { useTenantCapabilities } from "@/hooks/useTenantCapabilities";
 
 function stepClasses(state: WorkflowStepState): string {
   if (state === "done") return "border-[#9FE1CB] bg-teal-light";
@@ -31,6 +32,7 @@ function stepNumClasses(state: WorkflowStepState): string {
 }
 
 export function AdminDashboard() {
+  const { capabilities } = useTenantCapabilities();
   const { items: invoices, loading: invLoading } = useCrud<Invoice>("invoices");
   const { items: consolidated, loading: conLoading } = useCrud<ConsolidatedInvoice>("consolidated-invoices");
   const { items: vehicles, loading: vehLoading } = useCrud<Vehicle>("vehicles");
@@ -132,6 +134,16 @@ export function AdminDashboard() {
 
   return (
     <>
+      {capabilities?.pilot && (
+        <div className="mb-6 rounded-fleet border border-accent/30 bg-accent-light/50 px-4 py-3 text-sm text-fleet-gray-700">
+          <p className="font-medium text-fleet-gray-900">Operations pilot workspace</p>
+          <p className="mt-1 text-fleet-gray-600">
+            You are testing the expanded logistics OS on <span className="font-mono">{capabilities.slug}</span>.
+            New modules appear under <strong>Operations</strong> in the sidebar. RNT/G4S production workspaces are unchanged.
+          </p>
+        </div>
+      )}
+
       <MetricsGrid>
         <MetricCard
           accent="teal"

@@ -927,7 +927,7 @@ export class EtimsService {
       periodLabel: `${periodStart} – ${periodEnd}`,
       lineItems: payload.items.map((item) => consolidatedEtimsDisplayLine(item)),
       filingNote:
-        "Line amount is ex-VAT (net). VAT and grand total are from the consolidated SOA. Trip detail stays on the SOA schedule only.",
+        "Single consolidated line (qty 1) at gross VAT-inclusive total. Trip detail stays on the SOA schedule only.",
     };
   }
 
@@ -1131,7 +1131,7 @@ export class EtimsService {
       {
         label: "eTIMS fiscal line",
         passed: true,
-        detail: `${Math.max(1, Number(invoice.total_trips) || 1)} trip(s) · avg ex-VAT unit · line net KES ${net.toLocaleString("en-KE")}`,
+        detail: `Qty 1 · gross inclusive KES ${total.toLocaleString("en-KE")} (${Math.max(1, Number(invoice.total_trips) || 1)} trips on SOA schedule)`,
       },
     ];
   }
