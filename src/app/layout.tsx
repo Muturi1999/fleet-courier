@@ -19,6 +19,16 @@ const dmMono = DM_Mono({
 export const metadata: Metadata = {
   title: "Fleet Courier Management System — Fleet Travel Ltd",
   description: "Multi-tenant fleet billing and operations — schedules, invoices, work tickets, client portal, eTIMS, and reports for courier operators.",
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+    },
+  },
   icons: {
     icon: [
       { url: "/icon.svg", type: "image/svg+xml" },
