@@ -129,6 +129,7 @@ export type Invoice = {
   periodStart?: string;
   periodEnd?: string;
   deliveryNoteNo?: string;
+  workTicketSerialNo?: string;
   clientNote?: string;
   workTicketId?: string;
   consolidatedInvoiceId?: string;

@@ -91,3 +91,13 @@ export function splitAmountKshsCts(amount: number): { kshs: string; cts: string 
     cts: cents > 0 ? String(cents).padStart(2, "0") : "",
   };
 }
+
+/** Work ticket serial shown on printed invoices (falls back to delivery note for legacy rows). */
+export function invoiceWorkTicketSerial(
+  invoice: Pick<Invoice, "workTicketSerialNo" | "deliveryNoteNo" | "workTicketId">,
+): string {
+  const serial = invoice.workTicketSerialNo?.trim();
+  if (serial) return serial;
+  if (invoice.workTicketId) return invoice.deliveryNoteNo?.trim() ?? "";
+  return "";
+}

@@ -55,6 +55,11 @@ export class CreateInvoiceDto {
   @IsString()
   deliveryNoteNo?: string;
 
+  @ApiPropertyOptional({ description: "Work ticket serial number (optional on manual invoices)" })
+  @IsOptional()
+  @IsString()
+  workTicketSerialNo?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

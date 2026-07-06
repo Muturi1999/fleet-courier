@@ -107,8 +107,8 @@ export class InvoicesService {
     const partnerId = await this.resolvePartnerId(dto.partnerId);
     const period = dto.period ? dto.period.slice(0, 120) : null;
     const created = (await this.db.queryOne(
-      `INSERT INTO invoices (invoice_no, plate, cls, route, days, net, vat, total, status, service_date, period, delivery_note_no, client_note, partner_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+      `INSERT INTO invoices (invoice_no, plate, cls, route, days, net, vat, total, status, service_date, period, delivery_note_no, work_ticket_serial_no, client_note, partner_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
       [
         dto.invoiceNo,
         dto.plate,
@@ -122,6 +122,7 @@ export class InvoicesService {
         dto.serviceDate ?? null,
         period,
         dto.deliveryNoteNo ?? null,
+        dto.workTicketSerialNo ?? null,
         dto.clientNote ?? null,
         partnerId,
       ],
@@ -159,6 +160,7 @@ export class InvoicesService {
           dto.serviceDate ?? null,
           period,
           dto.deliveryNoteNo ?? null,
+          dto.workTicketSerialNo ?? null,
           dto.clientNote ?? null,
           partnerId,
         ];
@@ -173,7 +175,7 @@ export class InvoicesService {
       }
 
       const result = await client.query(
-        `INSERT INTO invoices (invoice_no, plate, cls, route, days, net, vat, total, status, service_date, period, delivery_note_no, client_note, partner_id)
+        `INSERT INTO invoices (invoice_no, plate, cls, route, days, net, vat, total, status, service_date, period, delivery_note_no, work_ticket_serial_no, client_note, partner_id)
          VALUES ${tuples.join(", ")} RETURNING *`,
         flat,
       );
@@ -201,6 +203,7 @@ export class InvoicesService {
       serviceDate: "service_date",
       period: "period",
       deliveryNoteNo: "delivery_note_no",
+      workTicketSerialNo: "work_ticket_serial_no",
       clientNote: "client_note",
     };
     for (const [key, col] of Object.entries(map)) {

@@ -271,8 +271,16 @@ export function InvoiceCreateWizard({
               onChange={(e) => setForm((f) => ({ ...f, ...syncBillingPeriod(f, { periodEnd: e.target.value }) }))}
             />
           </FormField>
-          <div className="col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <FormField label="D/Note No.">
+          <div className="col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <FormField label="Work ticket No. (optional)">
+              <input
+                className="field-input font-mono"
+                placeholder="e.g. 1189100"
+                value={form.workTicketSerialNo ?? ""}
+                onChange={(e) => setForm({ ...form, workTicketSerialNo: e.target.value })}
+              />
+            </FormField>
+            <FormField label="D/Note No. (optional)">
               <input
                 className="field-input"
                 placeholder="Delivery note number"

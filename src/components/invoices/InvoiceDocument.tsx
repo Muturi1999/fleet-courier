@@ -10,6 +10,7 @@ import {
   formatInvoiceNumber,
   formatRntDate,
   invoiceIssueDate,
+  invoiceWorkTicketSerial,
   splitAmountKshsCts,
   unitRate,
 } from "@/lib/invoice-meta";
@@ -51,6 +52,7 @@ export function InvoiceDocument({
   const vatAmt = splitAmountKshsCts(invoice.vat);
   const totalAmt = splitAmountKshsCts(invoice.total);
   const particulars = buildParticulars(invoice);
+  const workTicketSerial = invoiceWorkTicketSerial(invoice);
 
   return (
     <div
@@ -96,10 +98,18 @@ export function InvoiceDocument({
           <span className="rnt-invoice-ref-label">Your Order No.</span>
           <span className="rnt-invoice-ref-value">{invoice.plate}</span>
         </div>
-        <div className="rnt-invoice-ref-row">
-          <span className="rnt-invoice-ref-label">D/Note No.</span>
-          <span className="rnt-invoice-ref-value">{invoice.deliveryNoteNo ?? ""}</span>
-        </div>
+        {workTicketSerial && (
+          <div className="rnt-invoice-ref-row">
+            <span className="rnt-invoice-ref-label">Work ticket No.</span>
+            <span className="rnt-invoice-ref-value font-mono">{workTicketSerial}</span>
+          </div>
+        )}
+        {(invoice.deliveryNoteNo?.trim() ?? "") !== workTicketSerial && (
+          <div className="rnt-invoice-ref-row">
+            <span className="rnt-invoice-ref-label">D/Note No.</span>
+            <span className="rnt-invoice-ref-value">{invoice.deliveryNoteNo ?? ""}</span>
+          </div>
+        )}
       </div>
 
       <table className="rnt-invoice-table">

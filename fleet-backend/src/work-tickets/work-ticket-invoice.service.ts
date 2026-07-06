@@ -66,8 +66,8 @@ export class WorkTicketInvoiceService {
 
     const sql = `INSERT INTO invoices (
       id, invoice_no, plate, cls, route, days, net, vat, total, status,
-      service_date, period, delivery_note_no, work_ticket_id, partner_id
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10,$11,$12,$13,$14)
+      service_date, period, delivery_note_no, work_ticket_serial_no, work_ticket_id, partner_id
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10,$11,$12,$13,$14,$15)
     RETURNING *`;
 
     const params = [
@@ -82,6 +82,7 @@ export class WorkTicketInvoiceService {
       ticket.total,
       tripDate,
       period,
+      null,
       ticket.serial_no,
       ticket.id,
       ticket.partner_id ?? null,
@@ -98,7 +99,7 @@ export class WorkTicketInvoiceService {
     const days = this.invoiceDaysForTicket(ticket);
     const sql = `UPDATE invoices SET
       plate = $2, route = $3, days = $4, net = $5, vat = $6, total = $7,
-      service_date = $8, period = $9, delivery_note_no = $10, updated_at = NOW()
+      service_date = $8, period = $9, delivery_note_no = NULL, work_ticket_serial_no = $10, updated_at = NOW()
       WHERE work_ticket_id = $1 AND consolidated_invoice_id IS NULL`;
     const tripDate =
       ticket.trip_date instanceof Date

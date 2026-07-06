@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   service_date DATE,
   period VARCHAR(20),
   delivery_note_no VARCHAR(40),
+  work_ticket_serial_no VARCHAR(40),
   client_note TEXT,
   etims_ref VARCHAR(80),
   etims_qr TEXT,
