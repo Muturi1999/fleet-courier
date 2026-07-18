@@ -129,6 +129,7 @@ export type PeriodPreviewGroup = {
   key: string;
   invoiceCount: number;
   net: number;
+  vat: number;
   total: number;
   lines: PeriodPreviewLine[];
 };
@@ -140,6 +141,7 @@ export type PeriodPreview = {
   invoiceCount: number;
   vehicleCount: number;
   net: number;
+  vat: number;
   total: number;
   groups: PeriodPreviewGroup[];
   lines: PeriodPreviewLine[];
@@ -181,6 +183,7 @@ export function mapPeriodPreview(json: unknown): PeriodPreview | null {
     invoiceCount: Number(raw.invoiceCount ?? raw.invoice_count ?? 0),
     vehicleCount: Number(raw.vehicleCount ?? raw.vehicle_count ?? 0),
     net: Number(raw.net ?? 0),
+    vat: Number(raw.vat ?? 0),
     total: Number(raw.total ?? 0),
     groups: groupsRaw.map((g) => {
       const gr = g as Record<string, unknown>;
@@ -189,6 +192,7 @@ export function mapPeriodPreview(json: unknown): PeriodPreview | null {
         key: String(gr.key ?? ""),
         invoiceCount: Number(gr.invoiceCount ?? gr.invoice_count ?? lines.length),
         net: Number(gr.net ?? 0),
+        vat: Number(gr.vat ?? 0),
         total: Number(gr.total ?? 0),
         lines,
       };

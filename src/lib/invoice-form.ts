@@ -26,6 +26,8 @@ export function invoiceCreatePayload(form: Omit<Invoice, "id">, status: InvoiceS
     status,
     serviceDate: dateKey(form.serviceDate ?? todayEAT()),
     period,
+    periodStart: dateKey(periodStart),
+    periodEnd: dateKey(periodEnd),
     deliveryNoteNo: form.deliveryNoteNo?.trim() || undefined,
     workTicketSerialNo: form.workTicketSerialNo?.trim() || undefined,
     clientNote: form.clientNote?.trim() || undefined,

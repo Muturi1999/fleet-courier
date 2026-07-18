@@ -173,9 +173,10 @@ export function ConsolidateByPeriodPanel({
     <div className="card">
       <h2 className="mb-1 text-[15px] font-semibold">Consolidate by period</h2>
       <p className="mb-4 text-xs text-fleet-gray-400">
-        Roll all eligible trip invoices in a billing period into one consolidated statement. Preview matches the RNT
+        Roll all eligible invoices whose billing period overlaps the selected dates into one consolidated statement.
+        Invoice issue dates may be later than the billing month. Preview matches the RNT
         monthly breakdown: each vehicle lists trip lines (date, make/model, reg, branch, ton, service type, route,
-        cost, work ticket no), vehicle subtotals (ex VAT / inc VAT), then a grand total at the foot.
+        net, VAT and total), with vehicle subtotals and a grand total at the foot.
       </p>
 
       <div className="mb-4">
@@ -272,7 +273,7 @@ export function ConsolidateByPeriodPanel({
           <span className="font-medium text-navy">{rangeLabel(from, to)}</span>
           <span className="ml-2 text-fleet-gray-500">
             {preview.invoiceCount} trip invoice(s) · {preview.vehicleCount} vehicle(s) · Subtotal KES {fmtN(preview.net)}{" "}
-            · Total KES {fmtN(preview.total)}
+            · VAT KES {fmtN(preview.vat)} · Total KES {fmtN(preview.total)}
           </span>
         </div>
       )}

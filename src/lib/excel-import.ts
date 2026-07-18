@@ -138,8 +138,31 @@ export type InvoiceImportRow = {
   total: number;
   status: string;
   period?: string;
+  periodStart?: string;
+  periodEnd?: string;
   serviceDate?: string;
 };
+
+function monthPeriodBounds(label: string): { periodStart?: string; periodEnd?: string } {
+  const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  const parts = label.trim().split(/\s+(?:-|–|—)\s+/);
+  const parse = (value: string) => {
+    const match = value.trim().match(/^([A-Za-z]+)\s+(\d{4})$/);
+    if (!match) return null;
+    const month = monthNames.indexOf(match[1].slice(0, 3).toLowerCase());
+    if (month < 0) return null;
+    return { year: Number(match[2]), month };
+  };
+  const start = parse(parts[0] ?? "");
+  const end = parse(parts[1] ?? parts[0] ?? "");
+  if (!start || !end) return {};
+  const iso = (year: number, month: number, day: number) =>
+    `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return {
+    periodStart: iso(start.year, start.month, 1),
+    periodEnd: iso(end.year, end.month, new Date(Date.UTC(end.year, end.month + 1, 0)).getUTCDate()),
+  };
+}
 
 export async function parseInvoicesExcel(file: File): Promise<InvoiceImportRow[]> {
   const json = await readWorkbook(file);
@@ -154,6 +177,7 @@ export async function parseInvoicesExcel(file: File): Promise<InvoiceImportRow[]
     const net = cellNum(row, "net", "cost", "amount");
     const vat = cellNum(row, "vat");
     const total = cellNum(row, "total", "gross") || net + vat;
+    const period = cellStr(row, "period", "month") || undefined;
 
     rows.push({
       invoiceNo,
@@ -165,7 +189,8 @@ export async function parseInvoicesExcel(file: File): Promise<InvoiceImportRow[]
       vat,
       total,
       status: cellStr(row, "status").toLowerCase() || "draft",
-      period: cellStr(row, "period", "month") || undefined,
+      period,
+      ...(period ? monthPeriodBounds(period) : {}),
       serviceDate: cellStr(row, "servicedate", "date") || undefined,
     });
   }

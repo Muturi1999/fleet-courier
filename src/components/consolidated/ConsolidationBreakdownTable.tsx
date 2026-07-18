@@ -21,8 +21,9 @@ function BreakdownRow({ line }: { line: ConsolidationBreakdownLine }) {
       <td>{line.serviceType || "—"}</td>
       <td>{line.route}</td>
       <td className="text-center font-mono tabular-nums">{line.trips}</td>
-      <td className="text-right font-mono">{fmtBreakdownMoney(line.cost)}</td>
-      <td />
+      <td className="text-right font-mono">{fmtBreakdownMoney(line.net)}</td>
+      <td className="text-right font-mono">{fmtBreakdownMoney(line.vat)}</td>
+      <td className="text-right font-mono">{fmtBreakdownMoney(line.total)}</td>
     </tr>
   );
 }
@@ -31,9 +32,10 @@ function VehicleSubtotalRow({ group }: { group: VehicleBreakdownGroup }) {
   return (
     <tr className="consolidated-breakdown-subtotal">
       <th colSpan={BREAKDOWN_LABEL_COL_SPAN} className="text-right">
-        {group.plate} — ex VAT / inc VAT
+        {group.plate} subtotal
       </th>
       <td className="text-right font-mono font-semibold">{fmtBreakdownMoney(group.net)}</td>
+      <td className="text-right font-mono font-semibold">{fmtBreakdownMoney(group.vat)}</td>
       <td className="text-right font-mono font-semibold">{fmtBreakdownMoney(group.total)}</td>
     </tr>
   );
@@ -82,6 +84,8 @@ export function ConsolidationBreakdownTable({
               {col.label}
             </th>
           ))}
+          <th className="text-right">Net</th>
+          <th className="text-right">VAT</th>
           <th className="text-right">Total</th>
         </tr>
       </thead>
@@ -96,9 +100,10 @@ export function ConsolidationBreakdownTable({
         <tfoot>
           <tr className="consolidated-doc-grand">
             <th colSpan={BREAKDOWN_LABEL_COL_SPAN} className="text-right">
-              TOTAL — ex VAT / inc VAT
+              TOTAL
             </th>
             <td className="text-right font-mono font-bold">{fmtBreakdownMoney(totals.net)}</td>
+            <td className="text-right font-mono font-bold">{fmtBreakdownMoney(summed.vat)}</td>
             <td className="text-right font-mono font-bold">{fmtBreakdownMoney(totals.total)}</td>
           </tr>
         </tfoot>

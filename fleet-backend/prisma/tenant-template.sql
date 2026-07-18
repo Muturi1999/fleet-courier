@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS invoices (
   status VARCHAR(20) NOT NULL DEFAULT 'draft',
   service_date DATE,
   period VARCHAR(20),
+  period_start DATE,
+  period_end DATE,
   delivery_note_no VARCHAR(40),
   work_ticket_serial_no VARCHAR(40),
   client_note TEXT,

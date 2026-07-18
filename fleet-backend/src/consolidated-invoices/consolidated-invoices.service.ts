@@ -100,11 +100,19 @@ export class ConsolidatedInvoicesService {
     const params: unknown[] = [];
     let i = 1;
     if (from) {
-      clauses.push(`COALESCE(wt.trip_date, i.service_date, i.created_at::date) >= $${i++}::date`);
+      clauses.push(
+        `COALESCE(
+          i.period_end, i.period_start, wt.trip_date, i.service_date, i.created_at::date
+        ) >= $${i++}::date`,
+      );
       params.push(from);
     }
     if (to) {
-      clauses.push(`COALESCE(wt.trip_date, i.service_date, i.created_at::date) <= $${i++}::date`);
+      clauses.push(
+        `COALESCE(
+          i.period_start, wt.trip_date, i.service_date, i.created_at::date
+        ) <= $${i++}::date`,
+      );
       params.push(to);
     }
     if (plate?.trim()) {
@@ -170,6 +178,7 @@ export class ConsolidatedInvoicesService {
         COUNT(*)::int AS invoice_count,
         COUNT(DISTINCT wt.id)::int AS ticket_count,
         COALESCE(SUM(i.net), 0) AS net,
+        COALESCE(SUM(i.vat), 0) AS vat,
         COALESCE(SUM(i.total), 0) AS total,
         MAX(COALESCE(wt.trip_date, i.service_date)) AS latest_trip,
         MAX(COALESCE(wt.created_at, i.created_at)) AS latest_activity
@@ -205,7 +214,7 @@ export class ConsolidatedInvoicesService {
         i.invoice_no,
         wt.id AS work_ticket_id,
         COALESCE(v.run_type, '') AS run_type,
-        TO_CHAR(COALESCE(wt.trip_date, i.service_date), 'YYYY-MM') AS trip_month
+        TO_CHAR(COALESCE(i.period_start, wt.trip_date, i.service_date), 'YYYY-MM') AS trip_month
        FROM invoices i
        LEFT JOIN work_tickets wt ON wt.id = i.work_ticket_id
        LEFT JOIN vehicles v ON UPPER(REPLACE(v.plate, ' ', '')) = UPPER(REPLACE(i.plate, ' ', ''))
@@ -253,14 +262,15 @@ export class ConsolidatedInvoicesService {
 
     const groups = new Map<
       string,
-      { key: string; invoiceCount: number; net: number; total: number; lines: Record<string, unknown>[] }
+      { key: string; invoiceCount: number; net: number; vat: number; total: number; lines: Record<string, unknown>[] }
     >();
 
     for (const row of lines) {
       const key = keyFor(row);
-      const bucket = groups.get(key) ?? { key, invoiceCount: 0, net: 0, total: 0, lines: [] };
+      const bucket = groups.get(key) ?? { key, invoiceCount: 0, net: 0, vat: 0, total: 0, lines: [] };
       bucket.invoiceCount += 1;
       bucket.net += Number(row.net ?? 0);
+      bucket.vat += Number(row.vat ?? 0);
       bucket.total += Number(row.total ?? 0);
       bucket.lines.push(row);
       groups.set(key, bucket);
@@ -268,6 +278,7 @@ export class ConsolidatedInvoicesService {
 
     const grouped = [...groups.values()].sort((a, b) => b.net - a.net);
     const net = lines.reduce((s, r) => s + Number(r.net ?? 0), 0);
+    const vat = lines.reduce((s, r) => s + Number(r.vat ?? 0), 0);
     const total = lines.reduce((s, r) => s + Number(r.total ?? 0), 0);
 
     return {
@@ -278,6 +289,7 @@ export class ConsolidatedInvoicesService {
       invoiceCount: lines.length,
       vehicleCount: new Set(lines.map((r) => String(r.plate ?? ""))).size,
       net,
+      vat,
       total,
       groups: grouped,
       lines,

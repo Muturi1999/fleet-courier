@@ -107,8 +107,10 @@ export class InvoicesService {
     const partnerId = await this.resolvePartnerId(dto.partnerId);
     const period = dto.period ? dto.period.slice(0, 120) : null;
     const created = (await this.db.queryOne(
-      `INSERT INTO invoices (invoice_no, plate, cls, route, days, net, vat, total, status, service_date, period, delivery_note_no, work_ticket_serial_no, client_note, partner_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+      `INSERT INTO invoices (
+        invoice_no, plate, cls, route, days, net, vat, total, status, service_date,
+        period, period_start, period_end, delivery_note_no, work_ticket_serial_no, client_note, partner_id
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
       [
         dto.invoiceNo,
         dto.plate,
@@ -121,6 +123,8 @@ export class InvoicesService {
         dto.status ?? "draft",
         dto.serviceDate ?? null,
         period,
+        dto.periodStart ?? null,
+        dto.periodEnd ?? null,
         dto.deliveryNoteNo ?? null,
         dto.workTicketSerialNo ?? null,
         dto.clientNote ?? null,
@@ -159,6 +163,8 @@ export class InvoicesService {
           dto.status ?? "draft",
           dto.serviceDate ?? null,
           period,
+          dto.periodStart ?? null,
+          dto.periodEnd ?? null,
           dto.deliveryNoteNo ?? null,
           dto.workTicketSerialNo ?? null,
           dto.clientNote ?? null,
@@ -175,7 +181,10 @@ export class InvoicesService {
       }
 
       const result = await client.query(
-        `INSERT INTO invoices (invoice_no, plate, cls, route, days, net, vat, total, status, service_date, period, delivery_note_no, work_ticket_serial_no, client_note, partner_id)
+        `INSERT INTO invoices (
+          invoice_no, plate, cls, route, days, net, vat, total, status, service_date,
+          period, period_start, period_end, delivery_note_no, work_ticket_serial_no, client_note, partner_id
+        )
          VALUES ${tuples.join(", ")} RETURNING *`,
         flat,
       );
@@ -202,6 +211,8 @@ export class InvoicesService {
       status: "status",
       serviceDate: "service_date",
       period: "period",
+      periodStart: "period_start",
+      periodEnd: "period_end",
       deliveryNoteNo: "delivery_note_no",
       workTicketSerialNo: "work_ticket_serial_no",
       clientNote: "client_note",

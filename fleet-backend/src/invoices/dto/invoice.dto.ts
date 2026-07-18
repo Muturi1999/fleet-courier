@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
-import { IsIn, IsInt, IsNumber, IsOptional, IsString, Min } from "class-validator";
+import { IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Min } from "class-validator";
 
 export class CreateInvoiceDto {
   @ApiProperty({ example: "#19299" })
@@ -49,6 +49,16 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsString()
   period?: string;
+
+  @ApiPropertyOptional({ description: "Billing period start date", example: "2026-05-01" })
+  @IsOptional()
+  @IsDateString()
+  periodStart?: string;
+
+  @ApiPropertyOptional({ description: "Billing period end date", example: "2026-05-31" })
+  @IsOptional()
+  @IsDateString()
+  periodEnd?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -26,6 +26,16 @@ export class WorkTicketInvoiceService {
     return d.toLocaleString("en-GB", { month: "short", year: "numeric" });
   }
 
+  private periodBounds(tripDate: string): { start: string; end: string } {
+    const [year, month] = tripDate.split("-").map(Number);
+    if (!year || !month) return { start: tripDate, end: tripDate };
+    const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    return {
+      start: `${year}-${String(month).padStart(2, "0")}-01`,
+      end: `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`,
+    };
+  }
+
   private invoiceNoForSerial(serialNo: string): string {
     return `WT-${serialNo}`;
   }
@@ -61,13 +71,15 @@ export class WorkTicketInvoiceService {
         : String(ticket.trip_date).slice(0, 10);
     const invoiceNo = this.invoiceNoForSerial(ticket.serial_no);
     const period = this.formatPeriod(tripDate);
+    const periodBounds = this.periodBounds(tripDate);
     const id = randomUUID();
     const days = this.invoiceDaysForTicket(ticket);
 
     const sql = `INSERT INTO invoices (
       id, invoice_no, plate, cls, route, days, net, vat, total, status,
-      service_date, period, delivery_note_no, work_ticket_serial_no, work_ticket_id, partner_id
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10,$11,$12,$13,$14,$15)
+      service_date, period, period_start, period_end, delivery_note_no,
+      work_ticket_serial_no, work_ticket_id, partner_id
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10,$11,$12,$13,$14,$15,$16,$17)
     RETURNING *`;
 
     const params = [
@@ -82,6 +94,8 @@ export class WorkTicketInvoiceService {
       ticket.total,
       tripDate,
       period,
+      periodBounds.start,
+      periodBounds.end,
       null,
       ticket.serial_no,
       ticket.id,
@@ -99,12 +113,14 @@ export class WorkTicketInvoiceService {
     const days = this.invoiceDaysForTicket(ticket);
     const sql = `UPDATE invoices SET
       plate = $2, route = $3, days = $4, net = $5, vat = $6, total = $7,
-      service_date = $8, period = $9, delivery_note_no = NULL, work_ticket_serial_no = $10, updated_at = NOW()
+      service_date = $8, period = $9, period_start = $10, period_end = $11,
+      delivery_note_no = NULL, work_ticket_serial_no = $12, updated_at = NOW()
       WHERE work_ticket_id = $1 AND consolidated_invoice_id IS NULL`;
     const tripDate =
       ticket.trip_date instanceof Date
         ? ticket.trip_date.toISOString().slice(0, 10)
         : String(ticket.trip_date).slice(0, 10);
+    const periodBounds = this.periodBounds(tripDate);
     const params = [
       ticket.id,
       ticket.plate,
@@ -115,6 +131,8 @@ export class WorkTicketInvoiceService {
       ticket.total,
       tripDate,
       this.formatPeriod(tripDate),
+      periodBounds.start,
+      periodBounds.end,
       ticket.serial_no,
     ];
     if (client) {

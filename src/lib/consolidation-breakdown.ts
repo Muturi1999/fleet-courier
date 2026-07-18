@@ -43,10 +43,9 @@ export const CONSOLIDATION_BREAKDOWN_COLUMNS = [
   { key: "serviceType", label: "Service Type" },
   { key: "route", label: "Route" },
   { key: "trip", label: "Days/Trip" },
-  { key: "cost", label: "Cost", align: "right" as const },
 ] as const;
 
-/** Label columns before the two amount cells (ex VAT / inc VAT). */
+/** Label columns before the Net / VAT / Total amount cells. */
 export const BREAKDOWN_LABEL_COL_SPAN = 7;
 
 export function fmtBreakdownMoney(n: number | string | null | undefined): string {
