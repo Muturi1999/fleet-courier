@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsArray, IsOptional, IsString, IsUUID } from "class-validator";
+import { IsArray, IsBoolean, IsDateString, IsIn, IsOptional, IsString, IsUUID } from "class-validator";
 
 export class CreateConsolidatedInvoiceDto {
   @ApiPropertyOptional({ type: [String] })
@@ -14,11 +14,11 @@ export class CreateConsolidatedInvoiceDto {
   plate?: string;
 
   @ApiProperty()
-  @IsString()
+  @IsDateString()
   periodStart!: string;
 
   @ApiProperty()
-  @IsString()
+  @IsDateString()
   periodEnd!: string;
 
   @ApiPropertyOptional()
@@ -29,8 +29,13 @@ export class CreateConsolidatedInvoiceDto {
   /** vehicle = single plate batch (default); period = all eligible trips in range */
   @ApiPropertyOptional({ enum: ["vehicle", "period"] })
   @IsOptional()
-  @IsString()
+  @IsIn(["vehicle", "period"])
   mode?: "vehicle" | "period";
+
+  @ApiPropertyOptional({ description: "Create one vehicle-grouped statement containing all vehicles" })
+  @IsOptional()
+  @IsBoolean()
+  allVehicles?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -27,8 +27,8 @@ export function sortConsolidatedNewestFirst<T extends { createdAt?: string; invo
   return [...rows].sort((a, b) => {
     const byTime = (b.createdAt ?? b.invoiceDate ?? "").localeCompare(a.createdAt ?? a.invoiceDate ?? "");
     if (byTime !== 0) return byTime;
-    const an = Number.parseInt(a.invoiceNo, 10);
-    const bn = Number.parseInt(b.invoiceNo, 10);
+    const an = Number.parseInt(a.invoiceNo.match(/\d+/)?.[0] ?? "", 10);
+    const bn = Number.parseInt(b.invoiceNo.match(/\d+/)?.[0] ?? "", 10);
     if (!Number.isNaN(an) && !Number.isNaN(bn) && bn !== an) return bn - an;
     return b.invoiceNo.localeCompare(a.invoiceNo);
   });

@@ -41,6 +41,7 @@ type BillableVehicle = {
   invoiceCount: number;
   ticketCount: number;
   net: number;
+  vat: number;
   total: number;
   latestTrip?: string;
 };
@@ -56,12 +57,15 @@ function mapBillableVehicle(row: Record<string, unknown>): BillableVehicle {
     invoiceCount: Number(row.invoiceCount ?? row.invoice_count ?? 0),
     ticketCount: Number(row.ticketCount ?? row.ticket_count ?? 0),
     net: Number(row.net ?? 0),
+    vat: Number(row.vat ?? 0),
     total: Number(row.total ?? 0),
     latestTrip: (row.latestTrip ?? row.latest_trip) as string | undefined,
   };
 }
 
 type PreviewLine = WorkTicket & { invoiceNo?: string; cls?: string; runType?: string; days?: number; agreedRate?: number };
+
+const ALL_VEHICLES = "All vehicles";
 
 function apiErrorMessage(err: { message?: string | string[]; error?: string }): string {
   if (Array.isArray(err.message)) return err.message.join(", ");
@@ -157,7 +161,7 @@ export default function ConsolidatedBillingPage() {
   const [preview, setPreview] = useState<PreviewLine[]>([]);
   const [from, setFrom] = useState(periodDefaults.from);
   const [to, setTo] = useState(periodDefaults.to);
-  const [plate, setPlate] = useState("");
+  const [plate, setPlate] = useState(ALL_VEHICLES);
   const [viewId, setViewId] = useState<string | null>(null);
   const [viewData, setViewData] = useState<{ invoice: ConsolidatedInvoice; tickets: WorkTicket[] } | null>(null);
   const [reviseData, setReviseData] = useState<{ invoice: ConsolidatedInvoice; tickets: WorkTicket[] } | null>(null);
@@ -171,7 +175,7 @@ export default function ConsolidatedBillingPage() {
   const vehicleConsolidated = useMemo(
     () =>
       sortConsolidatedNewestFirst(
-        invoices.filter((inv) => inv.consolidationType !== "period" && Boolean(inv.plate?.trim())),
+        invoices.filter((inv) => inv.consolidationType !== "period"),
       ),
     [invoices],
   );
@@ -193,7 +197,8 @@ export default function ConsolidatedBillingPage() {
 
   const vehicleOptions = useMemo(
     () =>
-      allPlates
+      [{ value: ALL_VEHICLES, label: "All vehicles — one grouped statement" }].concat(
+        allPlates
         .sort((a, b) => {
           const ba = billableMap.get(a);
           const bb = billableMap.get(b);
@@ -214,6 +219,7 @@ export default function ConsolidatedBillingPage() {
               : p,
           };
         }),
+      ),
     [allPlates, billableMap],
   );
 
@@ -256,15 +262,17 @@ export default function ConsolidatedBillingPage() {
 
   const loadPreview = useCallback(
     async (selectedPlate: string) => {
-      const resolved = resolveVehiclePlate(selectedPlate, allPlates);
-      if (!resolved) {
+      const allVehicles = selectedPlate === ALL_VEHICLES || !selectedPlate.trim();
+      const resolved = allVehicles ? "" : resolveVehiclePlate(selectedPlate, allPlates);
+      if (!allVehicles && !resolved) {
         setPreview([]);
         return;
       }
       setPreviewLoading(true);
       try {
+        const plateQuery = resolved ? `&plate=${encodeURIComponent(resolved)}` : "";
         const res = await fetch(
-          `/api/consolidated-invoices?unbilled=true&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&plate=${encodeURIComponent(resolved)}`,
+          `/api/consolidated-invoices?unbilled=true&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${plateQuery}`,
           { cache: "no-store" },
         );
         if (res.ok) {
@@ -289,26 +297,38 @@ export default function ConsolidatedBillingPage() {
     return () => window.clearTimeout(handle);
   }, [plate, from, to, loadPreview]);
 
-  const selectedVehicle = billableMap.get(resolveVehiclePlate(plate, allPlates));
+  const isAllVehicles = plate === ALL_VEHICLES || !plate.trim();
+  const selectedVehicle = isAllVehicles ? undefined : billableMap.get(resolveVehiclePlate(plate, allPlates));
+  const previewNet = preview.reduce((sum, row) => sum + Number(row.net ?? 0), 0);
+  const previewVat = preview.reduce((sum, row) => sum + Number(row.vat ?? 0), 0);
+  const previewTotal = preview.reduce((sum, row) => sum + Number(row.total ?? 0), 0);
+  const previewVehicleCount = new Set(preview.map((row) => row.plate)).size;
 
   const handlePlateChange = (value: string) => {
     setPlate(value);
   };
 
   const consolidate = async () => {
-    const resolved = resolveVehiclePlate(plate, allPlates);
-    if (!resolved) {
+    const allVehicles = plate === ALL_VEHICLES || !plate.trim();
+    const resolved = allVehicles ? "" : resolveVehiclePlate(plate, allPlates);
+    if (!allVehicles && !resolved) {
       toast("Select or type a vehicle plate");
       return;
     }
-    if (resolved !== plate) setPlate(resolved);
+    if (!allVehicles && resolved !== plate) setPlate(resolved);
 
     setConsolidating(true);
     try {
       const res = await fetch("/api/consolidated-invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plate: resolved, periodStart: from, periodEnd: to }),
+        body: JSON.stringify({
+          mode: "vehicle",
+          allVehicles,
+          plate: resolved || undefined,
+          periodStart: from,
+          periodEnd: to,
+        }),
       });
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { message?: string | string[]; error?: string };
@@ -316,10 +336,14 @@ export default function ConsolidatedBillingPage() {
         return;
       }
       const created = (await res.json()) as ConsolidatedInvoice;
-      toast(`Consolidated serial ${created.invoiceNo} — ${created.totalTrips} trip invoice(s) for ${resolved}`);
+      toast(
+        `Consolidated serial ${created.invoiceNo} — ${created.totalTrips} trip invoice(s) for ${
+          allVehicles ? "all vehicles" : resolved
+        }`,
+      );
       setHighlightId(created.id);
       setPreview([]);
-      await loadPreview(resolved);
+      await loadPreview(allVehicles ? ALL_VEHICLES : resolved);
       await refresh();
     } catch {
       toast("Consolidation failed — check period and vehicle");
@@ -535,8 +559,8 @@ export default function ConsolidatedBillingPage() {
         <div className="card">
           <h2 className="mb-1 text-[15px] font-semibold">Consolidate trip invoices by vehicle</h2>
           <p className="mb-4 text-xs text-fleet-gray-400">
-            Pick a billing period and vehicle to consolidate trip invoices. Preview uses the RNT breakdown columns; print
-            shows the same layout with ex VAT and inc VAT totals.
+            Select a billing period, then choose one vehicle or All vehicles. All vehicles creates one statement grouped
+            by vehicle, with invoice lines and Net, VAT, and Total subtotals for each vehicle.
           </p>
 
           <div className="mb-4 grid grid-cols-1 items-end gap-3 lg:grid-cols-[minmax(140px,1fr)_minmax(140px,1fr)_minmax(200px,2fr)_auto]">
@@ -554,7 +578,7 @@ export default function ConsolidatedBillingPage() {
                 listId="soa-vehicle-plates"
                 mono
                 value={plate}
-                placeholder="Type plate e.g. KDE 073Q"
+                placeholder="All vehicles or type a plate"
                 options={vehicleOptions}
                 onChange={handlePlateChange}
               />
@@ -562,10 +586,14 @@ export default function ConsolidatedBillingPage() {
             <button
               type="button"
               className="btn-accent h-[38px] shrink-0 whitespace-nowrap"
-              disabled={!plate.trim() || consolidating || previewLoading}
+              disabled={consolidating || previewLoading || preview.length === 0}
               onClick={consolidate}
             >
-              {consolidating ? "Consolidating…" : "Consolidate for vehicle"}
+              {consolidating
+                ? "Consolidating…"
+                : isAllVehicles
+                  ? "Consolidate all vehicles"
+                  : "Consolidate selected vehicle"}
             </button>
           </div>
 
@@ -573,27 +601,38 @@ export default function ConsolidatedBillingPage() {
             <div className="mb-4 rounded-fleet-sm border border-teal/20 bg-teal/5 px-4 py-3 text-sm text-fleet-gray-700">
               <span className="font-medium text-navy">{selectedVehicle.plate}</span>
               <span className="ml-2 text-fleet-gray-500">
-                {selectedVehicle.invoiceCount} trip invoice(s) · Subtotal KES {fmtN(selectedVehicle.net)} · Total KES {fmtN(selectedVehicle.total)}
+                {selectedVehicle.invoiceCount} invoice(s) · Net KES {fmtN(selectedVehicle.net)} · VAT KES{" "}
+                {fmtN(selectedVehicle.vat)} · Total KES {fmtN(selectedVehicle.total)}
+              </span>
+            </div>
+          )}
+
+          {isAllVehicles && preview.length > 0 && (
+            <div className="mb-4 rounded-fleet-sm border border-teal/20 bg-teal/5 px-4 py-3 text-sm text-fleet-gray-700">
+              <span className="font-medium text-navy">All vehicles</span>
+              <span className="ml-2 text-fleet-gray-500">
+                {preview.length} invoice(s) · {previewVehicleCount} vehicle(s) · Net KES {fmtN(previewNet)} · VAT KES{" "}
+                {fmtN(previewVat)} · Total KES {fmtN(previewTotal)}
               </span>
             </div>
           )}
 
           <div className="table-wrap mb-4 max-h-[28rem] overflow-y-auto">
-            {!plate.trim() ? (
-              <p className="py-8 text-center text-sm text-fleet-gray-400">Select a vehicle to preview trip invoices</p>
-            ) : previewLoading ? (
+            {previewLoading ? (
               <p className="py-8 text-center text-sm text-fleet-gray-400">Loading…</p>
             ) : preview.length === 0 ? (
-              <p className="py-8 text-center text-sm text-fleet-gray-400">No uninvoiced trip invoices for this vehicle in range</p>
+              <p className="py-8 text-center text-sm text-fleet-gray-400">
+                No unconsolidated invoices in this billing period
+              </p>
             ) : (
               <ConsolidationBreakdownTable
                 compact
-                layout="flat"
+                layout={isAllVehicles ? "byVehicle" : "flat"}
                 lines={preview.map((t) =>
                   mapToBreakdownLine({ ...t, cls: t.cls } as unknown as Record<string, unknown>),
                 )}
-                grandNet={preview.reduce((s, t) => s + t.net, 0)}
-                grandTotal={preview.reduce((s, t) => s + t.total, 0)}
+                grandNet={previewNet}
+                grandTotal={previewTotal}
               />
             )}
           </div>

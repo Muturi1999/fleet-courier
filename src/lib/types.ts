@@ -267,6 +267,7 @@ export type ConsolidatedInvoice = {
     cls?: string;
     runType?: string;
     groupBy?: string;
+    allVehicles?: boolean;
   };
   clientNote?: string;
   revisedFromId?: string;

@@ -51,7 +51,7 @@ export class ConsolidatedInvoicesService {
       return this.db.queryAll(
         `SELECT * FROM consolidated_invoices ${where}
          ORDER BY created_at DESC,
-           CASE WHEN invoice_no ~ '^\\d+$' THEN invoice_no::bigint ELSE 0 END DESC`,
+           COALESCE(NULLIF(regexp_replace(invoice_no, '\\D', '', 'g'), '')::bigint, 0) DESC`,
         params,
       );
     }
@@ -63,7 +63,7 @@ export class ConsolidatedInvoicesService {
       params,
       page,
       limit,
-      orderBy: `created_at DESC, CASE WHEN invoice_no ~ '^\\d+$' THEN invoice_no::bigint ELSE 0 END DESC`,
+      orderBy: `created_at DESC, COALESCE(NULLIF(regexp_replace(invoice_no, '\\D', '', 'g'), '')::bigint, 0) DESC`,
     }) as Promise<PaginatedResult<Record<string, unknown>>>;
   }
 
@@ -100,19 +100,11 @@ export class ConsolidatedInvoicesService {
     const params: unknown[] = [];
     let i = 1;
     if (from) {
-      clauses.push(
-        `COALESCE(
-          i.period_end, i.period_start, wt.trip_date, i.service_date, i.created_at::date
-        ) >= $${i++}::date`,
-      );
+      clauses.push(`i.period_start >= $${i++}::date`);
       params.push(from);
     }
     if (to) {
-      clauses.push(
-        `COALESCE(
-          i.period_start, wt.trip_date, i.service_date, i.created_at::date
-        ) <= $${i++}::date`,
-      );
+      clauses.push(`i.period_end <= $${i++}::date`);
       params.push(to);
     }
     if (plate?.trim()) {
@@ -304,69 +296,42 @@ export class ConsolidatedInvoicesService {
 
   async findWithTickets(id: string) {
     const invoice = await this.findOne(id);
-    const ids = (invoice as { work_ticket_ids: string[] }).work_ticket_ids ?? [];
-    if (ids.length) {
-      const tickets = await this.db.queryAll(
-        `SELECT wt.*,
-          GREATEST(COALESCE(NULLIF(i.days, 0), 1), 1) AS days,
-          COALESCE(NULLIF(wt.agreed_rate, 0), applicable_rate.rate, 0) AS agreed_rate,
-          COALESCE(NULLIF(TRIM(i.cls), ''), '') AS cls
-         FROM work_tickets wt
-         LEFT JOIN invoices i ON i.work_ticket_id = wt.id
-         LEFT JOIN LATERAL (
-           SELECT r.rate
-           FROM rates r
-           WHERE r.status = 'active'
-             AND r.cls = COALESCE(NULLIF(TRIM(i.cls), ''), '7T')
-             AND (
-               LOWER(TRIM(r.route)) = LOWER(TRIM(COALESCE(NULLIF(TRIM(wt.route), ''), i.route)))
-               OR LOWER(r.route) LIKE '%' || LOWER(TRIM(COALESCE(NULLIF(TRIM(wt.route), ''), i.route))) || '%'
-               OR LOWER(COALESCE(NULLIF(TRIM(wt.route), ''), i.route)) LIKE '%' || LOWER(TRIM(r.route)) || '%'
-             )
-           ORDER BY r.effective_from DESC
-           LIMIT 1
-         ) applicable_rate ON TRUE
-         WHERE wt.id = ANY($1::uuid[])
-         ORDER BY wt.trip_date`,
-        [ids],
-      );
-      return { invoice, tickets };
-    }
-
     const invoiceRows = await this.db.queryAll(
       `SELECT
-        i.id,
-        i.invoice_no AS serial_no,
-        i.service_date AS trip_date,
+        COALESCE(wt.id, i.id) AS id,
+        COALESCE(wt.serial_no, i.invoice_no) AS serial_no,
+        COALESCE(wt.trip_date, i.service_date) AS trip_date,
         i.plate,
         i.cls,
-        i.route,
-        '' AS driver_name,
-        '' AS make,
-        '' AS branch,
-        '[]'::jsonb AS legs,
-        i.net,
-        i.vat,
-        i.total,
+        COALESCE(NULLIF(TRIM(wt.route), ''), i.route) AS route,
+        COALESCE(wt.driver_name, '') AS driver_name,
+        COALESCE(wt.make, '') AS make,
+        COALESCE(wt.branch, '') AS branch,
+        COALESCE(wt.legs, '[]'::jsonb) AS legs,
+        COALESCE(wt.net, i.net) AS net,
+        COALESCE(wt.vat, i.vat) AS vat,
+        COALESCE(wt.total, i.total) AS total,
         GREATEST(COALESCE(NULLIF(i.days, 0), 1), 1) AS days,
-        COALESCE(applicable_rate.rate, 0) AS agreed_rate,
-        i.invoice_no
+        COALESCE(NULLIF(wt.agreed_rate, 0), applicable_rate.rate, 0) AS agreed_rate,
+        i.invoice_no,
+        wt.id AS work_ticket_id
        FROM invoices i
+       LEFT JOIN work_tickets wt ON wt.id = i.work_ticket_id
        LEFT JOIN LATERAL (
          SELECT r.rate
          FROM rates r
          WHERE r.status = 'active'
            AND r.cls = i.cls
            AND (
-             LOWER(TRIM(r.route)) = LOWER(TRIM(i.route))
-             OR LOWER(r.route) LIKE '%' || LOWER(TRIM(i.route)) || '%'
-             OR LOWER(i.route) LIKE '%' || LOWER(TRIM(r.route)) || '%'
+             LOWER(TRIM(r.route)) = LOWER(TRIM(COALESCE(NULLIF(TRIM(wt.route), ''), i.route)))
+             OR LOWER(r.route) LIKE '%' || LOWER(TRIM(COALESCE(NULLIF(TRIM(wt.route), ''), i.route))) || '%'
+             OR LOWER(COALESCE(NULLIF(TRIM(wt.route), ''), i.route)) LIKE '%' || LOWER(TRIM(r.route)) || '%'
            )
          ORDER BY r.effective_from DESC
          LIMIT 1
        ) applicable_rate ON TRUE
        WHERE i.consolidated_invoice_id = $1
-       ORDER BY i.service_date ASC, i.invoice_no ASC`,
+       ORDER BY COALESCE(wt.trip_date, i.service_date) ASC, i.plate ASC, i.invoice_no ASC`,
       [id],
     );
     return { invoice, tickets: invoiceRows };
@@ -400,9 +365,12 @@ export class ConsolidatedInvoicesService {
     );
   }
 
-  private async nextNumbers() {
+  private async nextNumbers(periodStart: string) {
     const serial = await this.sequences.next(SEQUENCE_KEYS.consolidatedInvoiceSerial);
-    const s = String(serial);
+    const month = Number(periodStart.slice(5, 7));
+    const prefixes = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+    const prefix = prefixes[month - 1] ?? "S";
+    const s = `${prefix}-${serial}`;
     return { invoiceNo: s, refNo: s };
   }
 
@@ -411,6 +379,7 @@ export class ConsolidatedInvoicesService {
     invoiceIds: string[];
     plate?: string;
     mode: "vehicle" | "period";
+    allVehicles: boolean;
     filters: BillableFilters;
   }> {
     const filters = this.billableFiltersFromDto(dto);
@@ -427,6 +396,7 @@ export class ConsolidatedInvoicesService {
         workTicketIds: rows.map((r) => r.work_ticket_id).filter(Boolean) as string[],
         invoiceIds: rows.map((r) => r.invoice_id),
         mode: dto.mode === "period" ? "period" : "vehicle",
+        allVehicles: false,
         filters,
       };
     }
@@ -437,7 +407,16 @@ export class ConsolidatedInvoicesService {
       if (!invoiceIds.length) {
         throw new BadRequestException("No billable trip invoices in this period for the selected filters");
       }
-      return { workTicketIds, invoiceIds, mode: "period", filters };
+      return { workTicketIds, invoiceIds, mode: "period", allVehicles: true, filters };
+    }
+    if (dto.mode === "vehicle" && dto.allVehicles) {
+      const rows = (await this.findUnbilled(dto.periodStart, dto.periodEnd, undefined, filters)) as BillableRow[];
+      const invoiceIds = rows.map((r) => r.invoice_id);
+      const workTicketIds = rows.map((r) => r.work_ticket_id).filter(Boolean) as string[];
+      if (!invoiceIds.length) {
+        throw new BadRequestException("No billable vehicle invoices in this billing period");
+      }
+      return { workTicketIds, invoiceIds, mode: "vehicle", allVehicles: true, filters };
     }
     if (!dto.plate?.trim()) {
       throw new BadRequestException("Provide plate, period mode, or workTicketIds");
@@ -449,11 +428,14 @@ export class ConsolidatedInvoicesService {
     if (!invoiceIds.length) {
       throw new BadRequestException(`No billable trip invoices for ${plate} in this period`);
     }
-    return { workTicketIds, invoiceIds, plate, mode: "vehicle", filters };
+    return { workTicketIds, invoiceIds, plate, mode: "vehicle", allVehicles: false, filters };
   }
 
   async create(dto: CreateConsolidatedInvoiceDto) {
-    const { workTicketIds, invoiceIds, plate: vehiclePlate, mode, filters } =
+    if (dto.periodStart > dto.periodEnd) {
+      throw new BadRequestException("Period start must be on or before period end");
+    }
+    const { workTicketIds, invoiceIds, plate: vehiclePlate, mode, allVehicles, filters } =
       await this.resolveBillableItems(dto);
 
     const invoices = (await this.db.queryAll(
@@ -493,7 +475,7 @@ export class ConsolidatedInvoicesService {
       return s + 1;
     }, 0);
     const plate =
-      mode === "vehicle"
+      mode === "vehicle" && !allVehicles
         ? (vehiclePlate ??
           (await this.db.queryOne<{ plate: string }>(`SELECT plate FROM invoices WHERE id = $1`, [invoiceIds[0]]))
             ?.plate)
@@ -501,8 +483,9 @@ export class ConsolidatedInvoicesService {
     const filterMeta = {
       ...filters,
       groupBy: mode === "period" ? "period" : "vehicle",
+      allVehicles,
     };
-    const { invoiceNo, refNo } = await this.nextNumbers();
+    const { invoiceNo, refNo } = await this.nextNumbers(dto.periodStart);
     const id = randomUUID();
 
     return this.db.withTransaction(async (client) => {
@@ -673,7 +656,7 @@ export class ConsolidatedInvoicesService {
       ? (source.work_ticket_ids as string[])
       : [];
 
-    const { invoiceNo, refNo } = await this.nextNumbers();
+    const { invoiceNo, refNo } = await this.nextNumbers(dto.periodStart);
     const newId = randomUUID();
     const invoiceDate = dto.invoiceDate?.trim() || new Date().toISOString().slice(0, 10);
 
@@ -780,7 +763,7 @@ export class ConsolidatedInvoicesService {
     const workTicketIds = Array.isArray(source.work_ticket_ids)
       ? (source.work_ticket_ids as string[])
       : [];
-    const { invoiceNo, refNo } = await this.nextNumbers();
+    const { invoiceNo, refNo } = await this.nextNumbers(String(source.period_start ?? ""));
     const newId = randomUUID();
     const note =
       clientNote?.trim() ||
