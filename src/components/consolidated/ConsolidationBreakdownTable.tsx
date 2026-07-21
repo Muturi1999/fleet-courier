@@ -41,6 +41,15 @@ function VehicleSubtotalRow({ group }: { group: VehicleBreakdownGroup }) {
   );
 }
 
+/** Blank row between vehicles — keeps layout ready to restore subtotals later. */
+function VehicleSeparatorRow() {
+  return (
+    <tr className="consolidated-breakdown-separator" aria-hidden>
+      <td colSpan={BREAKDOWN_LABEL_COL_SPAN + 3} className="h-2 border-0 bg-transparent p-0" />
+    </tr>
+  );
+}
+
 export function ConsolidationBreakdownTable({
   lines,
   groups,
@@ -49,6 +58,7 @@ export function ConsolidationBreakdownTable({
   showGrandTotal = true,
   grandNet,
   grandTotal,
+  vehicleSubtotals = "separator",
 }: {
   lines?: ConsolidationBreakdownLine[];
   groups?: VehicleBreakdownGroup[];
@@ -57,6 +67,8 @@ export function ConsolidationBreakdownTable({
   showGrandTotal?: boolean;
   grandNet?: number;
   grandTotal?: number;
+  /** separator = blank row between vehicles; full = labeled subtotal amounts (legacy). */
+  vehicleSubtotals?: "separator" | "full";
 }) {
   const vehicleGroups =
     groups ?? (layout === "byVehicle" && lines ? groupBreakdownByVehicle(lines) : null);
@@ -92,7 +104,7 @@ export function ConsolidationBreakdownTable({
       <tbody>
         {layout === "byVehicle" && vehicleGroups
           ? vehicleGroups.map((group) => (
-              <VehicleGroupRows key={group.plate} group={group} />
+              <VehicleGroupRows key={group.plate} group={group} vehicleSubtotals={vehicleSubtotals} />
             ))
           : flatLines.map((line) => <BreakdownRow key={line.id} line={line} />)}
       </tbody>
@@ -112,13 +124,19 @@ export function ConsolidationBreakdownTable({
   );
 }
 
-function VehicleGroupRows({ group }: { group: VehicleBreakdownGroup }) {
+function VehicleGroupRows({
+  group,
+  vehicleSubtotals,
+}: {
+  group: VehicleBreakdownGroup;
+  vehicleSubtotals: "separator" | "full";
+}) {
   return (
     <>
       {group.lines.map((line) => (
         <BreakdownRow key={line.id} line={line} />
       ))}
-      <VehicleSubtotalRow group={group} />
+      {vehicleSubtotals === "full" ? <VehicleSubtotalRow group={group} /> : <VehicleSeparatorRow />}
     </>
   );
 }

@@ -11,6 +11,11 @@ import {
 import { MetricCard, MetricsGrid } from "@/components/ui/MetricCard";
 import type { ConsolidatedInvoice, Invoice, Vehicle } from "@/lib/types";
 import { dateKey, formatEATDisplay, todayEAT } from "@/lib/dates";
+import {
+  invoiceInBillingPeriod,
+  pickDashboardConsolidated,
+  resolveActiveBillingPeriod,
+} from "@/lib/dashboard-billing";
 import { buildDashboardWorkflow, type WorkflowStepState } from "@/lib/dashboard-workflow";
 import { fmtN, formatMillions, sumBy, toNum } from "@/lib/utils";
 import type { EtimsDashboard } from "@/lib/etims-types";
@@ -54,16 +59,28 @@ export function AdminDashboard() {
 
   const loading = invLoading || conLoading || vehLoading || schLoading;
 
+  const billingPeriod = useMemo(() => resolveActiveBillingPeriod(consolidated), [consolidated]);
+
+  const periodInvoices = useMemo(
+    () => invoices.filter((i) => invoiceInBillingPeriod(i, billingPeriod)),
+    [invoices, billingPeriod],
+  );
+
+  const focusConsolidated = useMemo(
+    () => pickDashboardConsolidated(consolidated, billingPeriod),
+    [consolidated, billingPeriod],
+  );
+
   const stats = useMemo(() => {
     const today = todayEAT();
-    const todayInvoices = invoices.filter(
+    const todayInvoices = periodInvoices.filter(
       (i) => dateKey(i.serviceDate) === today || dateKey(i.createdAt) === today,
     );
-    const scoped = todayInvoices.length > 0 ? todayInvoices : invoices;
+    const scoped = todayInvoices.length > 0 ? todayInvoices : periodInvoices;
     const totalInclVat = sumBy(scoped, (i) => i.total);
     const totalNet = sumBy(scoped, (i) => i.net);
     const totalVat = sumBy(scoped, (i) => i.vat);
-    const periodLabel = scoped.length && todayInvoices.length ? `Today · ${formatEATDisplay(today)}` : "All time";
+    const periodLabel = billingPeriod.label;
     const plates = new Set(scoped.map((i) => i.plate));
 
     return {
@@ -76,30 +93,33 @@ export function AdminDashboard() {
       periodLabel,
       uniquePlates: plates.size,
     };
-  }, [invoices, vehicles, schedules]);
+  }, [periodInvoices, billingPeriod.label, vehicles, schedules]);
 
   const workflow = useMemo(
     () =>
-      buildDashboardWorkflow({
-        scheduleCount: stats.scheduleCount,
-        invoices,
-        consolidated,
-        periodLabel: stats.periodLabel,
-        etims: etims
-          ? {
-              enabled: etims.enabled,
-              awaitingFiling: etims.stats.awaitingFiling,
-              filed: etims.stats.filed,
-              failed: etims.stats.failed,
-            }
-          : undefined,
-      }),
-    [stats.scheduleCount, stats.periodLabel, invoices, consolidated, etims],
+      buildDashboardWorkflow(
+        {
+          scheduleCount: stats.scheduleCount,
+          invoices: periodInvoices,
+          consolidated,
+          periodLabel: stats.periodLabel,
+          etims: etims
+            ? {
+                enabled: etims.enabled,
+                awaitingFiling: etims.stats.awaitingFiling,
+                filed: etims.stats.filed,
+                failed: etims.stats.failed,
+              }
+            : undefined,
+        },
+        { focusConsolidated },
+      ),
+    [stats.scheduleCount, stats.periodLabel, periodInvoices, consolidated, etims, focusConsolidated],
   );
 
   const topRoutes = useMemo(() => {
     const byRoute = new Map<string, number>();
-    for (const inv of invoices) {
+    for (const inv of periodInvoices) {
       const key = inv.route.trim();
       if (!key) continue;
       byRoute.set(key, (byRoute.get(key) ?? 0) + toNum(inv.total));
@@ -108,11 +128,11 @@ export function AdminDashboard() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8)
       .map(([name, total]) => ({ id: name, name, total }));
-  }, [invoices]);
+  }, [periodInvoices]);
   const maxRoute = toNum(topRoutes[0]?.total) || 1;
 
   const recentActivity = useMemo(() => {
-    return [...invoices]
+    return [...periodInvoices]
       .sort((a, b) => {
         const ca = a.createdAt ?? "";
         const cb = b.createdAt ?? "";
@@ -126,7 +146,7 @@ export function AdminDashboard() {
         text: `Invoice ${inv.invoiceNo} · ${inv.plate} — ${inv.route}`,
         time: formatEATDisplay(inv.serviceDate) || "—",
       }));
-  }, [invoices]);
+  }, [periodInvoices]);
 
   if (loading) {
     return <p className="py-12 text-center text-sm text-fleet-gray-400">Loading dashboard…</p>;

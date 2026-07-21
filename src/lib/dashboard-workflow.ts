@@ -44,6 +44,11 @@ export function pickWorkflowConsolidated(consolidated: ConsolidatedInvoice[]): C
   return rows[0] ?? null;
 }
 
+export type DashboardWorkflowOptions = {
+  /** When set, workflow follows this SOA (e.g. May draft) instead of latest sent SOA. */
+  focusConsolidated?: ConsolidatedInvoice | null;
+};
+
 function statusPhrase(status: ConsolidatedInvoiceStatus): string {
   switch (status) {
     case "pending_approval":
@@ -59,14 +64,17 @@ function statusPhrase(status: ConsolidatedInvoiceStatus): string {
   }
 }
 
-export function buildDashboardWorkflow(input: DashboardWorkflowInput): {
+export function buildDashboardWorkflow(
+  input: DashboardWorkflowInput,
+  options: DashboardWorkflowOptions = {},
+): {
   steps: DashboardWorkflowStep[];
   pendingApprovalLabel: string;
   pendingApprovalCount: number;
 } {
   const { scheduleCount, invoices, consolidated, etims, periodLabel } = input;
   const invoiceCount = invoices.length;
-  const activeSoa = pickWorkflowConsolidated(consolidated);
+  const activeSoa = options.focusConsolidated ?? pickWorkflowConsolidated(consolidated);
   const pendingConsolidated = consolidated.filter(
     (c) => c.status === "pending_approval" && !c.supersededById,
   );
@@ -90,7 +98,8 @@ export function buildDashboardWorkflow(input: DashboardWorkflowInput): {
             ? `${individualPending.length} invoice(s)`
             : "All clear";
 
-  const soaSent = Boolean(activeSoa);
+  const soaDraft = activeSoa?.status === "draft";
+  const soaSent = Boolean(activeSoa && activeSoa.status !== "draft");
   const soaApproved = activeSoa?.status === "approved" || activeSoa?.status === "paid";
   const soaRejected = activeSoa?.status === "rejected";
   const soaPending = activeSoa?.status === "pending_approval";
@@ -157,18 +166,21 @@ export function buildDashboardWorkflow(input: DashboardWorkflowInput): {
   let step6State: WorkflowStepState = "pending";
   let step6Sub = "After KRA eTIMS filing";
 
-  if (soaPaid || paidCount > 0 || individualPaid > 0) {
+  if (soaPaid) {
     step6State = "done";
-    step6Sub = soaPaid
-      ? `${soaLabel(activeSoa!)} · Paid`
-      : paidCount > 0
-        ? `${paidCount} SOA paid`
-        : `${individualPaid} invoice(s) paid`;
-  } else if (etimsComplete && soaApproved && activeSoa) {
-    step6State = "active";
-    step6Sub = `${soaLabel(activeSoa)} · Awaiting payment`;
-  } else if (soaApproved && activeSoa) {
-    step6Sub = `${soaLabel(activeSoa)} · Awaiting payment after eTIMS`;
+    step6Sub = `${soaLabel(activeSoa!)} · Paid`;
+  } else if (activeSoa) {
+    step6State = soaApproved ? "active" : "pending";
+    step6Sub =
+      soaApproved || etimsComplete
+        ? `${soaLabel(activeSoa)} · Awaiting payment`
+        : soaDraft
+          ? `${soaLabel(activeSoa)} · Payment after send & eTIMS`
+          : `${soaLabel(activeSoa)} · Awaiting payment after eTIMS`;
+  } else if (paidCount > 0 || individualPaid > 0) {
+    step6State = "done";
+    step6Sub =
+      paidCount > 0 ? `${paidCount} SOA paid` : `${individualPaid} invoice(s) paid`;
   }
 
   const steps: DashboardWorkflowStep[] = [
@@ -185,11 +197,13 @@ export function buildDashboardWorkflow(input: DashboardWorkflowInput): {
       sub: `${invoiceCount} invoice${invoiceCount === 1 ? "" : "s"}`,
     },
     {
-      state: soaSent ? "done" : invoiceCount > 0 ? "pending" : "pending",
+      state: soaSent ? "done" : soaDraft ? "active" : invoiceCount > 0 ? "pending" : "pending",
       num: "Step 3",
       title: "SOA sent to G4S",
       sub: activeSoa
-        ? `${soaLabel(activeSoa)} · ${activeSoa.totalTrips} trip(s)`
+        ? soaDraft
+          ? `${soaLabel(activeSoa)} · Draft · ${activeSoa.totalTrips} trip(s)`
+          : `${soaLabel(activeSoa)} · ${activeSoa.totalTrips} trip(s)`
         : individualPending.length > 0
           ? `${individualPending.length} individual invoice(s) sent`
           : "Not sent yet",

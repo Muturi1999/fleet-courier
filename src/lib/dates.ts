@@ -107,6 +107,25 @@ function parseEATDate(iso: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/** Calendar month bounds for YYYY-MM (month 1–12). */
+export function billingMonthRange(year: number, month: number): { from: string; to: string } {
+  const lastDay = new Date(year, month, 0).getDate();
+  const mm = String(month).padStart(2, "0");
+  return {
+    from: `${year}-${mm}-01`,
+    to: `${year}-${mm}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
+/** Billing month immediately after the month containing `isoDate`. */
+export function nextBillingMonthRange(isoDate: string): { from: string; to: string } {
+  const key = dateKey(isoDate);
+  const [year, month] = key.slice(0, 7).split("-").map(Number);
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  return billingMonthRange(nextYear, nextMonth);
+}
+
 /** First and last day of current month in EAT */
 export function currentMonthRangeEAT(): { from: string; to: string } {
   const now = new Date();
