@@ -23,10 +23,19 @@ export function clearedClientFilters(): ClientPortalFilters {
   return { ...empty };
 }
 
-/** Default list filters — current billing month */
+/** Default list filters — current calendar month (work tickets / generic lists) */
 export function defaultClientFilters(): ClientPortalFilters {
   const { from } = currentMonthRangeEAT();
   return { ...empty, month: from.slice(0, 7) };
+}
+
+/** Invoice list default — most recent billing period (YYYY-MM), or current month if unknown */
+export function defaultInvoicePeriodFilters(latestBillingMonth?: string | null): ClientPortalFilters {
+  const month =
+    latestBillingMonth && /^\d{4}-\d{2}$/.test(latestBillingMonth)
+      ? latestBillingMonth
+      : currentMonthRangeEAT().from.slice(0, 7);
+  return { ...empty, month };
 }
 
 export function clientFiltersAreCleared(f: ClientPortalFilters): boolean {

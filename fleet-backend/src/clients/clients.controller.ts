@@ -29,6 +29,12 @@ export class ClientsController {
     return this.service.pendingInvoices();
   }
 
+  @Get("invoices/latest-period")
+  @ApiOperation({ summary: "Most recent billing period (YYYY-MM) for partner invoices" })
+  latestInvoicePeriod() {
+    return this.service.latestInvoiceBillingMonth();
+  }
+
   @Get("invoices/:id")
   getInvoice(@Param("id") id: string) {
     return this.service.findInvoice(id);

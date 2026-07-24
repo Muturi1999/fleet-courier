@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import {
+  addBillingMonthClause,
   addClientTabClause,
   addClsClause,
   addDateClause,
@@ -29,10 +30,8 @@ export class ClientsService {
 
   listInvoices(query: ListQueryDto) {
     const partnerId = this.partnerScope.requirePartnerId();
-    const clauses = [
-      `partner_id = $1::uuid`,
-      `consolidated_invoice_id IS NULL`,
-    ];
+    // Show all partner invoices (including lines already on an SOA), matching admin register.
+    const clauses = [`partner_id = $1::uuid`];
     const params: unknown[] = [partnerId];
     let i = 2;
 
@@ -41,7 +40,7 @@ export class ClientsService {
     i = addDateClause(clauses, params, i, "service_date", query.date);
     i = addPlateClause(clauses, params, i, "plate", query.plate);
     i = addClsClause(clauses, params, i, "cls", query.cls);
-    i = addMonthClause(clauses, params, i, "service_date", query.month);
+    i = addBillingMonthClause(clauses, params, i, query.month);
     i = addPeriodClause(clauses, params, i, "period", query.period);
     i = addClientTabClause(clauses, params, i, query.tab);
     i = addStatusClause(clauses, params, i, query.status);
@@ -73,12 +72,35 @@ export class ClientsService {
     return row;
   }
 
+  /** Most recent billing period (YYYY-MM) for this partner's invoices. */
+  async latestInvoiceBillingMonth() {
+    const partnerId = this.partnerScope.requirePartnerId();
+    const row = (await this.db.queryOne(
+      `SELECT to_char(
+         MAX(COALESCE(period_start, service_date::date, created_at::date)),
+         'YYYY-MM'
+       ) AS month
+       FROM invoices
+       WHERE partner_id = $1::uuid`,
+      [partnerId],
+    )) as { month?: string } | null;
+    return { month: row?.month ?? null };
+  }
+
   pendingInvoices() {
     const partnerId = this.partnerScope.requirePartnerId();
     return this.db.queryAll(
-      `SELECT * FROM invoices WHERE status IN ('sent', 'pending') AND partner_id = $1::uuid AND consolidated_invoice_id IS NULL ORDER BY created_at DESC`,
+      `SELECT * FROM invoices WHERE status IN ('sent', 'pending') AND partner_id = $1::uuid ORDER BY created_at DESC`,
       [partnerId],
     );
+  }
+
+  private assertInvoiceNotOnSoa(row: Record<string, unknown>) {
+    if (row.consolidated_invoice_id) {
+      throw new BadRequestException(
+        "This invoice is included on a consolidated statement. Review it under Consolidated invoices.",
+      );
+    }
   }
 
   async approveInvoice(id: string, clientNote?: string) {
@@ -88,6 +110,7 @@ export class ClientsService {
       [id, partnerId],
     );
     if (!before) return null;
+    this.assertInvoiceNotOnSoa(before as Record<string, unknown>);
     const updated = await this.db.queryOne(
       `UPDATE invoices SET status = 'approved', client_note = COALESCE($3, client_note), updated_at = NOW() WHERE id = $1 AND partner_id = $2::uuid RETURNING *`,
       [id, partnerId, clientNote ?? null],
@@ -108,9 +131,19 @@ export class ClientsService {
       [id, partnerId],
     );
     if (!before) return null;
+    const note = clientNote?.trim();
+    if (!note) {
+      throw new BadRequestException("A rejection note is required.");
+    }
+    // Keep SOA link intact — single-invoice reject must not unlink from consolidated bill.
     const updated = await this.db.queryOne(
-      `UPDATE invoices SET status = 'rejected', client_note = $3, updated_at = NOW() WHERE id = $1 AND partner_id = $2::uuid RETURNING *`,
-      [id, partnerId, clientNote ?? null],
+      `UPDATE invoices
+       SET status = 'rejected',
+           client_note = $3,
+           updated_at = NOW()
+       WHERE id = $1 AND partner_id = $2::uuid
+       RETURNING *`,
+      [id, partnerId, note],
     );
     if (before && updated) {
       await this.workflows.processInvoiceStatusChange(

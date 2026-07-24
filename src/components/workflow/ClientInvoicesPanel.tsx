@@ -13,7 +13,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { ClientInvoiceReview } from "@/components/client/ClientInvoiceReview";
 import { ClientPortalFilterBar } from "@/components/client/ClientPortalFilterBar";
 import { WorkflowPageHeader } from "@/components/workflow/WorkflowPageHeader";
-import { defaultClientFilters, type ClientPortalFilters } from "@/lib/client-portal-filters";
+import { clearedClientFilters, type ClientPortalFilters } from "@/lib/client-portal-filters";
 import { buildListQuery, normalizeListJson } from "@/lib/list-query";
 import { formatEATDisplay } from "@/lib/dates";
 import type { Invoice } from "@/lib/types";
@@ -32,12 +32,16 @@ const TAB_BY_MODE: Record<ClientInvoiceMode, string> = {
   all: "all",
 };
 
+function canRejectInvoice(inv: Invoice): boolean {
+  return inv.status === "pending" || inv.status === "sent";
+}
+
 export function ClientInvoicesPanel({ mode }: { mode: ClientInvoiceMode }) {
   const tab = TAB_BY_MODE[mode];
   const { toast } = useToast();
   const { refresh: refreshNotifications } = useNotifications("client");
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState<ClientPortalFilters>(defaultClientFilters());
+  const [filters, setFilters] = useState<ClientPortalFilters>(clearedClientFilters());
   const [review, setReview] = useState<{ id: string; mode: "view" | "reject" } | null>(null);
   const [reviewInvoice, setReviewInvoice] = useState<Invoice | null>(null);
   const [tabCounts, setTabCounts] = useState({ awaiting: 0, approved: 0, returned: 0, all: 0 });
@@ -88,27 +92,6 @@ export function ClientInvoicesPanel({ mode }: { mode: ClientInvoiceMode }) {
     fetchOne(review.id).then(setReviewInvoice);
   }, [review, items, fetchOne]);
 
-  const approveInvoice = useCallback(
-    async (inv: Invoice, note?: string) => {
-      const res = await fetch(`/api/clients/invoices/${inv.id}/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ clientNote: note?.trim() || undefined }),
-      });
-      if (!res.ok) {
-        toast("Approval failed");
-        return;
-      }
-      await refreshPage();
-      await refreshNotifications();
-      dispatchWorkflowUpdated();
-      toast(`Invoice ${inv.invoiceNo} approved`);
-      setReview(null);
-    },
-    [refreshPage, refreshNotifications, toast],
-  );
-
   const sendBackInvoice = useCallback(
     async (inv: Invoice, note: string) => {
       const res = await fetch(`/api/clients/invoices/${inv.id}/reject`, {
@@ -118,7 +101,9 @@ export function ClientInvoicesPanel({ mode }: { mode: ClientInvoiceMode }) {
         body: JSON.stringify({ clientNote: note }),
       });
       if (!res.ok) {
-        toast("Send back failed");
+        const body = (await res.json().catch(() => null)) as { message?: string | string[] } | null;
+        const msg = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
+        toast(msg || "Send back failed");
         return;
       }
       await refreshPage();
@@ -136,7 +121,6 @@ export function ClientInvoicesPanel({ mode }: { mode: ClientInvoiceMode }) {
         invoice={reviewInvoice}
         mode={review.mode}
         onBack={() => setReview(null)}
-        onApprove={(note) => approveInvoice(reviewInvoice, note)}
         onSendBack={(note) => sendBackInvoice(reviewInvoice, note)}
       />
     );
@@ -194,8 +178,8 @@ export function ClientInvoicesPanel({ mode }: { mode: ClientInvoiceMode }) {
           </h2>
           <p className="text-xs text-fleet-gray-400">
             {mode === "awaiting"
-              ? "Review, approve, or return invoices to Fleet Admin"
-              : "Filter and open invoice records"}
+              ? "View invoices and reject any that need correction — with a note for Fleet Admin"
+              : "No filters by default — use billing month or period to narrow results"}
           </p>
         </div>
         {mode === "awaiting" && tabCounts.awaiting > 0 && (
@@ -213,22 +197,23 @@ export function ClientInvoicesPanel({ mode }: { mode: ClientInvoiceMode }) {
               <th>Vehicle</th>
               <th>Route</th>
               <th>Date</th>
+              <th>Period</th>
               <th>Total (KES)</th>
               {mode === "returned" && <th>Your note</th>}
               <th>Status</th>
-              <th className="min-w-[200px]">Actions</th>
+              <th className="min-w-[140px]">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={mode === "returned" ? 8 : 7} className="py-8 text-center text-fleet-gray-400">
+                <td colSpan={mode === "returned" ? 9 : 8} className="py-8 text-center text-fleet-gray-400">
                   Loading…
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={mode === "returned" ? 8 : 7} className="py-8 text-center text-fleet-gray-400">
+                <td colSpan={mode === "returned" ? 9 : 8} className="py-8 text-center text-fleet-gray-400">
                   No invoices match filters
                 </td>
               </tr>
@@ -238,10 +223,9 @@ export function ClientInvoicesPanel({ mode }: { mode: ClientInvoiceMode }) {
                   key={inv.id}
                   inv={inv}
                   showNote={mode === "returned"}
-                  canAct={mode === "awaiting" && (inv.status === "pending" || inv.status === "sent")}
+                  canReject={canRejectInvoice(inv)}
                   onView={() => setReview({ id: inv.id, mode: "view" })}
                   onReject={() => setReview({ id: inv.id, mode: "reject" })}
-                  onApprove={() => approveInvoice(inv)}
                 />
               ))
             )}
@@ -257,17 +241,15 @@ export function ClientInvoicesPanel({ mode }: { mode: ClientInvoiceMode }) {
 function InvoiceRow({
   inv,
   showNote,
-  canAct,
+  canReject,
   onView,
   onReject,
-  onApprove,
 }: {
   inv: Invoice;
   showNote?: boolean;
-  canAct: boolean;
+  canReject: boolean;
   onView: () => void;
   onReject: () => void;
-  onApprove: () => void;
 }) {
   return (
     <tr>
@@ -275,8 +257,9 @@ function InvoiceRow({
       <td className="whitespace-nowrap font-mono">{inv.plate}</td>
       <td className="max-w-[140px] truncate text-xs">{inv.route}</td>
       <td className="whitespace-nowrap text-xs text-fleet-gray-400">
-        {formatEATDisplay(inv.serviceDate) || inv.period || "—"}
+        {formatEATDisplay(inv.serviceDate) || "—"}
       </td>
+      <td className="whitespace-nowrap text-xs text-fleet-gray-500">{inv.period || "—"}</td>
       <td className="whitespace-nowrap font-mono font-medium">{fmtN(inv.total)}</td>
       {showNote && (
         <td className="max-w-[180px] truncate text-xs text-fleet-gray-600">{inv.clientNote || "—"}</td>
@@ -289,15 +272,10 @@ function InvoiceRow({
           <button type="button" className="btn-secondary btn-sm shrink-0" title="View invoice" onClick={onView}>
             <IconEye size={14} />
           </button>
-          {canAct && (
-            <>
-              <button type="button" className="btn-secondary btn-sm shrink-0" title="Reject with note" onClick={onReject}>
-                <IconArrowBackUp size={14} />
-              </button>
-              <button type="button" className="btn-accent btn-sm shrink-0" title="Approve" onClick={onApprove}>
-                <IconCheck size={14} />
-              </button>
-            </>
+          {canReject && (
+            <button type="button" className="btn-secondary btn-sm shrink-0" title="Reject with note" onClick={onReject}>
+              <IconArrowBackUp size={14} />
+            </button>
           )}
         </div>
       </td>

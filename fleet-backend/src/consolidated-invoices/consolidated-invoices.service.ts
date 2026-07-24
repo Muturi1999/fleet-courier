@@ -644,17 +644,20 @@ export class ConsolidatedInvoicesService {
     }
 
     const linkedInvoices = (await this.db.queryAll(
-      `SELECT id FROM invoices WHERE consolidated_invoice_id = $1`,
+      `SELECT id, net, vat, total, days FROM invoices WHERE consolidated_invoice_id = $1`,
       [id],
-    )) as { id: string }[];
+    )) as { id: string; net: number; vat: number; total: number; days: number }[];
     if (!linkedInvoices.length) {
       throw new BadRequestException("No trip invoices linked to this consolidated SOA");
     }
 
-    const invoiceIds = linkedInvoices.map((r) => r.id);
     const workTicketIds = Array.isArray(source.work_ticket_ids)
       ? (source.work_ticket_ids as string[])
       : [];
+    const net = linkedInvoices.reduce((s, r) => s + Number(r.net ?? 0), 0);
+    const vat = linkedInvoices.reduce((s, r) => s + Number(r.vat ?? 0), 0);
+    const total = linkedInvoices.reduce((s, r) => s + Number(r.total ?? 0), 0);
+    const totalTrips = linkedInvoices.reduce((s, r) => s + Math.max(1, Number(r.days ?? 1)), 0);
 
     const { invoiceNo, refNo } = await this.nextNumbers(dto.periodStart);
     const newId = randomUUID();
@@ -677,10 +680,10 @@ export class ConsolidatedInvoicesService {
           invoiceDate,
           source.description ?? DESCRIPTION,
           source.payment_terms_days ?? 90,
-          source.total_trips,
-          source.net,
-          source.vat,
-          source.total,
+          totalTrips,
+          net,
+          vat,
+          total,
           JSON.stringify(workTicketIds),
           source.plate ?? null,
           source.consolidation_type ?? "vehicle",
@@ -753,9 +756,9 @@ export class ConsolidatedInvoicesService {
     }
 
     const linkedInvoices = (await this.db.queryAll(
-      `SELECT id FROM invoices WHERE consolidated_invoice_id = $1`,
+      `SELECT id, net, vat, total, days FROM invoices WHERE consolidated_invoice_id = $1`,
       [id],
-    )) as { id: string }[];
+    )) as { id: string; net: number; vat: number; total: number; days: number }[];
     if (!linkedInvoices.length) {
       throw new BadRequestException("No trip invoices linked to this consolidated SOA");
     }
@@ -763,6 +766,10 @@ export class ConsolidatedInvoicesService {
     const workTicketIds = Array.isArray(source.work_ticket_ids)
       ? (source.work_ticket_ids as string[])
       : [];
+    const net = linkedInvoices.reduce((s, r) => s + Number(r.net ?? 0), 0);
+    const vat = linkedInvoices.reduce((s, r) => s + Number(r.vat ?? 0), 0);
+    const total = linkedInvoices.reduce((s, r) => s + Number(r.total ?? 0), 0);
+    const totalTrips = linkedInvoices.reduce((s, r) => s + Math.max(1, Number(r.days ?? 1)), 0);
     const { invoiceNo, refNo } = await this.nextNumbers(String(source.period_start ?? ""));
     const newId = randomUUID();
     const note =
@@ -785,10 +792,10 @@ export class ConsolidatedInvoicesService {
           source.period_end,
           source.description ?? DESCRIPTION,
           source.payment_terms_days ?? 90,
-          source.total_trips,
-          source.net,
-          source.vat,
-          source.total,
+          totalTrips,
+          net,
+          vat,
+          total,
           JSON.stringify(workTicketIds),
           source.plate ?? null,
           source.consolidation_type ?? "period",

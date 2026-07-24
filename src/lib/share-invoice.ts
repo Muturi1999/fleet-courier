@@ -2,8 +2,10 @@ import type { Invoice } from "./types";
 
 /** Invoices that can be shared (or re-shared) with the partner portal. */
 export function canShareInvoice(inv: Invoice): boolean {
+  // Rejected can be corrected and re-shared; keep SOA link if present.
+  if (inv.status === "rejected") return true;
   if (inv.consolidatedInvoiceId) return false;
-  return inv.status === "draft" || inv.status === "rejected" || inv.status === "sent";
+  return inv.status === "draft" || inv.status === "sent";
 }
 
 export async function shareInvoiceWithPartner(id: string): Promise<Response> {

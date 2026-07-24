@@ -228,7 +228,7 @@
   }
   .rnt-invoice-company {
     font-family: "Trebuchet MS", "Arial Rounded MT Bold", "Segoe UI", sans-serif;
-    @apply text-lg font-bold lowercase tracking-tight text-black;
+    @apply text-lg font-bold tracking-tight text-black;
   }
   .rnt-invoice-line {
     @apply text-[12px] leading-tight text-black;
@@ -519,6 +519,10 @@
   .consolidated-breakdown-subtotal th,
   .consolidated-breakdown-subtotal td {
     @apply bg-teal/5 text-navy;
+  }
+  .consolidated-breakdown-grand {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   /* Auth / onboarding screens (login, onboarding) */

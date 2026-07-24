@@ -41,6 +41,19 @@ function VehicleSubtotalRow({ group }: { group: VehicleBreakdownGroup }) {
   );
 }
 
+function GrandTotalRow({ net, vat, total }: { net: number; vat: number; total: number }) {
+  return (
+    <tr className="consolidated-doc-grand consolidated-breakdown-grand">
+      <th colSpan={BREAKDOWN_LABEL_COL_SPAN} className="text-right">
+        TOTAL
+      </th>
+      <td className="text-right font-mono font-bold">{fmtBreakdownMoney(net)}</td>
+      <td className="text-right font-mono font-bold">{fmtBreakdownMoney(vat)}</td>
+      <td className="text-right font-mono font-bold">{fmtBreakdownMoney(total)}</td>
+    </tr>
+  );
+}
+
 export function ConsolidationBreakdownTable({
   lines,
   groups,
@@ -93,19 +106,10 @@ export function ConsolidationBreakdownTable({
         {layout === "byVehicle" && vehicleGroups
           ? vehicleGroups.map((group) => <VehicleGroupRows key={group.plate} group={group} />)
           : flatLines.map((line) => <BreakdownRow key={line.id} line={line} />)}
+        {showGrandTotal && flatLines.length > 0 && (
+          <GrandTotalRow net={totals.net} vat={summed.vat} total={totals.total} />
+        )}
       </tbody>
-      {showGrandTotal && flatLines.length > 0 && (
-        <tfoot>
-          <tr className="consolidated-doc-grand">
-            <th colSpan={BREAKDOWN_LABEL_COL_SPAN} className="text-right">
-              TOTAL
-            </th>
-            <td className="text-right font-mono font-bold">{fmtBreakdownMoney(totals.net)}</td>
-            <td className="text-right font-mono font-bold">{fmtBreakdownMoney(summed.vat)}</td>
-            <td className="text-right font-mono font-bold">{fmtBreakdownMoney(totals.total)}</td>
-          </tr>
-        </tfoot>
-      )}
     </table>
   );
 }

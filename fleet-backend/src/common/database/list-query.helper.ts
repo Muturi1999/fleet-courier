@@ -150,6 +150,21 @@ export function addMonthClause(
   return idx + 1;
 }
 
+/** Filter by billing period month (period_start), falling back to service/created date. */
+export function addBillingMonthClause(
+  clauses: string[],
+  params: unknown[],
+  idx: number,
+  month?: string,
+): number {
+  if (!month?.trim() || !/^\d{4}-\d{2}$/.test(month.trim())) return idx;
+  clauses.push(
+    `to_char(COALESCE(period_start, service_date::date, created_at::date), 'YYYY-MM') = $${idx}`,
+  );
+  params.push(month.trim());
+  return idx + 1;
+}
+
 export function addPeriodClause(
   clauses: string[],
   params: unknown[],

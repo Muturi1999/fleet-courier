@@ -69,12 +69,12 @@ export function ClientPortalFilterBar({
         </div>
 
         <div className="filter-field">
-          <label className="filter-label">Month</label>
+          <label className="filter-label">Billing month</label>
           <input
             type="month"
             className="field-input filter-control"
             value={filters.month}
-            onChange={(e) => set({ month: e.target.value })}
+            onChange={(e) => set({ month: e.target.value, period: "" })}
           />
         </div>
 
@@ -83,9 +83,9 @@ export function ClientPortalFilterBar({
             <label className="filter-label">Period</label>
             <input
               className="field-input filter-control"
-              placeholder={monthInputToPeriodLabel(filters.month) || "June 2026"}
+              placeholder={monthInputToPeriodLabel(filters.month) || "e.g. May 2026"}
               value={filters.period}
-              onChange={(e) => set({ period: e.target.value })}
+              onChange={(e) => set({ period: e.target.value, month: "" })}
             />
           </div>
         )}

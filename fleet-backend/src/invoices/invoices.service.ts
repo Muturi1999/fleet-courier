@@ -24,6 +24,10 @@ type InvoiceRow = Record<string, unknown> & {
   status: string;
   client_note?: string | null;
   partner_id?: string | null;
+  consolidated_invoice_id?: string | null;
+  net?: string | number;
+  vat?: string | number;
+  days?: string | number;
 };
 
 type StatusCounts = Record<string, number>;
@@ -41,6 +45,32 @@ export class InvoicesService {
     if (explicit) return explicit;
     const tenant = TenantContextStorage.getOrThrow();
     return this.partners.defaultPartnerId(tenant.id);
+  }
+
+  /** Recalculate SOA totals from currently linked trip invoices (amounts stay in sync). */
+  private async syncLinkedConsolidatedTotals(consolidatedInvoiceId: string | null | undefined) {
+    if (!consolidatedInvoiceId) return;
+    await this.db.query(
+      `UPDATE consolidated_invoices ci
+       SET
+         net = COALESCE(agg.net, 0),
+         vat = COALESCE(agg.vat, 0),
+         total = COALESCE(agg.total, 0),
+         total_trips = COALESCE(agg.trips, 0),
+         updated_at = NOW()
+       FROM (
+         SELECT
+           COALESCE(SUM(net), 0)::numeric AS net,
+           COALESCE(SUM(vat), 0)::numeric AS vat,
+           COALESCE(SUM(total), 0)::numeric AS total,
+           COALESCE(SUM(GREATEST(1, days)), 0)::int AS trips
+         FROM invoices
+         WHERE consolidated_invoice_id = $1::uuid
+       ) agg
+       WHERE ci.id = $1::uuid
+         AND ci.status IN ('draft', 'pending_approval', 'rejected')`,
+      [consolidatedInvoiceId],
+    );
   }
 
   private buildWhere(query: ListQueryDto, status?: string) {
@@ -244,6 +274,18 @@ export class InvoicesService {
       before as Parameters<WorkflowsService["processInvoiceStatusChange"]>[0],
       updated as Parameters<WorkflowsService["processInvoiceStatusChange"]>[1],
     );
+
+    const amountChanged =
+      dto.net !== undefined ||
+      dto.vat !== undefined ||
+      dto.total !== undefined ||
+      dto.days !== undefined;
+    if (amountChanged) {
+      const soaId =
+        (updated.consolidated_invoice_id as string | null | undefined) ??
+        (before.consolidated_invoice_id as string | null | undefined);
+      await this.syncLinkedConsolidatedTotals(soaId);
+    }
 
     return updated;
   }
