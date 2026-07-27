@@ -1,11 +1,13 @@
 "use client";
 
-import { FormEvent, useState, Suspense } from "react";
+import { FormEvent, useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { IconEye, IconEyeOff, IconTruckDelivery } from "@tabler/icons-react";
+import { IconTruckDelivery } from "@tabler/icons-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
+import { PasswordInput } from "@/components/ui/PasswordInput";
+import { REMEMBER_USERNAME_KEY } from "@/lib/auth-config";
 
 function LoginForm() {
   const { login } = useAuth();
@@ -14,11 +16,19 @@ function LoginForm() {
   const tenantSlug = searchParams.get("tenant") ?? undefined;
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(REMEMBER_USERNAME_KEY);
+    if (saved) {
+      setUsername(saved);
+      setRememberMe(true);
+    }
+  }, []);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const ok = await login(username, password, tenantSlug);
+    const ok = await login(username, password, tenantSlug, rememberMe);
     if (ok) {
       toast(`Welcome, ${username}`);
     } else {
@@ -49,38 +59,35 @@ function LoginForm() {
 
         <form onSubmit={onSubmit} className="auth-card space-y-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-fleet-gray-600">Username</label>
+            <label className="mb-1 block text-xs font-medium text-fleet-gray-600">Username or email</label>
             <input
               className="field-input"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
+              placeholder="e.g. client or you@company.com"
               autoComplete="username"
               required
             />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-fleet-gray-600">Password</label>
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                className="field-input pr-12"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                autoComplete="current-password"
-                required
-              />
-              <button
-                type="button"
-                className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-fleet-sm text-fleet-gray-400 hover:bg-fleet-gray-50 hover:text-fleet-gray-600"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? <IconEyeOff size={18} /> : <IconEye size={18} />}
-              </button>
-            </div>
+            <PasswordInput
+              value={password}
+              onChange={setPassword}
+              placeholder="Enter your password"
+              autoComplete="current-password"
+              required
+            />
           </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-fleet-gray-600">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-fleet-gray-300 text-teal focus:ring-teal/30"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+            />
+            Remember me on this device
+          </label>
           <button type="submit" className="btn-accent w-full justify-center py-2.5 text-sm">
             Sign in
           </button>

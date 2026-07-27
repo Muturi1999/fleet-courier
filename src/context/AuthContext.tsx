@@ -6,13 +6,21 @@ import {
   AUTH_COOKIE,
   authCookieValue,
   parseAuthCookie,
+  REMEMBER_MAX_AGE_SEC,
+  REMEMBER_USERNAME_KEY,
+  SESSION_MAX_AGE_SEC,
 } from "@/lib/auth-config";
 import type { AuthUser } from "@/lib/types";
 
 type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
-  login: (username: string, password: string, tenantSlug?: string) => Promise<boolean>;
+  login: (
+    username: string,
+    password: string,
+    tenantSlug?: string,
+    rememberMe?: boolean,
+  ) => Promise<boolean>;
   logout: () => void;
 };
 
@@ -37,10 +45,11 @@ function readStoredUser(): AuthUser | null {
   }
 }
 
-function persistUser(user: AuthUser | null) {
+function persistUser(user: AuthUser | null, rememberMe = false) {
+  const maxAge = rememberMe ? REMEMBER_MAX_AGE_SEC : SESSION_MAX_AGE_SEC;
   if (user) {
     localStorage.setItem(AUTH_COOKIE, JSON.stringify(user));
-    document.cookie = `${AUTH_COOKIE}=${authCookieValue(user)}; path=/; max-age=86400; SameSite=Lax`;
+    document.cookie = `${AUTH_COOKIE}=${authCookieValue(user)}; path=/; max-age=${maxAge}; SameSite=Lax`;
   } else {
     localStorage.removeItem(AUTH_COOKIE);
     document.cookie = `${AUTH_COOKIE}=; path=/; max-age=0`;
@@ -57,17 +66,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = useCallback(async (username: string, password: string, tenantSlug?: string) => {
+  const login = useCallback(async (
+    username: string,
+    password: string,
+    tenantSlug?: string,
+    rememberMe = false,
+  ) => {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ username, password, tenantSlug }),
+        body: JSON.stringify({ username, password, tenantSlug, rememberMe }),
       });
       if (!res.ok) return false;
       const { user: authUser } = (await res.json()) as { user: AuthUser };
-      persistUser(authUser);
+      persistUser(authUser, rememberMe);
+      if (rememberMe) {
+        localStorage.setItem(REMEMBER_USERNAME_KEY, username.trim());
+      } else {
+        localStorage.removeItem(REMEMBER_USERNAME_KEY);
+      }
       setUser(authUser);
       router.push(authUser.role === "admin" ? "/admin" : "/client");
       return true;

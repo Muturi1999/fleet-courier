@@ -3,6 +3,8 @@ import {
   AUTH_COOKIE,
   AUTH_TOKEN_COOKIE,
   authCookieValue,
+  REMEMBER_MAX_AGE_SEC,
+  SESSION_MAX_AGE_SEC,
   validateLogin,
 } from "@/lib/auth-config";
 import { backendEnabled, backendLogin } from "@/lib/backend-client";
@@ -14,10 +16,13 @@ export async function POST(req: NextRequest) {
     username?: string;
     password?: string;
     tenantSlug?: string;
+    rememberMe?: boolean;
   };
 
   const username = body.username?.trim() ?? "";
   const password = body.password ?? "";
+  const rememberMe = body.rememberMe === true;
+  const maxAge = rememberMe ? REMEMBER_MAX_AGE_SEC : SESSION_MAX_AGE_SEC;
   if (!username || !password) {
     return NextResponse.json({ error: "Username and password required" }, { status: 400 });
   }
@@ -44,14 +49,14 @@ export async function POST(req: NextRequest) {
       secure,
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 8,
+      maxAge,
     });
     response.cookies.set(AUTH_COOKIE, authCookieValue(user), {
       httpOnly: false,
       secure,
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 8,
+      maxAge,
     });
     return response;
   }

@@ -3,6 +3,12 @@ import type { AuthUser, UserRole } from "./types";
 export const AUTH_COOKIE = "fc-auth";
 export const AUTH_TOKEN_COOKIE = "fc-token";
 export const PLATFORM_TOKEN_COOKIE = "fc-platform-token";
+export const REMEMBER_USERNAME_KEY = "fc-remember-username";
+
+/** Default session — 8 hours */
+export const SESSION_MAX_AGE_SEC = 60 * 60 * 8;
+/** Remember me — 30 days */
+export const REMEMBER_MAX_AGE_SEC = 60 * 60 * 24 * 30;
 
 export const CREDENTIALS: Record<string, { password: string; role: UserRole; displayName: string }> = {
   admin: { password: "admin123", role: "admin", displayName: "Fleet Admin" },
