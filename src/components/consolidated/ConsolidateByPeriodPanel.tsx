@@ -39,6 +39,7 @@ export function ConsolidateByPeriodPanel({
   onView,
   onPrint,
   onDownload,
+  onDownloadExcel,
   onShare,
   onDelete,
   onEdit,
@@ -54,6 +55,7 @@ export function ConsolidateByPeriodPanel({
   onView: (id: string) => void;
   onPrint: (id: string) => void;
   onDownload: (id: string) => void;
+  onDownloadExcel?: (id: string) => void;
   onShare: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit?: (id: string) => void;
@@ -320,6 +322,7 @@ export function ConsolidateByPeriodPanel({
           onView={onView}
           onPrint={onPrint}
           onDownload={onDownload}
+          onDownloadExcel={onDownloadExcel}
           onShare={onShare}
           onDelete={onDelete}
           onEdit={onEdit}

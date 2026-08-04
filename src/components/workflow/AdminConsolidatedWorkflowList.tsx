@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { IconFileSpreadsheet, IconPrinter } from "@tabler/icons-react";
 import { ConsolidatedInvoicesTable } from "@/components/consolidated/ConsolidatedInvoicesTable";
 import {
   ConsolidatedInvoiceDocument,
@@ -13,10 +14,16 @@ import { WorkflowPageHeader } from "@/components/workflow/WorkflowPageHeader";
 import { clearedFilters } from "@/lib/filters";
 import type { FleetFilters } from "@/lib/filters";
 import { sortConsolidatedNewestFirst } from "@/lib/consolidation";
+import {
+  downloadConsolidatedInvoiceExcel,
+  exportConsolidatedInvoiceExcelById,
+} from "@/lib/consolidation-excel-export";
 import { usePaginatedList } from "@/hooks/usePaginatedList";
+import { useToast } from "@/context/ToastContext";
 import type { ConsolidatedInvoice, WorkTicket } from "@/lib/types";
 
 export function AdminConsolidatedWorkflowList({ workflow }: { workflow: "approved" | "rejected" }) {
+  const { toast } = useToast();
   const status = workflow === "approved" ? "approved" : "rejected";
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<FleetFilters>(clearedFilters());
@@ -43,6 +50,15 @@ export function AdminConsolidatedWorkflowList({ workflow }: { workflow: "approve
     setViewId(id);
   };
 
+  const downloadExcel = async (id: string) => {
+    try {
+      const inv = await exportConsolidatedInvoiceExcelById(id);
+      toast(`Exported ${inv.invoiceNo} to Excel`);
+    } catch {
+      toast("Excel export failed");
+    }
+  };
+
   if (viewId && viewData) {
     return (
       <RecordScreen
@@ -57,6 +73,25 @@ export function AdminConsolidatedWorkflowList({ workflow }: { workflow: "approve
         {workflow === "rejected" && viewData.invoice.clientNote && (
           <div className="card mb-4 border-fleet-red/20 bg-fleet-red/5 text-sm">{viewData.invoice.clientNote}</div>
         )}
+        <div className="mb-4 flex flex-wrap gap-2 print:hidden">
+          <button type="button" className="btn-secondary btn-sm" onClick={printConsolidatedBilling}>
+            <IconPrinter size={14} /> Print / PDF
+          </button>
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            onClick={async () => {
+              try {
+                await downloadConsolidatedInvoiceExcel(viewData.invoice, viewData.tickets);
+                toast(`Exported ${viewData.invoice.invoiceNo} to Excel`);
+              } catch {
+                toast("Excel export failed");
+              }
+            }}
+          >
+            <IconFileSpreadsheet size={14} /> Download Excel
+          </button>
+        </div>
         <div id="consolidated-billing-print" className="space-y-6">
           <ConsolidatedInvoiceDocument invoice={viewData.invoice} onPrint={printConsolidatedBilling} />
           <SoaBreakdownDocument invoice={viewData.invoice} tickets={viewData.tickets} />
@@ -91,8 +126,15 @@ export function AdminConsolidatedWorkflowList({ workflow }: { workflow: "approve
         onPage={setPage}
         emptyMessage={`No ${workflow} consolidated statements`}
         onView={openView}
-        onPrint={() => printConsolidatedBilling()}
-        onDownload={() => printConsolidatedBilling()}
+        onPrint={async (id) => {
+          await openView(id);
+          setTimeout(printConsolidatedBilling, 300);
+        }}
+        onDownload={async (id) => {
+          await openView(id);
+          setTimeout(printConsolidatedBilling, 300);
+        }}
+        onDownloadExcel={downloadExcel}
         onShare={() => {}}
         onDelete={() => {}}
       />

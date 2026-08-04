@@ -5,6 +5,7 @@ import {
   IconCheck,
   IconDownload,
   IconFileDescription,
+  IconFileSpreadsheet,
   IconPrinter,
   IconSend,
 } from "@tabler/icons-react";
@@ -25,6 +26,10 @@ import { isEtimsTenant } from "@/lib/etims-config";
 import { currentMonthRangeEAT } from "@/lib/dates";
 import { sortConsolidatedNewestFirst } from "@/lib/consolidation";
 import { mapToBreakdownLine } from "@/lib/consolidation-breakdown";
+import {
+  downloadConsolidatedInvoiceExcel,
+  exportConsolidatedInvoiceExcelById,
+} from "@/lib/consolidation-excel-export";
 import type { ConsolidatedInvoice, RouteRecord, SafariEntry, Vehicle, WorkTicket } from "@/lib/types";
 import { normalizeVehicleCondition } from "@/lib/work-ticket-meta";
 import { useToast } from "@/context/ToastContext";
@@ -431,6 +436,15 @@ export default function ConsolidatedBillingPage() {
     toast("Use Print → Save as PDF to download");
   };
 
+  const downloadExcel = async (id: string) => {
+    try {
+      const inv = await exportConsolidatedInvoiceExcelById(id);
+      toast(`Exported ${inv.invoiceNo} to Excel`);
+    } catch {
+      toast("Excel export failed");
+    }
+  };
+
   const printInvoice = async (id: string) => {
     await openView(id);
     setTimeout(printConsolidatedBilling, 300);
@@ -502,6 +516,20 @@ export default function ConsolidatedBillingPage() {
             <button type="button" className="btn-secondary btn-sm" onClick={() => downloadDocuments(viewData.invoice.id)}>
               <IconDownload size={14} /> Download PDF
             </button>
+            <button
+              type="button"
+              className="btn-secondary btn-sm"
+              onClick={async () => {
+                try {
+                  await downloadConsolidatedInvoiceExcel(viewData.invoice, viewData.tickets);
+                  toast(`Exported ${viewData.invoice.invoiceNo} to Excel`);
+                } catch {
+                  toast("Excel export failed");
+                }
+              }}
+            >
+              <IconFileSpreadsheet size={14} /> Download Excel
+            </button>
             {viewData.invoice.status === "draft" && (
               <button type="button" className="btn-accent btn-sm" onClick={() => sendToClient(viewData.invoice.id)}>
                 <IconSend size={14} /> Share with partner
@@ -550,6 +578,7 @@ export default function ConsolidatedBillingPage() {
           onView={openView}
           onPrint={printInvoice}
           onDownload={downloadDocuments}
+          onDownloadExcel={downloadExcel}
           onShare={sendToClient}
           onDelete={deleteInvoice}
           onEdit={openRevise}
@@ -664,6 +693,7 @@ export default function ConsolidatedBillingPage() {
               onView={openView}
               onPrint={printInvoice}
               onDownload={downloadDocuments}
+              onDownloadExcel={downloadExcel}
               onShare={sendToClient}
               onDelete={deleteInvoice}
               onEdit={openRevise}
@@ -692,6 +722,7 @@ export default function ConsolidatedBillingPage() {
             onView={openView}
             onPrint={printInvoice}
             onDownload={downloadDocuments}
+            onDownloadExcel={downloadExcel}
             onShare={sendToClient}
             onDelete={deleteInvoice}
             onEdit={openRevise}

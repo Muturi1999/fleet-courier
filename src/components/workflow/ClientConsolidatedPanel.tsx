@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { IconArrowBackUp, IconCheck } from "@tabler/icons-react";
+import { IconArrowBackUp, IconCheck, IconFileSpreadsheet, IconPrinter } from "@tabler/icons-react";
 import { ConsolidatedInvoicesTable } from "@/components/consolidated/ConsolidatedInvoicesTable";
 import {
   ConsolidatedInvoiceDocument,
@@ -15,6 +15,10 @@ import { WorkflowPageHeader } from "@/components/workflow/WorkflowPageHeader";
 import { clearedFilters } from "@/lib/filters";
 import type { FleetFilters } from "@/lib/filters";
 import { sortConsolidatedNewestFirst } from "@/lib/consolidation";
+import {
+  downloadConsolidatedInvoiceExcel,
+  exportConsolidatedInvoiceExcelById,
+} from "@/lib/consolidation-excel-export";
 import { normalizeListJson } from "@/lib/list-query";
 import type { ConsolidatedInvoice, WorkTicket } from "@/lib/types";
 import { useToast } from "@/context/ToastContext";
@@ -72,6 +76,15 @@ export function ClientConsolidatedPanel({ mode }: { mode: ClientConsolidatedMode
     setViewData(await res.json());
   };
 
+  const downloadExcel = async (id: string) => {
+    try {
+      const inv = await exportConsolidatedInvoiceExcelById(id);
+      toast(`Exported ${inv.invoiceNo} to Excel`);
+    } catch {
+      toast("Excel export failed");
+    }
+  };
+
   const approveSoa = async () => {
     if (!pendingConsolidated) return;
     const res = await fetch(`/api/consolidated-invoices/${pendingConsolidated.id}`, {
@@ -126,6 +139,25 @@ export function ClientConsolidatedPanel({ mode }: { mode: ClientConsolidatedMode
         title={`Consolidated billing · ${inv.invoiceNo}`}
         onBack={() => setViewData(null)}
       >
+        <div className="mb-4 flex flex-wrap gap-2 print:hidden">
+          <button type="button" className="btn-secondary btn-sm" onClick={printConsolidatedBilling}>
+            <IconPrinter size={14} /> Print / PDF
+          </button>
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            onClick={async () => {
+              try {
+                await downloadConsolidatedInvoiceExcel(inv, viewData.tickets);
+                toast(`Exported ${inv.invoiceNo} to Excel`);
+              } catch {
+                toast("Excel export failed");
+              }
+            }}
+          >
+            <IconFileSpreadsheet size={14} /> Download Excel
+          </button>
+        </div>
         <div id="consolidated-billing-print" className="space-y-6">
           <ConsolidatedInvoiceDocument invoice={inv} onPrint={printConsolidatedBilling} />
           <SoaBreakdownDocument invoice={inv} tickets={viewData.tickets} />
@@ -169,16 +201,25 @@ export function ClientConsolidatedPanel({ mode }: { mode: ClientConsolidatedMode
         />
 
         {pendingConsolidated && (
-          <div className="card mb-4">
-            <p className="mb-2 text-xs text-fleet-gray-500">Return SOA with a note for corrections</p>
-            <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="card mb-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <p className="mb-2 text-xs text-fleet-gray-500">Return SOA with a note for corrections</p>
               <input
-                className="input flex-1"
+                className="input w-full"
                 placeholder="Explain what needs to be corrected"
                 value={rejectNote}
                 onChange={(e) => setRejectNote(e.target.value)}
               />
-              <button type="button" className="btn-secondary shrink-0" onClick={rejectSoa}>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => pendingConsolidated && downloadExcel(pendingConsolidated.id)}
+              >
+                <IconFileSpreadsheet size={16} /> Download Excel
+              </button>
+              <button type="button" className="btn-secondary" onClick={rejectSoa}>
                 <IconArrowBackUp size={16} /> Return SOA
               </button>
             </div>
@@ -218,8 +259,15 @@ export function ClientConsolidatedPanel({ mode }: { mode: ClientConsolidatedMode
         onPage={setPage}
         emptyMessage={`No ${mode} consolidated statements`}
         onView={openView}
-        onPrint={() => printConsolidatedBilling()}
-        onDownload={() => printConsolidatedBilling()}
+        onPrint={async (id) => {
+          await openView(id);
+          setTimeout(printConsolidatedBilling, 300);
+        }}
+        onDownload={async (id) => {
+          await openView(id);
+          setTimeout(printConsolidatedBilling, 300);
+        }}
+        onDownloadExcel={downloadExcel}
         onShare={() => {}}
         onDelete={() => {}}
       />

@@ -4,6 +4,7 @@ import {
   IconDownload,
   IconEdit,
   IconEye,
+  IconFileSpreadsheet,
   IconPrinter,
   IconSend,
   IconTrash,
@@ -44,6 +45,7 @@ export function ConsolidatedInvoicesTable({
   onView,
   onPrint,
   onDownload,
+  onDownloadExcel,
   onShare,
   onDelete,
   onEdit,
@@ -61,6 +63,7 @@ export function ConsolidatedInvoicesTable({
   onView: (id: string) => void;
   onPrint: (id: string) => void;
   onDownload: (id: string) => void;
+  onDownloadExcel?: (id: string) => void;
   onShare: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit?: (id: string) => void;
@@ -126,6 +129,16 @@ export function ConsolidatedInvoicesTable({
                       <button type="button" className="btn-secondary btn-sm px-2" title="Download PDF" onClick={() => onDownload(inv.id)}>
                         <IconDownload size={14} />
                       </button>
+                      {onDownloadExcel && (
+                        <button
+                          type="button"
+                          className="btn-secondary btn-sm px-2"
+                          title="Download Excel"
+                          onClick={() => onDownloadExcel(inv.id)}
+                        >
+                          <IconFileSpreadsheet size={14} />
+                        </button>
+                      )}
                       {(inv.status === "rejected" || inv.status === "draft") && onEdit && !inv.supersededById && (
                         <button type="button" className="btn-secondary btn-sm px-2" title="Revise" onClick={() => onEdit(inv.id)}>
                           <IconEdit size={14} />
