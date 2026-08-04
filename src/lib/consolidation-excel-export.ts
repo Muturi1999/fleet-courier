@@ -245,13 +245,7 @@ function buildSheet(
       bold: true,
       fill: C.subtotalBg,
       fontColor: C.subtotalFg,
-      align: "left",
-    });
-    const subCenter = dataStyle({
-      bold: true,
-      fill: C.subtotalBg,
-      fontColor: C.subtotalFg,
-      align: "center",
+      align: "right",
     });
     const subRight = dataStyle({
       bold: true,
@@ -260,20 +254,23 @@ function buildSheet(
       align: "right",
     });
 
+    // Date → Days/Trip merged as "Subtotal"; amounts only after that
+    const subRowIndex = rows.length;
     rows.push([
+      cell("Subtotal", sub),
       cell("", sub),
       cell("", sub),
-      cell(group.plate, dataStyle({ bold: true, fill: C.subtotalBg, fontColor: C.subtotalFg, mono: true })),
       cell("", sub),
-      cell(group.ton || "", subCenter),
       cell("", sub),
-      cell(`${group.plate}  ·  Subtotal`, sub),
-      cell(group.trips, subCenter, INT_FMT),
+      cell("", sub),
+      cell("", sub),
+      cell("", sub),
       cell(money(group.net), subRight, MONEY_FMT),
       cell(money(group.vat), subRight, MONEY_FMT),
       cell(money(group.total), subRight, MONEY_FMT),
       cell("", sub),
     ]);
+    merges.push(`A${subRowIndex + 1}:H${subRowIndex + 1}`);
 
     // Spacer between vehicle groups
     rows.push(emptyRow());
