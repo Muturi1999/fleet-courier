@@ -81,10 +81,10 @@
     @apply w-full min-w-[640px] border-collapse text-[13px];
   }
   .data-table thead th {
-    @apply whitespace-nowrap border-b border-fleet-gray-100 bg-fleet-gray-50 px-3.5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-fleet-gray-400;
+    @apply whitespace-nowrap border-b border-fleet-gray-100 bg-fleet-gray-50 px-2.5 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-fleet-gray-400 sm:px-3.5 sm:py-2.5;
   }
   .data-table tbody td {
-    @apply border-b border-fleet-gray-50 px-3.5 py-3 align-middle text-fleet-gray-800;
+    @apply border-b border-fleet-gray-50 px-2.5 py-2.5 align-middle text-fleet-gray-800 sm:px-3.5 sm:py-3;
   }
   .data-table tbody tr:last-child td {
     @apply border-b-0;
