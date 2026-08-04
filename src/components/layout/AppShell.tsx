@@ -48,8 +48,8 @@ export function AppShell({
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <TopBar role={role} onMenuClick={() => setMobileNav(true)} />
-        <main className="dashboard-main flex-1 overflow-y-auto overflow-x-hidden p-4 xs:p-5 sm:p-6 md:p-7">
-          {children}
+        <main className="dashboard-main min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 xs:p-5 sm:p-6 md:p-7">
+          <div className="min-w-0 max-w-full">{children}</div>
         </main>
       </div>
     </div>

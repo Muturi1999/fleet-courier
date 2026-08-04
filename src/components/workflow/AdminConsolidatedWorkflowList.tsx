@@ -130,10 +130,6 @@ export function AdminConsolidatedWorkflowList({ workflow }: { workflow: "approve
           await openView(id);
           setTimeout(printConsolidatedBilling, 300);
         }}
-        onDownload={async (id) => {
-          await openView(id);
-          setTimeout(printConsolidatedBilling, 300);
-        }}
         onDownloadExcel={downloadExcel}
         onShare={() => {}}
         onDelete={() => {}}

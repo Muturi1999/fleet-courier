@@ -73,7 +73,7 @@
     @apply mb-3.5 flex flex-col gap-2 xs:flex-row xs:flex-wrap xs:items-center xs:justify-between;
   }
   .table-wrap {
-    @apply max-w-full overflow-x-auto rounded-fleet border border-fleet-gray-100 bg-white;
+    @apply max-w-full min-w-0 overflow-x-auto rounded-fleet border border-fleet-gray-100 bg-white;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
   }
