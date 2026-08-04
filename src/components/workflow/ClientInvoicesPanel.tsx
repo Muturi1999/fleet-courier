@@ -13,7 +13,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { ClientInvoiceReview } from "@/components/client/ClientInvoiceReview";
 import { ClientPortalFilterBar } from "@/components/client/ClientPortalFilterBar";
 import { WorkflowPageHeader } from "@/components/workflow/WorkflowPageHeader";
-import { clearedClientFilters, type ClientPortalFilters } from "@/lib/client-portal-filters";
+import { clearedClientFilters, clientFiltersAreCleared, type ClientPortalFilters } from "@/lib/client-portal-filters";
 import { buildListQuery, normalizeListJson } from "@/lib/list-query";
 import { formatEATDisplay } from "@/lib/dates";
 import type { Invoice } from "@/lib/types";
@@ -51,6 +51,7 @@ export function ClientInvoicesPanel({ mode }: { mode: ClientInvoiceMode }) {
     items,
     meta,
     loading,
+    error,
     refreshPage,
     fetchOne,
     totalPages,
@@ -214,7 +215,33 @@ export function ClientInvoicesPanel({ mode }: { mode: ClientInvoiceMode }) {
             ) : items.length === 0 ? (
               <tr>
                 <td colSpan={mode === "returned" ? 9 : 8} className="py-8 text-center text-fleet-gray-400">
-                  No invoices match filters
+                  {error ? (
+                    <>
+                      <p className="font-medium text-fleet-gray-600">Couldn’t load invoices</p>
+                      <p className="mt-1 text-xs">{error}</p>
+                      <button type="button" className="btn-secondary btn-sm mt-3" onClick={() => void refreshPage({ force: true })}>
+                        Retry
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-medium text-fleet-gray-600">No invoices match the current filters</p>
+                      <p className="mt-1 text-xs">
+                        Try <span className="font-medium">Clear filters</span>, or set Billing month to{" "}
+                        <span className="font-medium">May 2026</span> / <span className="font-medium">April 2026</span>.
+                        The “Today” button only shows invoices dated today.
+                      </p>
+                      {!clientFiltersAreCleared(filters) && (
+                        <button
+                          type="button"
+                          className="btn-secondary btn-sm mt-3"
+                          onClick={() => setFilters(clearedClientFilters())}
+                        >
+                          Clear filters
+                        </button>
+                      )}
+                    </>
+                  )}
                 </td>
               </tr>
             ) : (

@@ -122,6 +122,7 @@ export function ClientPortalFilterBar({
         {resultCount !== undefined && (
           <span className="text-xs text-fleet-gray-400">
             {resultCount} record{resultCount !== 1 ? "s" : ""}
+            {!clientFiltersAreCleared(filters) ? " matching filters" : ""}
           </span>
         )}
         {canClear && (
@@ -129,7 +130,12 @@ export function ClientPortalFilterBar({
             <IconFilterOff size={14} /> Clear filters
           </button>
         )}
-        <button type="button" className="btn-secondary btn-sm" onClick={() => set({ date: todayISO() })}>
+        <button
+          type="button"
+          className={`btn-secondary btn-sm ${filters.date === todayISO() ? "ring-1 ring-navy/30" : ""}`}
+          onClick={() => set({ date: todayISO() })}
+          title="Filter to today’s date only"
+        >
           Today
         </button>
       </div>

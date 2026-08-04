@@ -4,7 +4,18 @@ import { useCallback, useEffect, useState } from "react";
 import type { FleetFilters } from "@/lib/filters";
 import type { ClientPortalFilters } from "@/lib/client-portal-filters";
 import { PAGE_SIZE } from "@/lib/filters";
-import { apiCacheKey, fetchApiCached, getApiCache, invalidateApiCache, setApiCache } from "@/lib/api-cache";
+import {
+  AUTH_CHANGED_EVENT,
+  apiCacheKey,
+  fetchApiCached,
+  fetchWithRetry,
+  getApiCache,
+  getApiCacheAge,
+  invalidateApiCache,
+  isApiCacheFresh,
+  setApiCache,
+  API_CACHE_TTL_MS,
+} from "@/lib/api-cache";
 import { buildListQuery, emptyMeta, normalizeListJson } from "@/lib/list-query";
 import type { PaginatedMeta, PaginatedResponse } from "@/lib/types";
 import { parseApiErrorResponse } from "@/lib/api-errors";
@@ -43,6 +54,7 @@ export function usePaginatedList<T extends { id: string }>(
   const [items, setItems] = useState<T[]>(() => cached?.data ?? []);
   const [meta, setMeta] = useState<PaginatedMeta>(() => cached?.meta ?? emptyMeta(pageSize));
   const [loading, setLoading] = useState(() => cached === undefined && options.enabled !== false);
+  const [error, setError] = useState<string | null>(null);
 
   const queryKey = JSON.stringify({
     endpoint,
@@ -54,36 +66,78 @@ export function usePaginatedList<T extends { id: string }>(
     pageSize,
   });
 
-  const refreshPage = useCallback(async () => {
-    if (options.enabled === false) return;
+  const refreshPage = useCallback(
+    async (opts?: { force?: boolean }) => {
+      if (options.enabled === false) return;
 
-    const hit = getApiCache<PaginatedResponse<T>>(cacheKey);
-    if (hit) {
-      setItems(hit.data);
-      setMeta(hit.meta);
-      setLoading(false);
-    } else {
-      setLoading(true);
-    }
+      const hit = getApiCache<PaginatedResponse<T>>(cacheKey);
+      if (hit) {
+        setItems(hit.data);
+        setMeta(hit.meta);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
 
-    try {
-      const parsed = await fetchApiCached(cacheKey, async () => {
-        const res = await fetch(url, { cache: "no-store", credentials: "same-origin" });
-        if (!res.ok) throw new Error("Fetch failed");
-        return normalizeListJson<T>(await res.json(), pageSize);
-      });
-      setItems(parsed.data);
-      setMeta(parsed.meta);
-    } catch {
-      /* keep stale */
-    } finally {
-      setLoading(false);
-    }
-  }, [cacheKey, url, pageSize, options.enabled]);
+      const force = Boolean(opts?.force) || !isApiCacheFresh(cacheKey);
+
+      try {
+        const parsed = await fetchApiCached(
+          cacheKey,
+          () =>
+            fetchWithRetry(async () => {
+              const res = await fetch(url, { cache: "no-store", credentials: "same-origin" });
+              if (!res.ok) throw new Error(await parseApiErrorResponse(res, "Fetch failed"));
+              return normalizeListJson<T>(await res.json(), pageSize);
+            }),
+          { force },
+        );
+        setItems(parsed.data);
+        setMeta(parsed.meta);
+        setError(null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Fetch failed";
+        setError(message);
+        if (!hit) {
+          setItems([]);
+          setMeta(emptyMeta(pageSize));
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [cacheKey, url, pageSize, options.enabled],
+  );
 
   useEffect(() => {
     void refreshPage();
-  }, [refreshPage, queryKey]);
+  }, [queryKey]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh when query changes
+
+  useEffect(() => {
+    if (options.enabled === false) return;
+
+    const onAuthChanged = () => {
+      invalidateApiCache(`/api/${endpoint}`);
+      void refreshPage({ force: true });
+    };
+
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const age = getApiCacheAge(cacheKey);
+      if (age === null || age > API_CACHE_TTL_MS) {
+        void refreshPage({ force: true });
+      }
+    };
+
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [cacheKey, endpoint, options.enabled, refreshPage]);
 
   const apiError = (res: Response, fallback: string) => parseApiErrorResponse(res, fallback);
 
@@ -146,6 +200,7 @@ export function usePaginatedList<T extends { id: string }>(
     items,
     meta,
     loading,
+    error,
     refreshPage,
     fetchOne,
     create,

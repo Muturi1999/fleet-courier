@@ -2,10 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  API_CACHE_TTL_MS,
+  AUTH_CHANGED_EVENT,
   apiCacheKey,
   fetchApiCached,
+  fetchWithRetry,
   getApiCache,
+  getApiCacheAge,
   invalidateApiCache,
+  isApiCacheFresh,
   setApiCache,
 } from "@/lib/api-cache";
 import { normalizeListJson } from "@/lib/list-query";
@@ -37,7 +42,7 @@ export function useCrud<T extends { id: string }>(endpoint: string) {
   const [items, setItems] = useState<T[]>(() => getApiCache<T[]>(cacheKey) ?? []);
   const [loading, setLoading] = useState(() => getApiCache<T[]>(cacheKey) === undefined);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (opts?: { force?: boolean }) => {
     const cached = getApiCache<T[]>(cacheKey);
     if (cached) {
       setItems(cached);
@@ -47,11 +52,17 @@ export function useCrud<T extends { id: string }>(endpoint: string) {
     }
 
     try {
-      const data = await fetchApiCached(cacheKey, async () => {
-        const res = await fetch(url, { cache: "no-store", credentials: "same-origin" });
-        if (!res.ok) throw new Error("Fetch failed");
-        return normalizeListJson<T>(await res.json()).data;
-      });
+      const force = Boolean(opts?.force) || !isApiCacheFresh(cacheKey);
+      const data = await fetchApiCached(
+        cacheKey,
+        () =>
+          fetchWithRetry(async () => {
+            const res = await fetch(url, { cache: "no-store", credentials: "same-origin" });
+            if (!res.ok) throw new Error("Fetch failed");
+            return normalizeListJson<T>(await res.json()).data;
+          }),
+        { force },
+      );
       setItems(data);
     } catch {
       /* keep stale cache on network errors */
@@ -63,6 +74,26 @@ export function useCrud<T extends { id: string }>(endpoint: string) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    const onAuthChanged = () => {
+      invalidateApiCache(`/api/${endpoint}`);
+      void refresh({ force: true });
+    };
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const age = getApiCacheAge(cacheKey);
+      if (age === null || age > API_CACHE_TTL_MS) void refresh({ force: true });
+    };
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [cacheKey, endpoint, refresh]);
 
   const apiError = (res: Response, fallback: string) => parseApiErrorResponse(res, fallback);
 

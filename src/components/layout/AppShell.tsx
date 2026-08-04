@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AdminPrefetch } from "./AdminPrefetch";
+import { ClientPrefetch } from "./ClientPrefetch";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 
@@ -26,6 +27,7 @@ export function AppShell({
   return (
     <div className="dashboard-shell flex h-screen h-[100dvh] overflow-hidden">
       {role === "admin" && <AdminPrefetch />}
+      {role === "client" && <ClientPrefetch />}
       {/* Desktop sidebar */}
       <div className="hidden h-full shrink-0 md:flex">
         <Sidebar role={role} />
