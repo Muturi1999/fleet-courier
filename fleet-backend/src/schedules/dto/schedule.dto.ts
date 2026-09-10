@@ -14,8 +14,8 @@ export class CreateScheduleDto {
   @IsString()
   dest!: string;
 
-  @ApiProperty({ enum: ["Morning", "Afternoon"] })
-  @IsIn(["Morning", "Afternoon"])
+  @ApiProperty({ example: "Morning", description: "Morning, Afternoon, or custom run label" })
+  @IsString()
   runType!: string;
 
   @ApiProperty()

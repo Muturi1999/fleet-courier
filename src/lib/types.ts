@@ -30,7 +30,7 @@ export type ScheduleEntry = {
   plate: string;
   cls: string;
   dest: string;
-  runType: "Morning" | "Afternoon";
+  runType: string;
   rate: number;
   days: number;
   cost: number;

@@ -138,6 +138,9 @@
   .filter-bar-actions {
     @apply mt-3 flex flex-wrap items-center gap-2 border-t border-fleet-gray-100 pt-3;
   }
+  .filter-bar-actions-spacer {
+    @apply ml-auto hidden min-w-0 sm:block sm:flex-1;
+  }
   .record-screen {
     @apply -mx-4 -mt-0 flex min-h-[calc(100vh-4rem)] flex-col bg-fleet-gray-50 sm:-mx-7;
   }

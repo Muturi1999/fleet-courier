@@ -71,3 +71,18 @@ export function schedulePeriodDisplay(entry: Pick<ScheduleEntry, "month" | "peri
   }
   return entry.serviceDate ?? "—";
 }
+
+export const SCHEDULE_RUN_TYPES = ["Morning", "Afternoon"] as const;
+
+export function canShareSchedule(entry: Pick<ScheduleEntry, "status">): boolean {
+  return entry.status === "draft";
+}
+
+export async function shareScheduleEntry(id: string): Promise<Response> {
+  return fetch(`/api/schedules/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ status: "saved" }),
+  });
+}
