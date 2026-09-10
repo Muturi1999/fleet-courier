@@ -84,10 +84,15 @@ function invoiceInMonthKey(invoice: Invoice, monthKey: ReportMonthKey): boolean 
 function scheduleInMonthKey(schedule: ScheduleEntry, monthKey: ReportMonthKey): boolean {
   if (monthKey === "ytd") {
     const mk = schedule.month ?? "";
-    return mk.includes("2026");
+    if (mk.includes("2026")) return true;
+    return (schedule.periodStart ?? schedule.serviceDate ?? "").startsWith("2026");
   }
   const months = monthKeysForFilter(monthKey);
-  return months ? inMonth(schedule.month, months) : false;
+  if (months && inMonth(schedule.month, months)) return true;
+  const start = dateKey(schedule.periodStart ?? schedule.serviceDate);
+  if (!start) return false;
+  const [y, m] = monthKey.split("-");
+  return start.startsWith(`${y}-${m}`);
 }
 
 export type RevenueTrendPoint = { label: string; total: number; net: number; vat: number };

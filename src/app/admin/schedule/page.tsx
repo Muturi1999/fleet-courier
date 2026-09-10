@@ -8,13 +8,21 @@ import { FilterBar } from "@/components/ui/FilterBar";
 import { MetricCard, MetricsGrid } from "@/components/ui/MetricCard";
 import { Pagination } from "@/components/ui/Pagination";
 import { FormActions, FormField } from "@/components/ui/Modal";
+import { SearchSelect } from "@/components/ui/SearchSelect";
 import { RecordScreen } from "@/components/layout/RecordScreen";
 import { VehicleRecordView } from "@/components/vehicles/VehicleRecordView";
 import { calcBilling } from "@/lib/billing";
+import { dateKey } from "@/lib/dates";
 import { clearedFilters, highlightSearch } from "@/lib/filters";
 import type { FleetFilters } from "@/lib/filters";
 import { normalizeListJson } from "@/lib/list-query";
-import type { Invoice, LocalDelivery, SafariEntry, ScheduleEntry } from "@/lib/types";
+import {
+  emptyScheduleForm,
+  schedulePayload,
+  schedulePeriodDisplay,
+  syncSchedulePeriod,
+} from "@/lib/schedule-form";
+import type { Invoice, LocalDelivery, Rate, SafariEntry, ScheduleEntry, Vehicle } from "@/lib/types";
 import { fmtN, formatRoute } from "@/lib/utils";
 import { useToast } from "@/context/ToastContext";
 import { useCrud } from "@/hooks/useCrud";
@@ -28,23 +36,10 @@ const PAGE = "Schedule entry";
 
 type ScheduleSummary = { count: number; days: number; cost: number; draft: number };
 
-const emptyForm = (): Omit<ScheduleEntry, "id"> => ({
-  plate: "",
-  cls: "7T",
-  dest: "NAIROBI",
-  runType: "Morning",
-  rate: 8500,
-  days: 1,
-  cost: 8500,
-  vat: 1360,
-  total: 9860,
-  month: "Mar 2026",
-  serviceDate: new Date().toISOString().slice(0, 10),
-  status: "saved",
-});
-
 export default function SchedulePage() {
   const { toast } = useToast();
+  const { items: vehicles } = useCrud<Vehicle>("vehicles");
+  const { items: rates } = useCrud<Rate>("rates");
   const { items: localDeliveries } = useCrud<LocalDelivery>("local-deliveries");
   const { items: safari } = useCrud<SafariEntry>("safari");
   const { items: invoices } = useCrud<Invoice>("invoices");
@@ -53,7 +48,7 @@ export default function SchedulePage() {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<FleetFilters>(clearedFilters());
   usePlateFromUrl(setFilters);
-  const [form, setForm] = useState(emptyForm());
+  const [form, setForm] = useState(emptyScheduleForm());
   const [summary, setSummary] = useState<ScheduleSummary>({ count: 0, days: 0, cost: 0, draft: 0 });
   const [viewRecord, setViewRecord] = useState<ScheduleEntry | null>(null);
   const [vehicleSchedules, setVehicleSchedules] = useState<ScheduleEntry[]>([]);
@@ -101,9 +96,16 @@ export default function SchedulePage() {
 
   useEffect(() => {
     if (screen.kind === "edit" && viewRecord) {
-      setForm({ ...viewRecord });
+      setForm({
+        ...viewRecord,
+        periodStart: viewRecord.periodStart ?? viewRecord.serviceDate,
+        periodEnd: viewRecord.periodEnd ?? viewRecord.periodStart ?? viewRecord.serviceDate,
+        month:
+          viewRecord.month ||
+          schedulePeriodDisplay(viewRecord),
+      });
     } else if (screen.kind === "create") {
-      setForm(emptyForm());
+      setForm(emptyScheduleForm());
     }
   }, [screen, viewRecord]);
 
@@ -127,17 +129,64 @@ export default function SchedulePage() {
     setForm((f) => ({ ...f, rate, days, cost: bill.cost, vat: bill.vat, total: bill.total }));
   };
 
+  const syncPlate = (plate: string) => {
+    const vehicle = vehicles.find((v) => v.plate.toUpperCase() === plate.trim().toUpperCase());
+    setForm((f) => {
+      const next = { ...f, plate: plate.trim().toUpperCase(), cls: vehicle?.cls ?? f.cls };
+      if (vehicle && f.dest) {
+        const rate =
+          rates.find((r) => r.route === f.dest && r.cls === vehicle.cls) ??
+          rates.find((r) => r.route === f.dest);
+        if (rate) {
+          const b = calcBilling(rate.rate, f.days);
+          return { ...next, rate: rate.rate, cost: b.cost, vat: b.vat, total: b.total };
+        }
+      }
+      return next;
+    });
+  };
+
+  const syncRoute = (routeName: string) => {
+    const vehicleCls = vehicles.find((v) => v.plate === form.plate)?.cls;
+    const rate =
+      rates.find((r) => r.route === routeName && (!vehicleCls || r.cls === vehicleCls)) ??
+      rates.find((r) => r.route === routeName);
+    if (!rate) {
+      setForm((f) => ({ ...f, dest: routeName }));
+      return;
+    }
+    const b = calcBilling(rate.rate, form.days);
+    setForm((f) => ({
+      ...f,
+      dest: routeName,
+      cls: vehicleCls ?? rate.cls,
+      rate: rate.rate,
+      cost: b.cost,
+      vat: b.vat,
+      total: b.total,
+    }));
+  };
+
   const onSubmit = async (ev: FormEvent) => {
     ev.preventDefault();
+    if (!form.plate.trim()) {
+      toast("Select a vehicle plate");
+      return;
+    }
+    if (!form.dest.trim()) {
+      toast("Select a destination / route from rates");
+      return;
+    }
     try {
+      const body = schedulePayload(form);
       if (screen.kind === "edit") {
-        await update(screen.id, form);
+        await update(screen.id, body);
         toast("Schedule entry updated");
-        setFilters(highlightSearch(form.plate));
+        setFilters(highlightSearch(body.plate));
       } else {
-        await create(form);
+        await create(body);
         toast("Schedule entry created");
-        setFilters(highlightSearch(form.plate));
+        setFilters(highlightSearch(body.plate));
       }
       await refreshPage();
       close();
@@ -150,7 +199,7 @@ export default function SchedulePage() {
     try {
       const rows = await parseScheduleExcel(file);
       if (!rows.length) {
-        toast("No schedule rows found — check column headers");
+        toast("No schedule rows found — need Plate + Dest/Route columns");
         return;
       }
       const res = await fetch("/api/schedules/import", {
@@ -163,7 +212,7 @@ export default function SchedulePage() {
       toast(`Imported ${json.imported ?? rows.length} schedule rows`);
       await refreshPage();
     } catch {
-      toast("Import failed — use Excel with Plate, Dest, Rate, Days columns");
+      toast("Import failed — use Excel with Plate, Dest/Route, Rate, Days columns");
     }
   };
 
@@ -203,9 +252,17 @@ export default function SchedulePage() {
       >
         <div className="card max-w-2xl space-y-3 text-sm">
           <p><span className="text-fleet-gray-400">Vehicle:</span> <span className="font-mono font-semibold">{viewRecord.plate}</span></p>
+          <p><span className="text-fleet-gray-400">Class:</span> {viewRecord.cls}</p>
           <p><span className="text-fleet-gray-400">Route:</span> {formatRoute(viewRecord.dest)}</p>
           <p><span className="text-fleet-gray-400">Run type:</span> {viewRecord.runType}</p>
-          <p><span className="text-fleet-gray-400">Date:</span> {viewRecord.serviceDate ?? viewRecord.month}</p>
+          <p><span className="text-fleet-gray-400">Period:</span> {schedulePeriodDisplay(viewRecord)}</p>
+          {(viewRecord.periodStart || viewRecord.periodEnd) && (
+            <p>
+              <span className="text-fleet-gray-400">Range:</span>{" "}
+              {dateKey(viewRecord.periodStart)} → {dateKey(viewRecord.periodEnd)}
+            </p>
+          )}
+          <p><span className="text-fleet-gray-400">Days:</span> {viewRecord.days}</p>
           <p><span className="text-fleet-gray-400">Total:</span> <span className="font-mono font-semibold">KES {fmtN(viewRecord.total)}</span></p>
           <div className="flex flex-wrap gap-2 pt-2">
             <button type="button" className="btn-accent btn-sm" onClick={() => openEdit(viewRecord.id)}>Edit</button>
@@ -224,19 +281,97 @@ export default function SchedulePage() {
         onBack={close}
       >
         <form onSubmit={onSubmit} className="card grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2">
-          <FormField label="Registration *"><input className="field-input" required value={form.plate} onChange={(e) => setForm({ ...form, plate: e.target.value.toUpperCase() })} /></FormField>
-          <FormField label="Class *"><select className="field-input" value={form.cls} onChange={(e) => setForm({ ...form, cls: e.target.value })}><option>7T</option><option>15T</option><option>Canter</option><option>Van</option></select></FormField>
-          <FormField label="Destination / route *" className="sm:col-span-2"><input className="field-input" required value={form.dest} onChange={(e) => setForm({ ...form, dest: e.target.value.toUpperCase() })} /></FormField>
-          <FormField label="Run type *"><select className="field-input" value={form.runType} onChange={(e) => setForm({ ...form, runType: e.target.value as "Morning" | "Afternoon" })}><option>Morning</option><option>Afternoon</option></select></FormField>
-          <FormField label="Service date"><input type="date" className="field-input" value={form.serviceDate ?? ""} onChange={(e) => setForm({ ...form, serviceDate: e.target.value })} /></FormField>
-          <FormField label="Rate (KES/day) *"><input type="number" className="field-input" required value={form.rate} onChange={(e) => setRateDays(Number(e.target.value), form.days)} /></FormField>
-          <FormField label="Days *"><input type="number" className="field-input" required min={1} value={form.days} onChange={(e) => setRateDays(form.rate, Number(e.target.value))} /></FormField>
+          <FormField label="Vehicle plate *">
+            <SearchSelect
+              listId="sch-vehicle-plates"
+              mono
+              required
+              value={form.plate}
+              placeholder={vehicles.length ? "Type or select plate" : "No vehicles — add fleet first"}
+              options={vehicles.map((v) => ({ value: v.plate, label: `${v.plate} · ${v.cls}` }))}
+              onChange={syncPlate}
+            />
+          </FormField>
+          <FormField label="Vehicle class *">
+            <input className="field-input bg-fleet-gray-50 font-mono" readOnly value={form.cls} />
+          </FormField>
+          <FormField label="Destination / route *" className="sm:col-span-2">
+            <SearchSelect
+              listId="sch-route-options"
+              required
+              value={form.dest}
+              placeholder={rates.length ? "Select from rates" : "No rates — add rates first"}
+              options={rates.map((r) => ({ value: r.route, label: `${r.route} · ${r.cls} · KES ${r.rate}` }))}
+              onChange={syncRoute}
+            />
+          </FormField>
+          <FormField label="Run type *">
+            <select
+              className="field-input"
+              value={form.runType}
+              onChange={(e) => setForm({ ...form, runType: e.target.value as "Morning" | "Afternoon" })}
+            >
+              <option>Morning</option>
+              <option>Afternoon</option>
+            </select>
+          </FormField>
+          <FormField label="Service date">
+            <input
+              type="date"
+              className="field-input"
+              value={dateKey(form.serviceDate)}
+              onChange={(e) => setForm({ ...form, serviceDate: e.target.value })}
+            />
+          </FormField>
+          <FormField label="Billing period from">
+            <input
+              type="date"
+              className="field-input"
+              required
+              value={dateKey(form.periodStart ?? form.serviceDate)}
+              onChange={(e) => setForm((f) => ({ ...f, ...syncSchedulePeriod(f, { periodStart: e.target.value }) }))}
+            />
+          </FormField>
+          <FormField label="Billing period to">
+            <input
+              type="date"
+              className="field-input"
+              required
+              value={dateKey(form.periodEnd ?? form.periodStart ?? form.serviceDate)}
+              onChange={(e) => setForm((f) => ({ ...f, ...syncSchedulePeriod(f, { periodEnd: e.target.value }) }))}
+            />
+          </FormField>
+          <FormField label="Billing period" className="sm:col-span-2">
+            <input className="field-input bg-fleet-gray-50" readOnly value={form.month} />
+          </FormField>
+          <FormField label="Rate (KES/day) *">
+            <input
+              type="number"
+              className="field-input"
+              required
+              min={1}
+              value={form.rate}
+              onChange={(e) => setRateDays(Number(e.target.value), form.days)}
+            />
+          </FormField>
+          <FormField label="Days *">
+            <input
+              type="number"
+              className="field-input"
+              required
+              min={1}
+              value={form.days}
+              onChange={(e) => setRateDays(form.rate, Number(e.target.value))}
+            />
+          </FormField>
           <div className="sm:col-span-2 rounded-fleet-md bg-navy p-3 text-xs text-white/80">
             <div className="flex justify-between"><span>Net</span><span className="font-mono">KES {fmtN(form.cost)}</span></div>
             <div className="flex justify-between"><span>VAT 16%</span><span className="font-mono">KES {fmtN(form.vat)}</span></div>
             <div className="flex justify-between font-semibold text-accent"><span>Total</span><span className="font-mono">KES {fmtN(form.total)}</span></div>
           </div>
-          <div className="sm:col-span-2"><FormActions onCancel={close} submitLabel={screen.kind === "edit" ? "Update entry" : "Save entry"} /></div>
+          <div className="sm:col-span-2">
+            <FormActions onCancel={close} submitLabel={screen.kind === "edit" ? "Update entry" : "Save entry"} />
+          </div>
         </form>
       </RecordScreen>
     );
@@ -270,7 +405,7 @@ export default function SchedulePage() {
           <thead>
             <tr>
               <th>Vehicle</th><th>Class</th><th>Route</th><th>Run type</th><th className="text-center">Days</th>
-              <th>Date</th><th>Net</th><th>Total</th><th>Status</th><th>Actions</th>
+              <th>Period</th><th>Net</th><th>Total</th><th>Status</th><th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -286,7 +421,7 @@ export default function SchedulePage() {
                   <td className="max-w-[120px] truncate text-xs sm:max-w-none">{formatRoute(e.dest)}</td>
                   <td><Badge variant={e.runType === "Morning" ? "approved" : "sent"}>{e.runType}</Badge></td>
                   <td className="text-center font-semibold">{e.days}</td>
-                  <td className="whitespace-nowrap text-xs text-fleet-gray-400">{e.serviceDate ?? e.month}</td>
+                  <td className="whitespace-nowrap text-xs text-fleet-gray-400">{schedulePeriodDisplay(e)}</td>
                   <td className="font-mono">{fmtN(e.cost)}</td>
                   <td className="font-mono font-semibold">{fmtN(e.total)}</td>
                   <td><Badge variant="paid">{e.status}</Badge></td>

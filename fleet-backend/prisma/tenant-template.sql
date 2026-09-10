@@ -12,7 +12,9 @@ CREATE TABLE IF NOT EXISTS schedules (
   cost DECIMAL(12,2) NOT NULL,
   vat DECIMAL(12,2) NOT NULL,
   total DECIMAL(12,2) NOT NULL,
-  month VARCHAR(20),
+  month VARCHAR(40),
+  period_start DATE,
+  period_end DATE,
   service_date DATE,
   status VARCHAR(20) NOT NULL DEFAULT 'saved',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -191,6 +193,7 @@ CREATE TABLE IF NOT EXISTS workflow_notifications (
 );
 
 CREATE INDEX IF NOT EXISTS idx_schedules_plate ON schedules(plate);
+CREATE INDEX IF NOT EXISTS idx_schedules_billing_period ON schedules(period_start, period_end);
 CREATE INDEX IF NOT EXISTS idx_invoices_plate ON invoices(plate);
 CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
 CREATE INDEX IF NOT EXISTS idx_notifications_audience ON workflow_notifications(audience);

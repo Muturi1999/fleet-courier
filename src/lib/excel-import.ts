@@ -55,6 +55,8 @@ export type ScheduleImportRow = {
   vat: number;
   total: number;
   month?: string;
+  periodStart?: string;
+  periodEnd?: string;
   serviceDate?: string;
   status?: "saved" | "draft";
 };
@@ -66,25 +68,32 @@ export async function parseScheduleExcel(file: File): Promise<ScheduleImportRow[
   for (const raw of json) {
     const row = rowMap(raw);
     const plate = cellStr(row, "plate", "registration", "reg", "vehicle").toUpperCase();
-    if (!plate) continue;
+    const dest = cellStr(row, "dest", "destination", "route").toUpperCase();
+    if (!plate || !dest) continue;
 
     const rate = cellNum(row, "rate", "dayrate", "dailyrate") || 8500;
     const days = cellNum(row, "days", "day") || 1;
     const cost = cellNum(row, "cost", "net", "amount") || calcBilling(rate, days).cost;
     const vat = cellNum(row, "vat") || calcBilling(rate, days).vat;
     const total = cellNum(row, "total", "gross") || cost + vat;
+    const month = cellStr(row, "month", "period") || undefined;
+    const periodStart = cellStr(row, "periodstart", "from", "billingfrom") || undefined;
+    const periodEnd = cellStr(row, "periodend", "to", "billingto") || undefined;
 
     rows.push({
       plate,
       cls: cellStr(row, "cls", "class", "vehicleclass") || "7T",
-      dest: cellStr(row, "dest", "destination", "route").toUpperCase() || "NAIROBI",
+      dest,
       runType: parseRunType(cellStr(row, "runtype", "run", "shift")),
       rate,
       days,
       cost,
       vat,
       total,
-      month: cellStr(row, "month", "period") || undefined,
+      month,
+      periodStart,
+      periodEnd,
+      ...(month && !periodStart ? monthPeriodBounds(month) : {}),
       serviceDate: cellStr(row, "servicedate", "date") || undefined,
       status: "saved",
     });

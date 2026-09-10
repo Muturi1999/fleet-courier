@@ -242,8 +242,11 @@ async function seedSchedules(pool: Pool) {
   let i = 0;
   for (const e of marchSchedule) {
     await pool.query(
-      `INSERT INTO schedules (plate, cls, dest, run_type, rate, days, cost, vat, total, month, service_date, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Mar 2026',$10,'saved')`,
+      `INSERT INTO schedules (
+         plate, cls, dest, run_type, rate, days, cost, vat, total,
+         month, period_start, period_end, service_date, status
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Mar 2026','2026-03-01','2026-03-31',$10,'saved')`,
       [
         e.plate,
         e.cls,

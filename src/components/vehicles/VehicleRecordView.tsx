@@ -51,7 +51,7 @@ export function VehicleRecordView({
                     <td>{formatRoute(s.dest)}</td>
                     <td><Badge variant={s.runType === "Morning" ? "approved" : "sent"}>{s.runType}</Badge></td>
                     <td className="text-center">{s.days}</td>
-                    <td className="text-[10px] text-fleet-gray-400">{s.serviceDate ?? s.month}</td>
+                    <td className="text-[10px] text-fleet-gray-400">{s.month || s.serviceDate || "—"}</td>
                     <td className="font-mono">{fmtN(s.total)}</td>
                   </tr>
                 ))}

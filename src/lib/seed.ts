@@ -45,6 +45,8 @@ export function buildSeedData(): FleetData {
     vat: e.vat,
     total: e.total,
     month: "Mar 2026",
+    periodStart: "2026-03-01",
+    periodEnd: "2026-03-31",
     serviceDate: seedServiceDate(i, 2026, 3),
     status: "saved",
   }));

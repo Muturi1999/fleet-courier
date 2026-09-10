@@ -125,10 +125,18 @@ export function filterWorkTickets(items: WorkTicket[], f: FleetFilters, tab: str
 
 export function filterSchedules(items: ScheduleEntry[], f: FleetFilters): ScheduleEntry[] {
   return newestFirst(items.filter((e) => {
-    if (!matchSearch(f.search, e.plate, e.dest, e.cls)) return false;
+    if (!matchSearch(f.search, e.plate, e.dest, e.cls, e.month)) return false;
     if (f.destination && !e.dest.toLowerCase().includes(f.destination.toLowerCase())) return false;
     if (f.runType && e.runType !== f.runType) return false;
-    if (!matchDate(e.serviceDate, f.date)) return false;
+    if (f.date) {
+      const key = dateKey(f.date);
+      const inPeriod =
+        !!e.periodStart &&
+        !!e.periodEnd &&
+        key >= dateKey(e.periodStart) &&
+        key <= dateKey(e.periodEnd);
+      if (!inPeriod && !matchDate(e.serviceDate, f.date)) return false;
+    }
     if (f.status && e.status !== f.status) return false;
     return true;
   }));

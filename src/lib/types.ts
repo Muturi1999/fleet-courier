@@ -37,6 +37,8 @@ export type ScheduleEntry = {
   vat: number;
   total: number;
   month: string;
+  periodStart?: string;
+  periodEnd?: string;
   serviceDate?: string;
   status: "saved" | "draft";
 };

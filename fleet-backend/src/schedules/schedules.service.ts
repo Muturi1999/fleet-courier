@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import {
-  addDateClause,
+  addBillingMonthClause,
   addDestinationClause,
   addRunTypeClause,
   addSearchClause,
@@ -23,9 +23,20 @@ export class SchedulesService {
     const params: unknown[] = [];
     let i = 1;
 
-    i = addSearchClause(clauses, params, i, ["plate", "dest", "cls"], query.search);
+    i = addSearchClause(clauses, params, i, ["plate", "dest", "cls", "month"], query.search);
     i = addDestinationClause(clauses, params, i, "dest", query.destination);
-    i = addDateClause(clauses, params, i, "service_date", query.date);
+    // Match exact day against period bounds, service date, or created_at
+    if (query.date?.trim()) {
+      clauses.push(
+        `(
+          (period_start IS NOT NULL AND period_end IS NOT NULL AND $${i}::date BETWEEN period_start AND period_end)
+          OR COALESCE(service_date, created_at::date) = $${i}::date
+        )`,
+      );
+      params.push(query.date.trim());
+      i += 1;
+    }
+    i = addBillingMonthClause(clauses, params, i, query.month);
     i = addRunTypeClause(clauses, params, i, query.runType);
     i = addStatusClause(clauses, params, i, query.status);
 
@@ -73,8 +84,11 @@ export class SchedulesService {
 
   async create(dto: CreateScheduleDto) {
     const row = await this.db.queryOne(
-      `INSERT INTO schedules (plate, cls, dest, run_type, rate, days, cost, vat, total, month, service_date, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+      `INSERT INTO schedules (
+         plate, cls, dest, run_type, rate, days, cost, vat, total,
+         month, period_start, period_end, service_date, status
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
       [
         dto.plate,
         dto.cls,
@@ -86,6 +100,8 @@ export class SchedulesService {
         dto.vat,
         dto.total,
         dto.month ?? null,
+        dto.periodStart ?? null,
+        dto.periodEnd ?? null,
         dto.serviceDate ?? null,
         dto.status ?? "saved",
       ],
@@ -109,6 +125,8 @@ export class SchedulesService {
       vat: "vat",
       total: "total",
       month: "month",
+      periodStart: "period_start",
+      periodEnd: "period_end",
       serviceDate: "service_date",
       status: "status",
     };
@@ -147,6 +165,8 @@ export class SchedulesService {
       dto.vat,
       dto.total,
       dto.month ?? null,
+      dto.periodStart ?? null,
+      dto.periodEnd ?? null,
       dto.serviceDate ?? null,
       dto.status ?? "saved",
     ]);
@@ -164,6 +184,8 @@ export class SchedulesService {
         "vat",
         "total",
         "month",
+        "period_start",
+        "period_end",
         "service_date",
         "status",
       ],
