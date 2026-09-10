@@ -63,7 +63,7 @@ export function schedulePayload(form: Omit<ScheduleEntry, "id">) {
     cost,
     vat,
     total,
-    month: month || undefined,
+    month: month || "",
     periodStart: periodStart || undefined,
     periodEnd: periodEnd || undefined,
     serviceDate: dateKey(form.serviceDate) || undefined,
