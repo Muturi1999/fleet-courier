@@ -44,14 +44,13 @@ export function VehicleRecordView({
         ) : (
           <div className="table-wrap max-h-36 !overflow-y-auto">
             <table className="data-table min-w-[480px] text-xs">
-              <thead><tr><th>Route</th><th>Run</th><th>Days</th><th>Date</th><th>Total</th></tr></thead>
+              <thead><tr><th>Route</th><th>Days</th><th>Schedule date</th><th>Total</th></tr></thead>
               <tbody>
                 {linked.schedules.map((s) => (
                   <tr key={s.id}>
                     <td>{formatRoute(s.dest)}</td>
-                    <td><Badge variant={s.runType === "Morning" ? "approved" : "sent"}>{s.runType}</Badge></td>
                     <td className="text-center">{s.days}</td>
-                    <td className="text-[10px] text-fleet-gray-400">{s.month || s.serviceDate || "—"}</td>
+                    <td className="text-[10px] text-fleet-gray-400">{s.serviceDate || s.month || "—"}</td>
                     <td className="font-mono">{fmtN(s.total)}</td>
                   </tr>
                 ))}

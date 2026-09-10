@@ -3,41 +3,50 @@ import { IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Min } from "
 
 export class CreateScheduleDto {
   @ApiProperty({ example: "KBL 094E" })
+  @IsOptional()
   @IsString()
-  plate!: string;
+  plate?: string;
 
   @ApiProperty({ example: "7T" })
+  @IsOptional()
   @IsString()
-  cls!: string;
+  cls?: string;
 
   @ApiProperty({ example: "NAIROBI" })
+  @IsOptional()
   @IsString()
-  dest!: string;
+  dest?: string;
 
   @ApiProperty({ example: "Morning", description: "Morning, Afternoon, or custom run label" })
+  @IsOptional()
   @IsString()
-  runType!: string;
+  runType?: string;
 
   @ApiProperty()
+  @IsOptional()
   @IsNumber()
-  rate!: number;
+  rate?: number;
 
   @ApiProperty()
+  @IsOptional()
   @IsInt()
-  @Min(1)
-  days!: number;
+  @Min(0)
+  days?: number;
 
   @ApiProperty()
+  @IsOptional()
   @IsNumber()
-  cost!: number;
+  cost?: number;
 
   @ApiProperty()
+  @IsOptional()
   @IsNumber()
-  vat!: number;
+  vat?: number;
 
   @ApiProperty()
+  @IsOptional()
   @IsNumber()
-  total!: number;
+  total?: number;
 
   @ApiPropertyOptional({ description: "Billing period label", example: "May 2026" })
   @IsOptional()

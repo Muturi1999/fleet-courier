@@ -27,7 +27,6 @@ import { clearedFilters, filtersAfterSave } from "@/lib/filters";
 import type { FleetFilters } from "@/lib/filters";
 import { normalizeListJson } from "@/lib/list-query";
 import {
-  SCHEDULE_RUN_TYPES,
   canShareSchedule,
   emptyScheduleForm,
   schedulePayload,
@@ -105,21 +104,6 @@ export default function SchedulePage() {
     return opts;
   }, [vehicles, rates]);
 
-  const runTypeOptions = useMemo(() => {
-    const seen = new Set<string>(SCHEDULE_RUN_TYPES);
-    const opts: { value: string; label: string }[] = SCHEDULE_RUN_TYPES.map((r) => ({
-      value: r,
-      label: r,
-    }));
-    for (const v of vehicles) {
-      const rt = v.runType?.trim();
-      if (!rt || seen.has(rt) || rt === "Both") continue;
-      seen.add(rt);
-      opts.push({ value: rt, label: rt });
-    }
-    return opts;
-  }, [vehicles]);
-
   useEffect(() => {
     setPage(1);
   }, [listKey]);
@@ -189,10 +173,6 @@ export default function SchedulePage() {
         ...f,
         plate: plate.trim().toUpperCase(),
         cls: vehicle?.cls ?? f.cls,
-        runType:
-          vehicle?.runType && vehicle.runType !== "Both"
-            ? vehicle.runType
-            : f.runType,
       };
       if (vehicle && f.dest) {
         const rate =
@@ -230,22 +210,6 @@ export default function SchedulePage() {
 
   const onSubmit = async (ev: FormEvent) => {
     ev.preventDefault();
-    if (!form.plate.trim()) {
-      toast("Select or type a vehicle plate");
-      return;
-    }
-    if (!form.dest.trim()) {
-      toast("Select or type a destination / route");
-      return;
-    }
-    if (!form.cls.trim()) {
-      toast("Class is required");
-      return;
-    }
-    if (!form.runType.trim()) {
-      toast("Run type is required");
-      return;
-    }
     setSaving(true);
     try {
       const body = schedulePayload(form);
@@ -256,7 +220,7 @@ export default function SchedulePage() {
         await create(body);
         toast("Schedule entry created");
       }
-      setFilters(filtersAfterSave(body.plate));
+      setFilters(filtersAfterSave(body.plate || body.dest || "schedule"));
       setTab("all");
       await refreshPage();
       close();
@@ -336,10 +300,7 @@ export default function SchedulePage() {
             <span className="text-fleet-gray-400">Route:</span> {formatRoute(viewRecord.dest)}
           </p>
           <p>
-            <span className="text-fleet-gray-400">Run type:</span> {viewRecord.runType}
-          </p>
-          <p>
-            <span className="text-fleet-gray-400">Service date:</span>{" "}
+            <span className="text-fleet-gray-400">Schedule date:</span>{" "}
             {formatEATDisplay(viewRecord.serviceDate) || "—"}
           </p>
           <p>
@@ -406,51 +367,38 @@ export default function SchedulePage() {
       >
         <form onSubmit={onSubmit} className="card grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2">
           <p className="sm:col-span-2 text-sm text-fleet-gray-500">
-            Pick vehicle and route from your fleet and rates (or type a custom value). Billing period defaults to
-            the current month — same pattern as invoices.
+            Fill what you have — empty fields are saved blank or as zero. Billing period defaults to the current
+            month when left alone.
           </p>
-          <FormField label="Vehicle plate *">
+          <FormField label="Vehicle plate">
             <SearchSelect
               listId="sch-vehicle-plates"
               mono
-              required
               value={form.plate}
               placeholder={vehicles.length ? "Type or select plate" : "Type plate (no fleet loaded)"}
               options={vehicles.map((v) => ({ value: v.plate, label: `${v.plate} · ${v.cls}` }))}
               onChange={syncPlate}
             />
           </FormField>
-          <FormField label="Class *">
+          <FormField label="Class">
             <SearchSelect
               listId="sch-vehicle-class"
-              required
               value={form.cls}
               placeholder="Type or select class"
               options={classOptions}
               onChange={(cls) => setForm((f) => ({ ...f, cls }))}
             />
           </FormField>
-          <FormField label="Destination / route *" className="sm:col-span-2">
+          <FormField label="Destination / route" className="sm:col-span-2">
             <SearchSelect
               listId="sch-route-options"
-              required
               value={form.dest}
               placeholder={rates.length ? "Type or select from rates" : "Type destination / route"}
               options={rates.map((r) => ({ value: r.route, label: `${r.route} · ${r.cls} · KES ${r.rate}` }))}
               onChange={syncRoute}
             />
           </FormField>
-          <FormField label="Run type *">
-            <SearchSelect
-              listId="sch-run-type"
-              required
-              value={form.runType}
-              placeholder="Morning, Afternoon, or type custom"
-              options={runTypeOptions}
-              onChange={(runType) => setForm((f) => ({ ...f, runType }))}
-            />
-          </FormField>
-          <FormField label="Service date">
+          <FormField label="Schedule date">
             <input
               type="date"
               className="field-input"
@@ -462,7 +410,6 @@ export default function SchedulePage() {
             <input
               type="date"
               className="field-input"
-              required
               value={dateKey(form.periodStart ?? form.serviceDate)}
               onChange={(e) => setForm((f) => ({ ...f, ...syncSchedulePeriod(f, { periodStart: e.target.value }) }))}
             />
@@ -471,7 +418,6 @@ export default function SchedulePage() {
             <input
               type="date"
               className="field-input"
-              required
               value={dateKey(form.periodEnd ?? form.periodStart ?? form.serviceDate)}
               onChange={(e) => setForm((f) => ({ ...f, ...syncSchedulePeriod(f, { periodEnd: e.target.value }) }))}
             />
@@ -479,24 +425,22 @@ export default function SchedulePage() {
           <FormField label="Billing period" className="sm:col-span-2">
             <input className="field-input bg-fleet-gray-50" readOnly value={form.month} />
           </FormField>
-          <FormField label="Rate (KES/day) *">
+          <FormField label="Rate (KES/day)">
             <input
               type="number"
               className="field-input"
-              required
-              min={1}
+              min={0}
               value={form.rate}
-              onChange={(e) => setRateDays(Number(e.target.value), form.days)}
+              onChange={(e) => setRateDays(Number(e.target.value) || 0, form.days)}
             />
           </FormField>
-          <FormField label="Days *">
+          <FormField label="Days">
             <input
               type="number"
               className="field-input"
-              required
-              min={1}
+              min={0}
               value={form.days}
-              onChange={(e) => setRateDays(form.rate, Number(e.target.value))}
+              onChange={(e) => setRateDays(form.rate, Number(e.target.value) || 0)}
             />
           </FormField>
           <FormField label="Status">
@@ -583,7 +527,7 @@ export default function SchedulePage() {
       <FilterBar
         filters={filters}
         onChange={setFilters}
-        fields={["search", "destination", "runType", "date", "status"]}
+        fields={["search", "destination", "date", "status"]}
         statusKind="schedule"
         resultCount={meta.total}
       >
@@ -604,8 +548,7 @@ export default function SchedulePage() {
               <th>Vehicle</th>
               <th>Class</th>
               <th>Route</th>
-              <th>Run type</th>
-              <th>Service date</th>
+              <th>Schedule date</th>
               <th>Period</th>
               <th className="text-center">Days</th>
               <th>Rate</th>
@@ -618,13 +561,13 @@ export default function SchedulePage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={12} className="py-8 text-center text-fleet-gray-400">
+                <td colSpan={11} className="py-8 text-center text-fleet-gray-400">
                   Loading…
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={12} className="py-8 text-center text-fleet-gray-400">
+                <td colSpan={11} className="py-8 text-center text-fleet-gray-400">
                   No schedule entries yet — click Schedule entry to add one
                 </td>
               </tr>
@@ -636,9 +579,6 @@ export default function SchedulePage() {
                     <Badge variant={clsToBadgeVariant(e.cls)}>{e.cls}</Badge>
                   </td>
                   <td className="max-w-[140px] truncate text-xs sm:max-w-none">{formatRoute(e.dest)}</td>
-                  <td>
-                    <Badge variant={e.runType === "Afternoon" ? "sent" : "approved"}>{e.runType}</Badge>
-                  </td>
                   <td className="whitespace-nowrap text-xs text-fleet-gray-500">
                     {formatEATDisplay(e.serviceDate) || "—"}
                   </td>

@@ -11,18 +11,18 @@ export function emptyScheduleForm(): Omit<ScheduleEntry, "id"> {
   const range = currentMonthRangeEAT();
   return {
     plate: "",
-    cls: "7T",
+    cls: "",
     dest: "",
     runType: "Morning",
-    rate: 8500,
-    days: 1,
-    cost: 8500,
-    vat: 1360,
-    total: 9860,
+    rate: 0,
+    days: 0,
+    cost: 0,
+    vat: 0,
+    total: 0,
     month: currentBillingPeriodLabel(),
     periodStart: range.from,
     periodEnd: range.to,
-    serviceDate: todayEAT(),
+    serviceDate: "",
     status: "saved",
   };
 }
@@ -40,26 +40,33 @@ export function syncSchedulePeriod(
   };
 }
 
-/** Build a clean POST/PUT body for schedules API */
+/** Build a clean POST/PUT body for schedules API — blank fields become empty/zero, not blocked. */
 export function schedulePayload(form: Omit<ScheduleEntry, "id">) {
-  const periodStart = form.periodStart ?? form.serviceDate ?? todayEAT();
-  const periodEnd = form.periodEnd ?? periodStart;
-  const month = form.month?.trim() || formatPeriodLabel(periodStart, periodEnd);
+  const periodStart = dateKey(form.periodStart) || dateKey(form.serviceDate) || "";
+  const periodEnd = dateKey(form.periodEnd) || periodStart;
+  const month =
+    form.month?.trim() ||
+    (periodStart ? formatPeriodLabel(periodStart, periodEnd || periodStart) : "");
+  const rate = Number(form.rate) || 0;
+  const days = Math.max(0, Math.round(Number(form.days) || 0));
+  const cost = Number(form.cost) || 0;
+  const vat = Number(form.vat) || 0;
+  const total = Number(form.total) || 0;
 
   return {
     plate: form.plate.trim().toUpperCase(),
-    cls: form.cls,
+    cls: form.cls.trim() || "",
     dest: form.dest.trim().toUpperCase(),
-    runType: form.runType,
-    rate: Number(form.rate),
-    days: Math.max(1, Math.round(Number(form.days) || 1)),
-    cost: Number(form.cost),
-    vat: Number(form.vat),
-    total: Number(form.total),
-    month,
-    periodStart: dateKey(periodStart),
-    periodEnd: dateKey(periodEnd),
-    serviceDate: dateKey(form.serviceDate ?? periodStart),
+    runType: form.runType?.trim() || "Morning",
+    rate,
+    days,
+    cost,
+    vat,
+    total,
+    month: month || undefined,
+    periodStart: periodStart || undefined,
+    periodEnd: periodEnd || undefined,
+    serviceDate: dateKey(form.serviceDate) || undefined,
     status: form.status ?? "saved",
   };
 }
