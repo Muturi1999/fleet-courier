@@ -107,7 +107,10 @@ export default function SchedulePage() {
 
   const runTypeOptions = useMemo(() => {
     const seen = new Set<string>(SCHEDULE_RUN_TYPES);
-    const opts = SCHEDULE_RUN_TYPES.map((r) => ({ value: r, label: r }));
+    const opts: { value: string; label: string }[] = SCHEDULE_RUN_TYPES.map((r) => ({
+      value: r,
+      label: r,
+    }));
     for (const v of vehicles) {
       const rt = v.runType?.trim();
       if (!rt || seen.has(rt) || rt === "Both") continue;
