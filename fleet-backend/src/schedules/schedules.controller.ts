@@ -1,5 +1,16 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
-import { ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Header,
+  Param,
+  Post,
+  Put,
+  Query,
+  StreamableFile,
+} from "@nestjs/common";
+import { ApiOperation, ApiProduces, ApiTags } from "@nestjs/swagger";
 import { UserRole } from "@prisma/client";
 import { ApiTenantAuth } from "../common/decorators/api-tenant-auth.decorator";
 import { ListQueryDto } from "../common/dto/list-query.dto";
@@ -21,6 +32,31 @@ export class SchedulesController {
   @Get("summary")
   summary() {
     return this.service.summary();
+  }
+
+  @Get("export/preview")
+  @ApiOperation({
+    summary:
+      "Preview schedule export as JSON (same filters and grouping as .xlsx export).",
+  })
+  exportPreview(@Query() query: ListQueryDto) {
+    return this.service.exportPreview(query);
+  }
+
+  @Get("export")
+  @ApiOperation({
+    summary:
+      "Export schedule entries as .xlsx (same filters as list). Grouped by vehicle with a blank row between groups; grand total only at bottom.",
+  })
+  @ApiProduces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+  @Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+  @Header("Content-Disposition", 'attachment; filename="schedule-entries.xlsx"')
+  async export(@Query() query: ListQueryDto): Promise<StreamableFile> {
+    const buffer = await this.service.exportXlsx(query);
+    return new StreamableFile(buffer, {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      disposition: 'attachment; filename="schedule-entries.xlsx"',
+    });
   }
 
   @Get(":id")

@@ -13,12 +13,13 @@ import { ListQueryDto } from "../common/dto/list-query.dto";
 import { PaginatedResult } from "../common/dto/pagination.dto";
 import { TenantDatabaseService } from "../common/database/tenant-database.service";
 import { CreateScheduleDto, UpdateScheduleDto } from "./dto/schedule.dto";
+import { buildScheduleExportWorkbook, buildScheduleExportSheet, type ScheduleExportRow } from "./schedule-excel-export";
 
 @Injectable()
 export class SchedulesService {
   constructor(private readonly db: TenantDatabaseService) {}
 
-  findAll(query: ListQueryDto) {
+  private buildListFilter(query: ListQueryDto): { where: string; params: unknown[] } {
     const clauses: string[] = [];
     const params: unknown[] = [];
     let i = 1;
@@ -40,7 +41,14 @@ export class SchedulesService {
     i = addRunTypeClause(clauses, params, i, query.runType);
     i = addStatusClause(clauses, params, i, query.status);
 
-    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    return {
+      where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "",
+      params,
+    };
+  }
+
+  findAll(query: ListQueryDto) {
+    const { where, params } = this.buildListFilter(query);
 
     if (wantsFullList(query)) {
       return this.db.queryAll(`SELECT * FROM schedules ${where} ORDER BY created_at DESC, id DESC`, params);
@@ -52,6 +60,30 @@ export class SchedulesService {
       params,
       orderBy: "created_at DESC, id DESC",
     }) as Promise<PaginatedResult<Record<string, unknown>>>;
+  }
+
+  /** Filtered schedule rows as .xlsx — grouped by plate, blank line between groups, grand total only. */
+  async exportXlsx(query: ListQueryDto): Promise<Buffer> {
+    const rows = await this.loadExportRows(query);
+    return buildScheduleExportWorkbook(rows);
+  }
+
+  /** Same data as export, as JSON for on-screen preview. */
+  async exportPreview(query: ListQueryDto) {
+    const rows = await this.loadExportRows(query);
+    return buildScheduleExportSheet(rows);
+  }
+
+  private async loadExportRows(query: ListQueryDto): Promise<ScheduleExportRow[]> {
+    const { where, params } = this.buildListFilter(query);
+    return (await this.db.queryAll(
+      `SELECT * FROM schedules ${where}
+       ORDER BY UPPER(TRIM(plate)) ASC,
+                COALESCE(service_date, period_start, created_at::date) ASC NULLS LAST,
+                created_at ASC,
+                id ASC`,
+      params,
+    )) as ScheduleExportRow[];
   }
 
   async summary() {

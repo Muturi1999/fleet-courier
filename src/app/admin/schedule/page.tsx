@@ -17,7 +17,7 @@ import { Badge, clsToBadgeVariant } from "@/components/ui/Badge";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { MetricCard, MetricsGrid } from "@/components/ui/MetricCard";
 import { Pagination } from "@/components/ui/Pagination";
-import { FormActions, FormField } from "@/components/ui/Modal";
+import { FormActions, FormField, Modal } from "@/components/ui/Modal";
 import { SearchSelect } from "@/components/ui/SearchSelect";
 import { RecordScreen } from "@/components/layout/RecordScreen";
 import { VehicleRecordView } from "@/components/vehicles/VehicleRecordView";
@@ -44,6 +44,11 @@ import { usePageScreen } from "@/hooks/usePageScreen";
 import { usePlateFromUrl } from "@/hooks/usePlateFromUrl";
 import { ExcelImportButton } from "@/components/import/ExcelImportButton";
 import { parseScheduleExcel } from "@/lib/excel-import";
+import {
+  downloadScheduleExcel,
+  fetchScheduleExportPreview,
+  type ScheduleExportPreview,
+} from "@/lib/schedule-excel-export";
 
 const PAGE = "Schedule entries";
 
@@ -67,6 +72,10 @@ export default function SchedulePage() {
   const [viewRecord, setViewRecord] = useState<ScheduleEntry | null>(null);
   const [vehicleSchedules, setVehicleSchedules] = useState<ScheduleEntry[]>([]);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [preview, setPreview] = useState<ScheduleExportPreview | null>(null);
 
   const effectiveStatus = tab !== "all" ? tab : filters.status || undefined;
   const listKey = JSON.stringify({ filters, tab });
@@ -251,6 +260,33 @@ export default function SchedulePage() {
       await refreshPage();
     } catch {
       toast("Import failed — use Excel with Plate, Dest/Route, Rate, Days columns");
+    }
+  };
+
+  const exportSchedule = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      await downloadScheduleExcel({ filters, status: effectiveStatus });
+      toast("Exported schedule to Excel");
+    } catch {
+      toast("Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const previewSchedule = async () => {
+    if (previewing) return;
+    setPreviewing(true);
+    try {
+      const data = await fetchScheduleExportPreview({ filters, status: effectiveStatus });
+      setPreview(data);
+      setPreviewOpen(true);
+    } catch {
+      toast("Preview failed");
+    } finally {
+      setPreviewing(false);
     }
   };
 
@@ -532,14 +568,104 @@ export default function SchedulePage() {
         resultCount={meta.total}
       >
         <ExcelImportButton label="Import Excel" onImport={importSchedule} />
-        <button type="button" className="btn-secondary btn-sm" onClick={() => toast("Exported to CSV")}>
-          <IconDownload size={14} /> Export
+        <button
+          type="button"
+          className="btn-secondary btn-sm"
+          disabled={previewing}
+          onClick={() => void previewSchedule()}
+        >
+          <IconEye size={14} /> {previewing ? "Loading…" : "Preview"}
+        </button>
+        <button
+          type="button"
+          className="btn-secondary btn-sm"
+          disabled={exporting}
+          onClick={() => void exportSchedule()}
+        >
+          <IconDownload size={14} /> {exporting ? "Exporting…" : "Export"}
         </button>
         <span className="filter-bar-actions-spacer" aria-hidden />
         <button type="button" className="btn-accent btn-sm" onClick={() => openCreate()}>
           <IconPlus size={14} /> Schedule entry
         </button>
       </FilterBar>
+
+      <Modal
+        open={previewOpen}
+        title={preview?.title ?? "Schedule export preview"}
+        onClose={() => setPreviewOpen(false)}
+        document
+      >
+        {preview ? (
+          <div className="space-y-3">
+            <p className="text-xs text-fleet-gray-400">
+              {preview.entryCount} entries · {preview.vehicleCount} vehicles · grouped by plate (same layout as
+              Excel)
+            </p>
+            <div className="table-wrap max-h-[60vh] overflow-auto">
+              <table className="data-table text-xs">
+                <thead>
+                  <tr>
+                    {preview.headers.map((h) => (
+                      <th key={h} className="whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.rows.map((row, idx) => {
+                    const isBlank = row.every((c) => c === "" || c == null);
+                    const isTotal = String(row[0] ?? "") === "GRAND TOTAL";
+                    if (isBlank) {
+                      return (
+                        <tr key={`blank-${idx}`} aria-hidden>
+                          <td colSpan={preview.headers.length} className="h-3 border-0 bg-transparent p-0" />
+                        </tr>
+                      );
+                    }
+                    return (
+                      <tr key={`r-${idx}`} className={isTotal ? "font-semibold" : undefined}>
+                        {preview.headers.map((_, c) => {
+                          const val = row[c] ?? "";
+                          const moneyCol = c >= 6 && c <= 8;
+                          return (
+                            <td
+                              key={c}
+                              className={
+                                moneyCol || typeof val === "number"
+                                  ? "whitespace-nowrap font-mono text-right"
+                                  : "whitespace-nowrap"
+                              }
+                            >
+                              {typeof val === "number" && moneyCol ? fmtN(val) : val === "" ? "—" : String(val)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button type="button" className="btn-secondary btn-sm" onClick={() => setPreviewOpen(false)}>
+                Close
+              </button>
+              <button
+                type="button"
+                className="btn-accent btn-sm"
+                disabled={exporting}
+                onClick={() => void exportSchedule()}
+              >
+                <IconDownload size={14} /> {exporting ? "Exporting…" : "Download Excel"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="py-6 text-center text-fleet-gray-400">No preview data</p>
+        )}
+      </Modal>
 
       <div className="table-wrap">
         <table className="data-table">
