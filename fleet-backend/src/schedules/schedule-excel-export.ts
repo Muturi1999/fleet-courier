@@ -1,22 +1,22 @@
 import * as XLSX from "xlsx";
 
-/** Column headers mirror schedule fields (import-friendly names). */
+/** Export columns — Month stands for the billing period (no period start/end). */
 export const SCHEDULE_EXPORT_HEADERS = [
+  "Service Date",
   "Plate",
   "Class",
-  "Dest",
+  "Destination",
   "Run Type",
+  "Month",
   "Rate",
   "Days",
   "Cost",
   "VAT",
   "Total",
-  "Month",
-  "Period Start",
-  "Period End",
-  "Service Date",
-  "Status",
 ] as const;
+
+/** Numeric columns — right-aligned in preview and Excel. */
+export const SCHEDULE_EXPORT_NUMERIC_COLS = new Set([6, 7, 8, 9, 10]); // Rate…Total
 
 export type ScheduleExportRow = {
   plate?: string | null;
@@ -83,20 +83,17 @@ function sortKey(row: ScheduleExportRow): string {
 
 function toCells(row: ScheduleExportRow): (string | number)[] {
   return [
+    dateStr(row.service_date ?? row.serviceDate),
     str(row.plate).toUpperCase(),
     str(row.cls),
     str(row.dest).toUpperCase(),
     str(row.run_type ?? row.runType),
+    str(row.month),
     num(row.rate),
     num(row.days),
     num(row.cost),
     num(row.vat),
     num(row.total),
-    str(row.month),
-    dateStr(row.period_start ?? row.periodStart),
-    dateStr(row.period_end ?? row.periodEnd),
-    dateStr(row.service_date ?? row.serviceDate),
-    str(row.status),
   ];
 }
 
@@ -135,8 +132,11 @@ export function buildScheduleExportSheet(rows: ScheduleExportRow[]): ScheduleExp
     sheetRows.push([]); // blank before grand total
   }
 
+  // Service Date col = label; Cost / VAT / Total only
   sheetRows.push([
     "GRAND TOTAL",
+    "",
+    "",
     "",
     "",
     "",
@@ -145,11 +145,6 @@ export function buildScheduleExportSheet(rows: ScheduleExportRow[]): ScheduleExp
     money(grandCost),
     money(grandVat),
     money(grandTotal),
-    "",
-    "",
-    "",
-    "",
-    "",
   ]);
 
   return {
@@ -168,20 +163,17 @@ export function buildScheduleExportWorkbook(rows: ScheduleExportRow[]): Buffer {
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"] = [
-    { wch: 12 },
-    { wch: 8 },
-    { wch: 28 },
-    { wch: 12 },
-    { wch: 10 },
-    { wch: 8 },
-    { wch: 12 },
-    { wch: 10 },
-    { wch: 12 },
-    { wch: 18 },
-    { wch: 12 },
-    { wch: 12 },
-    { wch: 12 },
-    { wch: 10 },
+    { wch: 12 }, // Service Date
+    { wch: 12 }, // Plate
+    { wch: 8 }, // Class
+    { wch: 28 }, // Destination
+    { wch: 12 }, // Run Type
+    { wch: 12 }, // Month
+    { wch: 10 }, // Rate
+    { wch: 8 }, // Days
+    { wch: 12 }, // Cost
+    { wch: 10 }, // VAT
+    { wch: 12 }, // Total
   ];
   ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: SCHEDULE_EXPORT_HEADERS.length - 1 } }];
 

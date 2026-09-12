@@ -10,6 +10,15 @@ export type ScheduleExportPreview = {
   grandTotal: { cost: number; vat: number; total: number };
 };
 
+/** Rate, Days, Cost, VAT, Total — keep header + cell alignment in sync. */
+export const SCHEDULE_PREVIEW_NUMERIC_HEADERS = new Set([
+  "Rate",
+  "Days",
+  "Cost",
+  "VAT",
+  "Total",
+]);
+
 function exportQuery(options: { filters: FleetFilters; status?: string }): string {
   return buildListQuery({
     filters: options.filters,

@@ -47,6 +47,7 @@ import { parseScheduleExcel } from "@/lib/excel-import";
 import {
   downloadScheduleExcel,
   fetchScheduleExportPreview,
+  SCHEDULE_PREVIEW_NUMERIC_HEADERS,
   type ScheduleExportPreview,
 } from "@/lib/schedule-excel-export";
 
@@ -606,11 +607,21 @@ export default function SchedulePage() {
               <table className="data-table text-xs">
                 <thead>
                   <tr>
-                    {preview.headers.map((h) => (
-                      <th key={h} className="whitespace-nowrap">
-                        {h}
-                      </th>
-                    ))}
+                    {preview.headers.map((h) => {
+                      const numeric = SCHEDULE_PREVIEW_NUMERIC_HEADERS.has(h);
+                      return (
+                        <th
+                          key={h}
+                          className={
+                            numeric
+                              ? "whitespace-nowrap !text-right font-mono"
+                              : "whitespace-nowrap !text-left"
+                          }
+                        >
+                          {h}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
@@ -626,19 +637,25 @@ export default function SchedulePage() {
                     }
                     return (
                       <tr key={`r-${idx}`} className={isTotal ? "font-semibold" : undefined}>
-                        {preview.headers.map((_, c) => {
+                        {preview.headers.map((h, c) => {
                           const val = row[c] ?? "";
-                          const moneyCol = c >= 6 && c <= 8;
+                          const numeric = SCHEDULE_PREVIEW_NUMERIC_HEADERS.has(h);
+                          const display =
+                            val === "" || val == null
+                              ? "—"
+                              : typeof val === "number" && numeric
+                                ? fmtN(val)
+                                : String(val);
                           return (
                             <td
                               key={c}
                               className={
-                                moneyCol || typeof val === "number"
+                                numeric
                                   ? "whitespace-nowrap font-mono text-right"
-                                  : "whitespace-nowrap"
+                                  : "whitespace-nowrap text-left"
                               }
                             >
-                              {typeof val === "number" && moneyCol ? fmtN(val) : val === "" ? "—" : String(val)}
+                              {display}
                             </td>
                           );
                         })}
