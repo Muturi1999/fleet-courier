@@ -330,7 +330,7 @@ export function buildSeedData(): FleetData {
       periodEnd: "2026-03-31",
       invoiceDate: "2026-04-04",
       description: "Provision of Lease Vehicles & Courier Services",
-      paymentTermsDays: 90,
+      paymentTermsDays: 45,
       totalTrips: 3,
       net: marchNet,
       vat: marchVat,

@@ -2,9 +2,9 @@ import { CLIENT, INVOICE_DEFAULTS, SUPPLIER } from "./invoice-meta";
 import type { ConsolidatedInvoice, WorkTicket } from "./types";
 
 export const CONSOLIDATED_PAYMENT_TERMS = {
-  label: "90 - 100 Days Net",
-  minDays: 90,
-  maxDays: 100,
+  label: "Accounts are payable after 45 days",
+  minDays: 45,
+  maxDays: 45,
 } as const;
 
 export const CONSOLIDATED_DESCRIPTION =

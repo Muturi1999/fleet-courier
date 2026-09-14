@@ -6,7 +6,6 @@ export const SCHEDULE_EXPORT_HEADERS = [
   "Plate",
   "Class",
   "Destination",
-  "Run Type",
   "Month",
   "Rate",
   "Days",
@@ -16,7 +15,7 @@ export const SCHEDULE_EXPORT_HEADERS = [
 ] as const;
 
 /** Numeric columns — right-aligned in preview and Excel. */
-export const SCHEDULE_EXPORT_NUMERIC_COLS = new Set([6, 7, 8, 9, 10]); // Rate…Total
+export const SCHEDULE_EXPORT_NUMERIC_COLS = new Set([5, 6, 7, 8, 9]); // Rate…Total
 
 export type ScheduleExportRow = {
   plate?: string | null;
@@ -87,7 +86,6 @@ function toCells(row: ScheduleExportRow): (string | number)[] {
     str(row.plate).toUpperCase(),
     str(row.cls),
     str(row.dest).toUpperCase(),
-    str(row.run_type ?? row.runType),
     str(row.month),
     num(row.rate),
     num(row.days),
@@ -141,7 +139,6 @@ export function buildScheduleExportSheet(rows: ScheduleExportRow[]): ScheduleExp
     "",
     "",
     "",
-    "",
     money(grandCost),
     money(grandVat),
     money(grandTotal),
@@ -167,7 +164,6 @@ export function buildScheduleExportWorkbook(rows: ScheduleExportRow[]): Buffer {
     { wch: 12 }, // Plate
     { wch: 8 }, // Class
     { wch: 28 }, // Destination
-    { wch: 12 }, // Run Type
     { wch: 12 }, // Month
     { wch: 10 }, // Rate
     { wch: 8 }, // Days

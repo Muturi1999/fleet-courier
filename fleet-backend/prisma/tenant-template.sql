@@ -157,7 +157,7 @@ CREATE TABLE IF NOT EXISTS consolidated_invoices (
   period_end DATE NOT NULL,
   invoice_date DATE NOT NULL,
   description TEXT NOT NULL,
-  payment_terms_days INT NOT NULL DEFAULT 90,
+  payment_terms_days INT NOT NULL DEFAULT 45,
   payment_window_from DATE,
   payment_window_to DATE,
   total_trips INT NOT NULL DEFAULT 0,

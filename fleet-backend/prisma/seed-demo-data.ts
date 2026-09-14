@@ -705,7 +705,7 @@ async function seedConsolidatedInvoice(pool: Pool, workTicketIds: string[]) {
     `INSERT INTO consolidated_invoices (
       id, invoice_no, ref_no, period_start, period_end, invoice_date, description,
       payment_terms_days, total_trips, net, vat, total, status, work_ticket_ids
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,90,$8,$9,$10,$11,'pending_approval',$12)`,
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,45,$8,$9,$10,$11,'pending_approval',$12)`,
     [
       id,
       "INV-2026-03-G4S",

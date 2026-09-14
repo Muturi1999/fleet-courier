@@ -496,7 +496,7 @@ export class ConsolidatedInvoicesService {
         id, invoice_no, ref_no, period_start, period_end, invoice_date, description,
         payment_terms_days, total_trips, net, vat, total, status, work_ticket_ids, plate,
         consolidation_type, filter_meta
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,90,$8,$9,$10,$11,'draft',$12,$13,$14,$15) RETURNING *`,
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,45,$8,$9,$10,$11,'draft',$12,$13,$14,$15) RETURNING *`,
         [
           id,
           invoiceNo,
@@ -574,9 +574,9 @@ export class ConsolidatedInvoicesService {
     if (status === "approved" && before) {
       const approvedAt = new Date();
       const from = new Date(approvedAt);
-      from.setDate(from.getDate() + 90);
+      from.setDate(from.getDate() + 45);
       const to = new Date(approvedAt);
-      to.setDate(to.getDate() + 100);
+      to.setDate(to.getDate() + 45);
       return this.db.queryOne(
         `UPDATE consolidated_invoices SET status = 'approved', approved_at = NOW(),
          payment_window_from = $1, payment_window_to = $2, updated_at = NOW() WHERE id = $3 RETURNING *`,
@@ -679,7 +679,7 @@ export class ConsolidatedInvoicesService {
           dto.periodEnd,
           invoiceDate,
           source.description ?? DESCRIPTION,
-          source.payment_terms_days ?? 90,
+          source.payment_terms_days ?? 45,
           totalTrips,
           net,
           vat,
@@ -791,7 +791,7 @@ export class ConsolidatedInvoicesService {
           source.period_start,
           source.period_end,
           source.description ?? DESCRIPTION,
-          source.payment_terms_days ?? 90,
+          source.payment_terms_days ?? 45,
           totalTrips,
           net,
           vat,
